@@ -92,6 +92,13 @@ class MapManager {
       }
     });
 
+    // Map Zoom Listener (e.g. mouse wheel zoom/dezoom on map)
+    this.map.on('zoomend', () => {
+      if (this.onMapZoomChangeCallback) {
+        this.onMapZoomChangeCallback(this.map.getZoom());
+      }
+    });
+
     setTimeout(() => {
       if (this.map) this.map.invalidateSize();
     }, 200);
@@ -154,7 +161,7 @@ class MapManager {
       this.searchCircle = null;
     }
 
-    if (this.searchRadiusKm < 1000) {
+    if (this.searchRadiusKm < 2500) {
       this.searchCircle = L.circle([this.searchOrigin.lat, this.searchOrigin.lon], {
         radius: this.searchRadiusKm * 1000,
         color: '#2563eb',
@@ -169,14 +176,22 @@ class MapManager {
         this.map.fitBounds(this.searchCircle.getBounds(), { padding: [30, 30], maxZoom: 14 });
       }
     } else {
-      // Rayon Monde Entier (1000 km = Toutes les randonnées)
-      if (autoZoom && this.markersLayer && this.markersLayer.getLayers().length > 0) {
-        try {
-          this.map.fitBounds(this.markersLayer.getBounds(), { padding: [40, 40], maxZoom: 6 });
-        } catch (e) {
-          this.map.setView([25, 10], 2);
-        }
+      // Rayon Continental / Mondial (>= 2500 km et jusqu'à 20 000 km / Monde entier)
+      if (autoZoom) {
+        this.fitBoundsToAllMarkers();
       }
+    }
+  }
+
+  fitBoundsToAllMarkers() {
+    if (this.markersLayer && this.markersLayer.getLayers().length > 0) {
+      try {
+        this.map.fitBounds(this.markersLayer.getBounds(), { padding: [40, 40], maxZoom: 6 });
+      } catch (e) {
+        this.map.setView([25, 10], 2);
+      }
+    } else {
+      this.map.setView([25, 10], 2);
     }
   }
 
