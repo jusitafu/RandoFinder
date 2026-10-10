@@ -764,7 +764,10 @@ class AppController {
           </div>
         </td>
         <td class="p-3">
-          <div class="font-bold text-slate-800">${hike.name}</div>
+          <div class="font-bold text-slate-800 hover:text-emerald-700 cursor-pointer group flex items-center gap-1.5 transition-colors" title="Cliquer pour afficher cette randonnée sur la carte">
+            <span class="hover:underline">${hike.name}</span>
+            <span class="text-xs text-emerald-600 opacity-60 group-hover:opacity-100 group-hover:scale-125 transition-all">🗺️</span>
+          </div>
           ${hike.notes ? `<div class="text-xs text-slate-500 line-clamp-1 max-w-xs mt-0.5">${hike.notes}</div>` : ''}
         </td>
         <td class="p-3 text-slate-700 whitespace-nowrap">
@@ -813,7 +816,7 @@ class AppController {
 
       tr.addEventListener('click', (e) => {
         if (!e.target.closest('button')) {
-          this.handleHikeSelect(hike);
+          this.showHikeOnMap(hike);
         }
       });
 
@@ -846,6 +849,50 @@ class AppController {
 
       tableBody.appendChild(tr);
     });
+  }
+
+  showHikeOnMap(hike) {
+    if (!hike) return;
+
+    // 1. Si on est en mode tableau seul, basculer vers le mode split pour afficher la carte
+    const wasTableMode = (this.currentViewMode === 'table');
+    if (wasTableMode) {
+      this.setViewMode('split');
+    }
+
+    // 2. Si on est sur un autre onglet (ex: Gérer les randos), revenir sur l'explorateur
+    if (this.currentTab !== 'explorer') {
+      this.switchTab('explorer');
+    }
+
+    // 3. Adapter le curseur de rayon si la randonnée est au-delà du rayon actuel
+    const origin = (window.MapManagerInstance && window.MapManagerInstance.searchOrigin) 
+      ? window.MapManagerInstance.searchOrigin 
+      : { lat: 43.1189, lon: 5.8033 };
+
+    if (hike.startPoint) {
+      const dist = GPXParser.haversineDistance(origin.lat, origin.lon, hike.startPoint.lat, hike.startPoint.lon);
+      const currentRadius = window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50;
+      if (dist > currentRadius) {
+        const stepIdx = this.getStepIndexForKm(dist);
+        this.setRadiusStep(stepIdx, false);
+      }
+    }
+
+    // 4. Délai si le conteneur de carte était masqué pour s'assurer que Leaflet a ses dimensions réelles
+    const delay = wasTableMode ? 100 : 0;
+    setTimeout(() => {
+      if (window.MapManagerInstance && window.MapManagerInstance.map) {
+        window.MapManagerInstance.map.invalidateSize();
+      }
+      this.handleHikeSelect(hike);
+
+      // Sur mobile, faire défiler vers la carte
+      const mapCol = document.getElementById('map-column');
+      if (mapCol && window.innerWidth < 1024) {
+        mapCol.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, delay);
   }
 
   /**
@@ -915,31 +962,7 @@ class AppController {
       `;
 
       card.querySelector('.btn-manage-view').onclick = () => {
-        // Expand radius slider if needed to make the hike visible on map
-        const origin = (window.MapManagerInstance && window.MapManagerInstance.searchOrigin) 
-          ? window.MapManagerInstance.searchOrigin 
-          : { lat: 43.1189, lon: 5.8033 };
-
-        if (hike.startPoint) {
-          const dist = GPXParser.haversineDistance(origin.lat, origin.lon, hike.startPoint.lat, hike.startPoint.lon);
-          const currentRadius = window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50;
-          if (dist > currentRadius) {
-            const stepIdx = this.getStepIndexForKm(dist);
-            this.setRadiusStep(stepIdx, false);
-          }
-        }
-
-        // Switch to explorer tab
-        this.switchTab('explorer');
-        this.applyFiltersAndRender();
-
-        // Directly zoom and show the hike
-        setTimeout(() => {
-          if (window.MapManagerInstance && window.MapManagerInstance.map) {
-            window.MapManagerInstance.map.invalidateSize();
-          }
-          this.handleHikeSelect(hike);
-        }, 120);
+        this.showHikeOnMap(hike);
       };
 
       card.querySelector('.btn-manage-edit').onclick = () => {
