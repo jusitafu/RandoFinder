@@ -32,7 +32,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/styles.css?v=18">
+  <link rel="stylesheet" href="css/styles.css?v=19">
 </head>
 <body class="h-full flex flex-col bg-slate-50 text-slate-800 antialiased select-none overflow-hidden">
 
@@ -189,6 +189,14 @@
         <div id="map-column" class="flex-1 lg:w-1/2 h-1/2 lg:h-full relative flex flex-col">
           <div id="map-view" class="w-full h-full z-10"></div>
 
+          <!-- Difficulty Legend on map -->
+          <div class="absolute top-3 left-14 z-20 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl shadow-md border border-slate-200/90 text-[11px] font-semibold text-slate-700 pointer-events-none select-none">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Difficulté :</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Facile</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Moyen</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span> Sportif</span>
+          </div>
+
           <!-- FLOATING / BOTTOM PREVIEW PANEL (Hover or Select) -->
           <div id="hike-preview-panel" class="hidden absolute bottom-3 left-3 right-3 sm:right-auto sm:max-w-md bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl p-4 z-20 transition-all transform duration-200 space-y-2.5">
             <div class="flex items-start justify-between gap-2">
@@ -197,8 +205,8 @@
                 <p id="preview-notes" class="text-xs text-slate-500 line-clamp-2 mt-0.5"></p>
               </div>
               <div class="flex items-center gap-1 flex-shrink-0">
-                <button id="preview-btn-download" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow transition flex items-center gap-1 whitespace-nowrap">
-                  <span>📥</span> Options
+                <button id="preview-btn-download" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow transition flex items-center gap-1 whitespace-nowrap" title="Télécharger GPX / Fiche PDF">
+                  <span>📥</span> Télécharger
                 </button>
                 <button id="btn-close-preview" class="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition" title="Fermer / Effacer le tracé">
                   ✕
@@ -681,13 +689,13 @@
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=18"></script>
-  <script src="js/gpx-parser.js?v=18"></script>
-  <script src="js/sample-data.js?v=18"></script>
-  <script src="js/storage.js?v=18"></script>
-  <script src="js/elevation-profile.js?v=18"></script>
-  <script src="js/map-manager.js?v=18"></script>
-  <script src="js/pdf-exporter.js?v=18"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="js/config.js?v=19"></script>
+  <script src="js/gpx-parser.js?v=19"></script>
+  <script src="js/sample-data.js?v=19"></script>
+  <script src="js/storage.js?v=19"></script>
+  <script src="js/elevation-profile.js?v=19"></script>
+  <script src="js/map-manager.js?v=19"></script>
+  <script src="js/pdf-exporter.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
 </body>
 </html>
