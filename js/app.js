@@ -196,6 +196,11 @@ class AppController {
     }
 
     console.log(`RandoFinder prêt ! ${this.allHikes.length} randonnées prêtes.`);
+
+    // 9. Lancement de la marche des 3 randonneurs du logo à l'ouverture
+    setTimeout(() => {
+      this.playLogoMarch();
+    }, 350);
   }
 
   setupEventListeners() {
@@ -479,6 +484,12 @@ class AppController {
           }
         }
       });
+    }
+
+    // Logo click listener (rejouer la marche des randonneurs)
+    const logoFrame = document.getElementById('logo-frame');
+    if (logoFrame) {
+      logoFrame.addEventListener('click', () => this.playLogoMarch());
     }
 
     // Close preview panel button
@@ -1709,6 +1720,46 @@ class AppController {
     setTimeout(() => {
       toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
     }, 4000);
+  }
+
+  playLogoMarch() {
+    const frame = document.getElementById('logo-frame');
+    const overlay = document.getElementById('logo-anim-overlay');
+    const staticLogo = document.getElementById('app-logo');
+    const hikersWrapper = document.getElementById('logo-hikers-wrapper');
+
+    if (!frame || !overlay || !staticLogo || !hikersWrapper) return;
+    if (this._isLogoMarching) return;
+
+    this._isLogoMarching = true;
+
+    // Reset state & trigger reflow
+    frame.classList.remove('logo-march-active');
+    hikersWrapper.style.animation = 'none';
+    void hikersWrapper.offsetWidth;
+    hikersWrapper.style.animation = '';
+
+    // Show animated overlay, hide static base logo
+    overlay.classList.remove('opacity-0');
+    overlay.classList.add('opacity-100');
+    staticLogo.classList.add('opacity-0');
+
+    // Start marching
+    frame.classList.add('logo-march-active');
+
+    // When the 3 hikers exit the frame (after 3.5s)
+    clearTimeout(this._logoMarchTimer);
+    this._logoMarchTimer = setTimeout(() => {
+      // Revenir au logo tel qu'il est (réapparition fluide du logo d'origine)
+      staticLogo.classList.remove('opacity-0');
+      overlay.classList.remove('opacity-100');
+      overlay.classList.add('opacity-0');
+
+      setTimeout(() => {
+        frame.classList.remove('logo-march-active');
+        this._isLogoMarching = false;
+      }, 350);
+    }, 3500);
   }
 }
 
