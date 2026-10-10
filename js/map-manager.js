@@ -205,14 +205,17 @@ class MapManager {
 
       const isSelected = this.selectedHike && (this.selectedHike.id === hike.id || this.selectedHike.name === hike.name);
 
+      let difficultyLabel = 'Facile (<350m D+)';
       let colorClass = 'bg-emerald-600';
       let haloColor = 'bg-emerald-500';
       if (hike.elevationGain >= 700 || hike.distanceKm > 18) {
         colorClass = 'bg-rose-600';
         haloColor = 'bg-rose-500';
+        difficultyLabel = 'Sportif (≥700m D+ ou >18km)';
       } else if (hike.elevationGain >= 350 || hike.distanceKm > 12) {
         colorClass = 'bg-amber-500';
         haloColor = 'bg-amber-500';
+        difficultyLabel = 'Moyen (350-700m D+)';
       }
 
       // If selected, pin is bright red
@@ -221,11 +224,13 @@ class MapManager {
         haloColor = 'bg-red-500';
       }
 
+      const pinTooltip = `${hike.name} (${hike.distanceKm} km, +${hike.elevationGain}m) - Niveau : ${difficultyLabel}`;
+
       // Marker HTML - Clean and sharp pin
       const icon = L.divIcon({
         className: 'custom-hike-start-icon',
         html: `
-          <div class="relative cursor-pointer -translate-x-1/2 -translate-y-full group">
+          <div class="relative cursor-pointer -translate-x-1/2 -translate-y-full group" title="${pinTooltip}">
             <!-- Pin Body -->
             <div class="relative ${isSelected ? 'w-8 h-8 scale-110 ring-4 ring-red-400 shadow-2xl' : 'w-7 h-7 shadow-lg'} ${colorClass} text-white rounded-full flex items-center justify-center border-2 border-white text-xs font-black transition-transform duration-150 transform group-hover:scale-125">
               ▲
@@ -239,6 +244,7 @@ class MapManager {
 
       const marker = L.marker([hike.startPoint.lat, hike.startPoint.lon], { 
         icon: icon,
+        title: pinTooltip,
         zIndexOffset: isSelected ? 2500 : 500
       });
 
