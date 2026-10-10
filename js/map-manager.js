@@ -278,10 +278,13 @@ class MapManager {
    */
   async displayTrack(hike, isSelected = false) {
     if (!hike) return;
-    if ((!hike.points || hike.points.length === 0) && typeof StorageManager !== 'undefined') {
+    if ((!hike.points || hike.points.length < 5) && typeof StorageManager !== 'undefined') {
       await StorageManager.ensureHikeTrackLoaded(hike);
     }
-    if (!hike.points || hike.points.length === 0) return;
+    if (!hike.points || hike.points.length < 5) {
+      this.clearTrack();
+      return;
+    }
 
     this.clearTrack();
 
