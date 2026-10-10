@@ -387,23 +387,11 @@ class AppController {
       parsePasteBtn.addEventListener('click', () => this.handlePasteGPX());
     }
 
-    // Load Samples Button
+    // Cloud Reload Button
     const loadSamplesBtn = document.getElementById('btn-load-samples');
     if (loadSamplesBtn) {
       loadSamplesBtn.addEventListener('click', async () => {
-        const samples = SampleData.getSampleHikes();
-        const sampleIds = ['sample_cap_sicie', 'sample_gros_cerveau', 'sample_portissol', 'sample_sainte_baume', 'sample_calanques', 'sample_mont_faron'];
-        
-        // Remove existing sample hikes
-        this.allHikes = (this.allHikes || []).filter(h => !sampleIds.includes(h.id) && !samples.some(s => s.name === h.name));
-        
-        for (const sample of samples) {
-          await StorageManager.saveHike(sample);
-          this.allHikes.unshift(sample);
-        }
-        this.applyFiltersAndRender();
-        this.renderManagementList();
-        this.showToast("Randonnées d'exemple rechargées avec les tracés GPX détaillés !", "success");
+        await this.syncFromSupabase(false);
       });
     }
 
