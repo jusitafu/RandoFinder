@@ -58,6 +58,9 @@ class AppController {
   async init() {
     console.log("Démarrage de RandoFinder - Randonneurs Sanaryens...");
 
+    // 0. Lancement immédiat de la marche des 3 randonneurs dès l'ouverture de la page
+    this.playLogoMarch();
+
     // 1. Setup UI & Event Listeners
     try {
       this.setupEventListeners();
@@ -196,12 +199,6 @@ class AppController {
     }
 
     console.log(`RandoFinder prêt ! ${this.allHikes.length} randonnées prêtes.`);
-
-    // 9. Lancement de la marche des 3 randonneurs (8 secondes après l'affichage de l'application)
-    this._initialMarchTimer = setTimeout(() => {
-      this.playLogoMarch();
-      this._initialMarchTimer = null;
-    }, 8000);
   }
 
   setupEventListeners() {
