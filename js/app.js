@@ -197,15 +197,11 @@ class AppController {
 
     console.log(`RandoFinder prêt ! ${this.allHikes.length} randonnées prêtes.`);
 
-    // 9. Lancement de la marche des 3 randonneurs à l'ouverture (délai clair après affichage complet)
-    const triggerMarch = () => {
-      setTimeout(() => this.playLogoMarch(), 1200);
-    };
-    if (document.readyState === 'complete') {
-      triggerMarch();
-    } else {
-      window.addEventListener('load', triggerMarch, { once: true });
-    }
+    // 9. Lancement de la marche des 3 randonneurs (8 secondes après l'affichage de l'application)
+    this._initialMarchTimer = setTimeout(() => {
+      this.playLogoMarch();
+      this._initialMarchTimer = null;
+    }, 8000);
   }
 
   setupEventListeners() {
@@ -494,7 +490,13 @@ class AppController {
     // Logo click listener (rejouer la marche des randonneurs)
     const logoFrame = document.getElementById('logo-frame');
     if (logoFrame) {
-      logoFrame.addEventListener('click', () => this.playLogoMarch());
+      logoFrame.addEventListener('click', () => {
+        if (this._initialMarchTimer) {
+          clearTimeout(this._initialMarchTimer);
+          this._initialMarchTimer = null;
+        }
+        this.playLogoMarch();
+      });
     }
 
     // Close preview panel button
