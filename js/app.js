@@ -165,10 +165,17 @@ class AppController {
     const radiusDisplay = document.getElementById('radius-display');
     if (radiusSlider && radiusDisplay) {
       radiusSlider.addEventListener('input', (e) => {
-        const val = e.target.value;
-        radiusDisplay.textContent = `${val} km`;
-        if (window.MapManagerInstance) {
-          window.MapManagerInstance.setSearchRadius(val, true);
+        const val = parseInt(e.target.value, 10);
+        if (val >= 1000) {
+          radiusDisplay.textContent = 'Monde entier 🌍';
+          if (window.MapManagerInstance) {
+            window.MapManagerInstance.setSearchRadius(1000, true);
+          }
+        } else {
+          radiusDisplay.textContent = `${val} km`;
+          if (window.MapManagerInstance) {
+            window.MapManagerInstance.setSearchRadius(val, true);
+          }
         }
         this.applyFiltersAndRender();
       });
@@ -517,7 +524,9 @@ class AppController {
 
     const radius = (window.MapManagerInstance && window.MapManagerInstance.searchRadiusKm) 
       ? window.MapManagerInstance.searchRadiusKm 
-      : 50;
+      : 100;
+
+    const isWorldWide = radius >= 1000;
 
     this.filteredHikes = (this.allHikes || []).map(hike => {
       const distFromOrigin = hike.startPoint
@@ -529,12 +538,17 @@ class AppController {
         distFromOrigin: Math.round(distFromOrigin * 10) / 10
       };
     }).filter(hike => {
-      const matchesRadius = hike.distFromOrigin <= radius;
+      const matchesRadius = isWorldWide || (hike.distFromOrigin <= radius);
       const matchesQuery = !this.searchQuery || 
         hike.name.toLowerCase().includes(this.searchQuery) || 
         (hike.notes && hike.notes.toLowerCase().includes(this.searchQuery));
 
-      return matchesRadius && matchesQuery;
+      // Si l'utilisateur saisit un mot-clé (ex: "Canada", "Chine", "Garibaldi"), recherche mondiale prioritaire
+      if (this.searchQuery) {
+        return matchesQuery;
+      }
+
+      return matchesRadius;
     });
 
     this.sortHikes();
@@ -542,11 +556,28 @@ class AppController {
 
     if (window.MapManagerInstance) {
       window.MapManagerInstance.renderHikeMarkers(this.filteredHikes);
+
+      // Si recherche par mot-clé et résultats trouvés, centrer la carte sur les résultats
+      if (this.searchQuery && this.filteredHikes.length > 0) {
+        const validHikes = this.filteredHikes.filter(h => h.startPoint);
+        if (validHikes.length > 0) {
+          try {
+            const bounds = L.latLngBounds(validHikes.map(h => [h.startPoint.lat, h.startPoint.lon]));
+            window.MapManagerInstance.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+          } catch (e) {}
+        }
+      }
     }
 
     const countEl = document.getElementById('results-count');
     if (countEl) {
-      countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} à moins de ${radius} km`;
+      if (this.searchQuery) {
+        countEl.textContent = `${this.filteredHikes.length} résultat${this.filteredHikes.length > 1 ? 's' : ''} pour "${this.searchQuery}"`;
+      } else if (isWorldWide) {
+        countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} (Monde entier 🌍)`;
+      } else {
+        countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} à moins de ${radius} km`;
+      }
     }
 
     const manageCountBadge = document.getElementById('manage-total-count');
@@ -998,7 +1029,7 @@ class AppController {
     if (!resultsContainer) return;
 
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=fr,mc,it,ch&limit=5`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
       const places = await res.json();
 
