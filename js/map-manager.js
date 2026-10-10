@@ -323,6 +323,17 @@ class MapManager {
         fillOpacity: 1
       }).addTo(this.trackLayer);
     }
+
+    // Centrage automatique du tracé si la rando est sélectionnée
+    if (isSelected) {
+      let b = hike.bounds;
+      if (!b && hike.points && hike.points.length > 0) {
+        b = L.latLngBounds(latLngs);
+      }
+      if (b && typeof b.isValid === 'function' && b.isValid()) {
+        this.map.fitBounds(b, { padding: [50, 50], maxZoom: 15, animate: true, duration: 0.3 });
+      }
+    }
   }
 
   clearTrack() {
@@ -349,7 +360,7 @@ class MapManager {
     // 2. Re-render markers so the selected one has highlighted pin styling
     this.renderHikeMarkers(this.currentHikesList);
 
-    // 3. Centrage fluide sur le tracé de la randonnée
+    // 3. Centrage fluide sur le tracé ou le point de départ de la randonnée
     if (fitBounds && hike) {
       let b = hike.bounds;
       if (!b && hike.points && hike.points.length > 0) {
@@ -357,6 +368,8 @@ class MapManager {
       }
       if (b && typeof b.isValid === 'function' && b.isValid()) {
         this.map.fitBounds(b, { padding: [50, 50], maxZoom: 15, animate: true, duration: 0.3 });
+      } else if (hike.startPoint) {
+        this.map.setView([hike.startPoint.lat, hike.startPoint.lon], 13);
       }
     }
 
