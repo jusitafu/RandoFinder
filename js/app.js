@@ -1,0 +1,1522 @@
+/**
+ * Main Application Controller
+ * Les Randonneurs Sanaryens - RandoFinder - JLD Apps 2026
+ * Comprehensive features: Search, Native Upload, Management (Edit ✏️ & Delete 🗑️ with confirmation)
+ */
+
+class AppController {
+  constructor() {
+    this.allHikes = [];
+    this.filteredHikes = [];
+    this.selectedHike = null;
+    this.hikeToEdit = null;
+    this.hikeToDelete = null;
+
+    this.currentViewMode = 'split';
+    this.currentTab = 'explorer';
+    
+    this.sortColumn = 'distFromOrigin';
+    this.sortAsc = true;
+    this.searchQuery = '';
+    this.manageSearchQuery = '';
+
+    this.pendingUploads = [];
+  }
+
+  async init() {
+    console.log("Démarrage de RandoFinder - Randonneurs Sanaryens...");
+
+    // 1. Setup UI & Event Listeners
+    try {
+      this.setupEventListeners();
+    } catch (e) {
+      console.error("Erreur UI :", e);
+    }
+
+    // 2. Initialize Storage
+    try {
+      await StorageManager.init();
+    } catch (e) {
+      console.warn("Storage init warning :", e);
+    }
+
+    // 3. Initialize Map
+    try {
+      if (typeof L !== 'undefined' && typeof MapManager !== 'undefined') {
+        window.MapManagerInstance = new MapManager('map-view');
+        window.MapManagerInstance.init();
+
+        window.MapManagerInstance.onHikeHoverCallback = (hike) => this.handleHikeHover(hike);
+        window.MapManagerInstance.onHikeSelectCallback = (hike) => this.handleHikeSelect(hike);
+        window.MapManagerInstance.onSearchOriginChangeCallback = (origin) => this.handleOriginChange(origin);
+        window.MapManagerInstance.onMapBackgroundClickCallback = () => this.deselectHike();
+      }
+    } catch (e) {
+      console.error("Erreur map init :", e);
+    }
+
+    // 4. Initialize Elevation Profile
+    try {
+      if (typeof ElevationProfile !== 'undefined') {
+        this.elevationProfile = new ElevationProfile('elevation-chart-container');
+      }
+    } catch (e) {
+      console.error("Erreur profile init :", e);
+    }
+
+    // 5. Load Hikes from Storage
+    try {
+      let hikes = await StorageManager.getAllHikes();
+      if (!hikes || hikes.length === 0) {
+        if (typeof SampleData !== 'undefined') {
+          console.log("Chargement initial des randonnées d'exemple...");
+          const samples = SampleData.getSampleHikes();
+          for (const s of samples) {
+            await StorageManager.saveHike(s);
+          }
+          hikes = samples;
+        }
+      }
+      this.allHikes = hikes || [];
+    } catch (e) {
+      console.error("Erreur chargement randonnées :", e);
+      if (typeof SampleData !== 'undefined') {
+        this.allHikes = SampleData.getSampleHikes();
+      }
+    }
+
+    // 6. Update UI
+    try {
+      this.updateStorageBadge();
+      this.applyFiltersAndRender();
+      this.renderManagementList();
+    } catch (e) {
+      console.error("Erreur affichage :", e);
+    }
+
+    // 7. Initialize server sync preferences & auto-sync if active
+    try {
+      const serverUrlInput = document.getElementById('server-sync-url');
+      const autoSyncChk = document.getElementById('chk-auto-sync-server');
+      const savedServerUrl = localStorage.getItem('sanary_server_url') || '';
+      const savedAutoSync = localStorage.getItem('sanary_server_autosync') === 'true';
+
+      if (serverUrlInput && savedServerUrl) {
+        serverUrlInput.value = savedServerUrl;
+      }
+      if (autoSyncChk) {
+        autoSyncChk.checked = savedAutoSync;
+      }
+
+      if (savedAutoSync && savedServerUrl) {
+        this.syncFromServer(savedServerUrl, true);
+      }
+    } catch (e) {
+      console.warn("Erreur auto-sync serveur :", e);
+    }
+
+    // 8. Initialize Supabase preferences & auto-sync if active
+    try {
+      const supaUrlInput = document.getElementById('supabase-url');
+      const supaKeyInput = document.getElementById('supabase-key');
+      const supaAutoSyncChk = document.getElementById('chk-auto-sync-supabase');
+
+      const defaultSupaUrl = (window.APP_CONFIG && window.APP_CONFIG.supabaseUrl) || 'https://qguseukrgsczgviuloxr.supabase.co';
+      const defaultSupaKey = (window.APP_CONFIG && window.APP_CONFIG.supabaseKey) || 'sb_publishable_iy3fFv7Qo5Rc9D3gcNhXsA_72y1_j44';
+      const savedSupaUrl = localStorage.getItem('sanary_supabase_url') || defaultSupaUrl;
+      const savedSupaKey = localStorage.getItem('sanary_supabase_key') || defaultSupaKey;
+      const savedSupaAutoSync = localStorage.getItem('sanary_supabase_autosync') !== 'false'; // true par défaut
+
+      if (supaUrlInput) supaUrlInput.value = savedSupaUrl;
+      if (supaKeyInput) supaKeyInput.value = savedSupaKey;
+      if (supaAutoSyncChk) supaAutoSyncChk.checked = savedSupaAutoSync;
+
+      this.updateSupabaseBadge();
+
+      if (savedSupaAutoSync && savedSupaUrl && savedSupaKey) {
+        this.syncFromSupabase(true);
+      }
+    } catch (e) {
+      console.warn("Erreur auto-sync Supabase :", e);
+    }
+
+    console.log(`RandoFinder prêt ! ${this.allHikes.length} randonnées prêtes.`);
+  }
+
+  setupEventListeners() {
+    // Tab switching
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-tab');
+        this.switchTab(tab);
+      });
+    });
+
+    // View mode switching (Map / Table / Split)
+    document.querySelectorAll('[data-view-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-view-mode');
+        this.setViewMode(mode);
+      });
+    });
+
+    // Distance Radius Slider with immediate map adaptation
+    const radiusSlider = document.getElementById('radius-slider');
+    const radiusDisplay = document.getElementById('radius-display');
+    if (radiusSlider && radiusDisplay) {
+      radiusSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        radiusDisplay.textContent = `${val} km`;
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.setSearchRadius(val, true);
+        }
+        this.applyFiltersAndRender();
+      });
+    }
+
+    // Search Location Input (Nominatim Autocomplete)
+    const locationInput = document.getElementById('location-input');
+    if (locationInput) {
+      let debounceTimer = null;
+      locationInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        const query = e.target.value.trim();
+        if (query.length < 2) return;
+        debounceTimer = setTimeout(() => this.searchPlaces(query), 350);
+      });
+    }
+
+    // Geolocation button "Ma position"
+    const geolocBtn = document.getElementById('btn-geoloc');
+    if (geolocBtn) {
+      geolocBtn.addEventListener('click', () => this.useCurrentLocation());
+    }
+
+    // Click map button
+    const clickMapBtn = document.getElementById('btn-click-map');
+    if (clickMapBtn) {
+      clickMapBtn.addEventListener('click', () => {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.setClickMode(true);
+          this.showToast("Cliquez sur la carte pour choisir le centre de recherche", "info");
+        }
+      });
+    }
+
+    // Quick text search in hikes (Explorer tab)
+    const hikeSearchInput = document.getElementById('hike-search-input');
+    if (hikeSearchInput) {
+      hikeSearchInput.addEventListener('input', (e) => {
+        this.searchQuery = e.target.value.trim().toLowerCase();
+        this.applyFiltersAndRender();
+      });
+    }
+
+    // Manage tab search input
+    const manageSearchInput = document.getElementById('manage-search-input');
+    if (manageSearchInput) {
+      manageSearchInput.addEventListener('input', (e) => {
+        this.manageSearchQuery = e.target.value.trim().toLowerCase();
+        this.renderManagementList();
+      });
+    }
+
+    // Pick Local Folder (Chrome / Edge PC)
+    const pickFolderBtn = document.getElementById('btn-pick-folder');
+    if (pickFolderBtn) {
+      pickFolderBtn.addEventListener('click', () => this.handlePickFolder());
+    }
+
+    // Storage Badge click -> open Settings
+    const storageBadge = document.getElementById('storage-badge');
+    if (storageBadge) {
+      storageBadge.addEventListener('click', () => this.switchTab('settings'));
+    }
+
+    // Native File Input & Dropzone Setup
+    const fileInput = document.getElementById('file-input');
+    const dropzone = document.getElementById('upload-dropzone');
+
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          this.handleFilesUploaded(e.target.files);
+          e.target.value = ''; // Reset to allow re-uploading same file if desired
+        }
+      });
+    }
+
+    if (dropzone) {
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('border-emerald-500', 'bg-emerald-50');
+      });
+      dropzone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('border-emerald-500', 'bg-emerald-50');
+      });
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('border-emerald-500', 'bg-emerald-50');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          this.handleFilesUploaded(e.dataTransfer.files);
+        }
+      });
+    }
+
+    // Paste GPX Button
+    const parsePasteBtn = document.getElementById('btn-parse-paste-gpx');
+    if (parsePasteBtn) {
+      parsePasteBtn.addEventListener('click', () => this.handlePasteGPX());
+    }
+
+    // Load Samples Button
+    const loadSamplesBtn = document.getElementById('btn-load-samples');
+    if (loadSamplesBtn) {
+      loadSamplesBtn.addEventListener('click', async () => {
+        const samples = SampleData.getSampleHikes();
+        const sampleIds = ['sample_cap_sicie', 'sample_gros_cerveau', 'sample_portissol', 'sample_sainte_baume', 'sample_calanques', 'sample_mont_faron'];
+        
+        // Remove existing sample hikes
+        this.allHikes = (this.allHikes || []).filter(h => !sampleIds.includes(h.id) && !samples.some(s => s.name === h.name));
+        
+        for (const sample of samples) {
+          await StorageManager.saveHike(sample);
+          this.allHikes.unshift(sample);
+        }
+        this.applyFiltersAndRender();
+        this.renderManagementList();
+        this.showToast("Randonnées d'exemple rechargées avec les tracés GPX détaillés !", "success");
+      });
+    }
+
+    // Server Sync Button & Auto-sync checkbox
+    const syncServerBtn = document.getElementById('btn-sync-server');
+    if (syncServerBtn) {
+      syncServerBtn.addEventListener('click', () => {
+        const urlInput = document.getElementById('server-sync-url');
+        const url = urlInput ? urlInput.value.trim() : '';
+        if (!url) {
+          this.showToast("Veuillez saisir une URL de serveur valide", "error");
+          return;
+        }
+        localStorage.setItem('sanary_server_url', url);
+        this.syncFromServer(url, false);
+      });
+    }
+
+    const autoSyncChk = document.getElementById('chk-auto-sync-server');
+    if (autoSyncChk) {
+      autoSyncChk.addEventListener('change', (e) => {
+        localStorage.setItem('sanary_server_autosync', e.target.checked ? 'true' : 'false');
+      });
+    }
+
+    // Supabase Cloud Buttons & Inputs
+    const supaUrlInput = document.getElementById('supabase-url');
+    const supaKeyInput = document.getElementById('supabase-key');
+    const supaAutoSyncChk = document.getElementById('chk-auto-sync-supabase');
+
+    if (supaUrlInput) {
+      supaUrlInput.addEventListener('input', (e) => {
+        localStorage.setItem('sanary_supabase_url', e.target.value.trim());
+        this.updateSupabaseBadge();
+      });
+    }
+
+    if (supaKeyInput) {
+      supaKeyInput.addEventListener('input', (e) => {
+        localStorage.setItem('sanary_supabase_key', e.target.value.trim());
+        this.updateSupabaseBadge();
+      });
+    }
+
+    if (supaAutoSyncChk) {
+      supaAutoSyncChk.addEventListener('change', (e) => {
+        localStorage.setItem('sanary_supabase_autosync', e.target.checked ? 'true' : 'false');
+      });
+    }
+
+    const syncSupaBtn = document.getElementById('btn-sync-supabase');
+    if (syncSupaBtn) {
+      syncSupaBtn.addEventListener('click', () => this.syncFromSupabase(false));
+    }
+
+    const pushSupaBtn = document.getElementById('btn-push-supabase');
+    if (pushSupaBtn) {
+      pushSupaBtn.addEventListener('click', () => this.pushAllToSupabase());
+    }
+
+    const testSupaBtn = document.getElementById('btn-test-supabase');
+    if (testSupaBtn) {
+      testSupaBtn.addEventListener('click', () => this.testSupabaseConnection());
+    }
+
+    // Export / Import Backup buttons
+    const exportBackupBtn = document.getElementById('btn-export-backup');
+    if (exportBackupBtn) {
+      exportBackupBtn.addEventListener('click', () => StorageManager.exportBackupJSON());
+    }
+
+    const importBackupInput = document.getElementById('import-backup-file');
+    if (importBackupInput) {
+      importBackupInput.addEventListener('change', async (e) => {
+        if (e.target.files && e.target.files[0]) {
+          const text = await e.target.files[0].text();
+          try {
+            const count = await StorageManager.importBackupJSON(text);
+            this.allHikes = await StorageManager.getAllHikes();
+            this.applyFiltersAndRender();
+            this.renderManagementList();
+            this.showToast(`${count} randonnées restaurées depuis la sauvegarde !`, "success");
+          } catch (err) {
+            this.showToast("Fichier de sauvegarde invalide.", "error");
+          }
+        }
+      });
+    }
+
+    // Close preview panel button
+    const closePreviewBtn = document.getElementById('btn-close-preview');
+    if (closePreviewBtn) {
+      closePreviewBtn.addEventListener('click', () => this.deselectHike());
+    }
+
+    // Edit Modal: Save & Close
+    const saveEditBtn = document.getElementById('btn-save-edit');
+    if (saveEditBtn) {
+      saveEditBtn.addEventListener('click', () => this.saveEditModal());
+    }
+    const closeEditBtn = document.getElementById('btn-close-edit');
+    if (closeEditBtn) {
+      closeEditBtn.addEventListener('click', () => this.closeEditModal());
+    }
+
+    // Delete Modal: Confirm & Close
+    const confirmDeleteBtn = document.getElementById('btn-confirm-delete');
+    if (confirmDeleteBtn) {
+      confirmDeleteBtn.addEventListener('click', () => this.confirmDeleteModal());
+    }
+    const cancelDeleteBtn = document.getElementById('btn-cancel-delete');
+    if (cancelDeleteBtn) {
+      cancelDeleteBtn.addEventListener('click', () => this.closeDeleteModal());
+    }
+
+    // Download Modal
+    const confirmDownloadBtn = document.getElementById('btn-confirm-download');
+    if (confirmDownloadBtn) {
+      confirmDownloadBtn.addEventListener('click', () => this.executeDownload());
+    }
+    const closeModalBtn = document.getElementById('btn-close-modal');
+    if (closeModalBtn) {
+      closeModalBtn.addEventListener('click', () => this.closeDownloadModal());
+    }
+
+    // Click on empty space in table container deselects
+    const tableCol = document.getElementById('table-column');
+    if (tableCol) {
+      tableCol.addEventListener('click', (e) => {
+        if (e.target === tableCol || e.target.tagName === 'TBODY' || e.target.id === 'table-container') {
+          this.deselectHike();
+        }
+      });
+    }
+  }
+
+  deselectHike() {
+    this.selectedHike = null;
+    if (window.MapManagerInstance) {
+      window.MapManagerInstance.deselectHike();
+    }
+    this.hideHikePreviewPanel();
+    this.updateTableSelection(null);
+  }
+
+  switchTab(tabName) {
+    this.currentTab = tabName;
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.classList.remove('bg-emerald-700', 'text-white', 'shadow-sm');
+      btn.classList.add('text-slate-300', 'hover:bg-slate-800');
+    });
+
+    const activeContent = document.getElementById(`tab-content-${tabName}`);
+    if (activeContent) activeContent.classList.remove('hidden');
+
+    const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+    if (activeBtn) {
+      activeBtn.classList.remove('text-slate-300', 'hover:bg-slate-800');
+      activeBtn.classList.add('bg-emerald-700', 'text-white', 'shadow-sm');
+    }
+
+    if (tabName === 'explorer') {
+      setTimeout(() => {
+        if (window.MapManagerInstance && window.MapManagerInstance.map) {
+          window.MapManagerInstance.map.invalidateSize();
+        }
+      }, 100);
+      this.applyFiltersAndRender();
+    } else if (tabName === 'manage') {
+      this.renderManagementList();
+    }
+  }
+
+  setViewMode(mode) {
+    this.currentViewMode = mode;
+    const mapCol = document.getElementById('map-column');
+    const tableCol = document.getElementById('table-column');
+
+    document.querySelectorAll('[data-view-mode]').forEach(btn => {
+      btn.classList.remove('bg-emerald-600', 'text-white');
+      btn.classList.add('bg-slate-100', 'text-slate-700');
+    });
+
+    const activeBtn = document.querySelector(`[data-view-mode="${mode}"]`);
+    if (activeBtn) {
+      activeBtn.classList.remove('bg-slate-100', 'text-slate-700');
+      activeBtn.classList.add('bg-emerald-600', 'text-white');
+    }
+
+    if (mode === 'map') {
+      if (mapCol) {
+        mapCol.classList.remove('hidden', 'lg:w-1/2');
+        mapCol.classList.add('w-full', 'h-full');
+      }
+      if (tableCol) tableCol.classList.add('hidden');
+    } else if (mode === 'table') {
+      if (mapCol) mapCol.classList.add('hidden');
+      if (tableCol) {
+        tableCol.classList.remove('hidden', 'lg:w-1/2');
+        tableCol.classList.add('w-full', 'h-full');
+      }
+    } else {
+      if (mapCol) {
+        mapCol.classList.remove('hidden', 'w-full');
+        mapCol.classList.add('lg:w-1/2');
+      }
+      if (tableCol) {
+        tableCol.classList.remove('hidden', 'w-full');
+        tableCol.classList.add('lg:w-1/2');
+      }
+    }
+
+    setTimeout(() => {
+      if (window.MapManagerInstance && window.MapManagerInstance.map) {
+        window.MapManagerInstance.map.invalidateSize();
+      }
+    }, 150);
+  }
+
+  applyFiltersAndRender() {
+    const origin = (window.MapManagerInstance && window.MapManagerInstance.searchOrigin) 
+      ? window.MapManagerInstance.searchOrigin 
+      : { lat: 43.1189, lon: 5.8033 };
+
+    const radius = (window.MapManagerInstance && window.MapManagerInstance.searchRadiusKm) 
+      ? window.MapManagerInstance.searchRadiusKm 
+      : 50;
+
+    this.filteredHikes = (this.allHikes || []).map(hike => {
+      const distFromOrigin = hike.startPoint
+        ? GPXParser.haversineDistance(origin.lat, origin.lon, hike.startPoint.lat, hike.startPoint.lon)
+        : 9999;
+
+      return {
+        ...hike,
+        distFromOrigin: Math.round(distFromOrigin * 10) / 10
+      };
+    }).filter(hike => {
+      const matchesRadius = hike.distFromOrigin <= radius;
+      const matchesQuery = !this.searchQuery || 
+        hike.name.toLowerCase().includes(this.searchQuery) || 
+        (hike.notes && hike.notes.toLowerCase().includes(this.searchQuery));
+
+      return matchesRadius && matchesQuery;
+    });
+
+    this.sortHikes();
+    this.renderHikesTable();
+
+    if (window.MapManagerInstance) {
+      window.MapManagerInstance.renderHikeMarkers(this.filteredHikes);
+    }
+
+    const countEl = document.getElementById('results-count');
+    if (countEl) {
+      countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} à moins de ${radius} km`;
+    }
+
+    const manageCountBadge = document.getElementById('manage-total-count');
+    if (manageCountBadge) {
+      manageCountBadge.textContent = `${this.allHikes.length} randonnée(s)`;
+    }
+  }
+
+  sortHikes() {
+    this.filteredHikes.sort((a, b) => {
+      let valA = a[this.sortColumn];
+      let valB = b[this.sortColumn];
+
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+
+      if (valA < valB) return this.sortAsc ? -1 : 1;
+      if (valA > valB) return this.sortAsc ? 1 : -1;
+      return 0;
+    });
+  }
+
+  setSort(column) {
+    if (this.sortColumn === column) {
+      this.sortAsc = !this.sortAsc;
+    } else {
+      this.sortColumn = column;
+      this.sortAsc = true;
+    }
+    this.sortHikes();
+    this.renderHikesTable();
+  }
+
+  renderHikesTable() {
+    const tableBody = document.getElementById('hikes-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '';
+
+    if (this.filteredHikes.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="p-8 text-center text-slate-400">
+            <div class="text-3xl mb-2">🔍</div>
+            <div class="font-medium text-slate-700">Aucune randonnée dans ce rayon (${window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50} km)</div>
+            <div class="text-xs text-slate-500 mt-1">👉 <strong>Augmentez le curseur de rayon</strong> (ex: 200 km) ou tapez une autre ville de départ pour les voir.</div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    this.filteredHikes.forEach(hike => {
+      const tr = document.createElement('tr');
+      tr.dataset.hikeId = hike.id;
+      tr.className = 'border-b border-slate-100 hover:bg-emerald-50/70 transition-colors cursor-pointer text-sm';
+      if (this.selectedHike && this.selectedHike.id === hike.id) {
+        tr.classList.add('bg-emerald-50', 'border-emerald-300', 'font-semibold');
+      }
+
+      tr.innerHTML = `
+        <td class="p-3 font-semibold text-slate-900 whitespace-nowrap">
+          <div class="flex items-center gap-1.5 text-blue-600">
+            <span class="text-xs">📍</span>
+            <span>${hike.distFromOrigin} km</span>
+          </div>
+        </td>
+        <td class="p-3">
+          <div class="font-bold text-slate-800">${hike.name}</div>
+          ${hike.notes ? `<div class="text-xs text-slate-500 line-clamp-1 max-w-xs mt-0.5">${hike.notes}</div>` : ''}
+        </td>
+        <td class="p-3 text-slate-700 whitespace-nowrap">
+          <span class="font-semibold">${hike.distanceKm} km</span>
+        </td>
+        <td class="p-3 whitespace-nowrap">
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
+            +${hike.elevationGain} m
+          </span>
+        </td>
+        <td class="p-3 text-slate-600 whitespace-nowrap text-xs">
+          ${hike.minElevation}m - ${hike.maxElevation}m
+        </td>
+        <td class="p-3 text-right whitespace-nowrap">
+          <div class="flex items-center justify-end gap-1">
+            <button class="btn-table-edit p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Modifier le nom et les notes">
+              ✏️
+            </button>
+            <button class="btn-table-delete p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Supprimer cette randonnée">
+              🗑️
+            </button>
+            <button class="btn-download-hike px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition flex items-center gap-1 ml-1" title="Télécharger / Fiche">
+              <span>📥</span>
+              <span class="hidden sm:inline">Options</span>
+            </button>
+          </div>
+        </td>
+      `;
+
+      tr.addEventListener('mouseenter', () => {
+        if (!this.selectedHike || this.selectedHike.id !== hike.id) {
+          if (window.MapManagerInstance) window.MapManagerInstance.displayTrack(hike, false);
+          this.showHikePreviewPanel(hike);
+        }
+      });
+
+      tr.addEventListener('mouseleave', () => {
+        if (this.selectedHike) {
+          if (window.MapManagerInstance) window.MapManagerInstance.displayTrack(this.selectedHike, true);
+          this.showHikePreviewPanel(this.selectedHike);
+        } else {
+          if (window.MapManagerInstance) window.MapManagerInstance.clearTrack();
+          this.hideHikePreviewPanel();
+        }
+      });
+
+      tr.addEventListener('click', (e) => {
+        if (!e.target.closest('button')) {
+          this.handleHikeSelect(hike);
+        }
+      });
+
+      // Edit button click
+      const editBtn = tr.querySelector('.btn-table-edit');
+      if (editBtn) {
+        editBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openEditModal(hike);
+        });
+      }
+
+      // Delete button click
+      const deleteBtn = tr.querySelector('.btn-table-delete');
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openDeleteModal(hike);
+        });
+      }
+
+      // Download button click
+      const dlBtn = tr.querySelector('.btn-download-hike');
+      if (dlBtn) {
+        dlBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openDownloadModal(hike);
+        });
+      }
+
+      tableBody.appendChild(tr);
+    });
+  }
+
+  /**
+   * Render Management Tab View
+   */
+  renderManagementList() {
+    const listContainer = document.getElementById('manage-hikes-list');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '';
+
+    const query = this.manageSearchQuery || '';
+    const filtered = (this.allHikes || []).filter(h => 
+      !query || h.name.toLowerCase().includes(query) || (h.notes && h.notes.toLowerCase().includes(query))
+    );
+
+    const countBadge = document.getElementById('manage-total-count');
+    if (countBadge) countBadge.textContent = `${this.allHikes.length} randonnée(s)`;
+
+    if (filtered.length === 0) {
+      listContainer.innerHTML = `
+        <div class="p-12 text-center bg-white border border-slate-200 rounded-2xl text-slate-400">
+          <div class="text-3xl mb-2">📁</div>
+          <div class="font-bold text-slate-700">Aucune randonnée trouvée</div>
+          <div class="text-xs text-slate-500 mt-1">Votre bibliothèque est vide ou aucun élément ne correspond à votre recherche.</div>
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach((hike, idx) => {
+      const card = document.createElement('div');
+      card.className = 'bg-white border border-slate-200 hover:border-emerald-300 rounded-2xl p-4 shadow-sm transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3';
+
+      card.innerHTML = `
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-400">#${idx + 1}</span>
+            <h4 class="text-sm sm:text-base font-bold text-slate-900 truncate">${hike.name}</h4>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1">
+            <span class="font-medium text-emerald-700">📏 ${hike.distanceKm} km</span>
+            <span class="font-medium text-emerald-700">↗️ +${hike.elevationGain}m</span>
+            <span>⛰️ ${hike.minElevation}m - ${hike.maxElevation}m</span>
+            <span>⏱️ ${hike.estimatedDuration || '3h30'}</span>
+          </div>
+          ${hike.notes ? `<div class="text-xs text-slate-600 line-clamp-2 mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100 italic">« ${hike.notes} »</div>` : ''}
+        </div>
+
+        <div class="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+          <button class="btn-manage-view px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1" title="Voir sur la carte">
+            <span>🗺️</span> <span>Voir</span>
+          </button>
+          <button class="btn-manage-edit px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Modifier nom et notes">
+            <span>✏️</span> <span>Modifier</span>
+          </button>
+          <button class="btn-manage-delete px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Supprimer">
+            <span>🗑️</span> <span>Supprimer</span>
+          </button>
+        </div>
+      `;
+
+      card.querySelector('.btn-manage-view').onclick = () => {
+        // Expand radius slider if needed to make the hike visible on map
+        const origin = (window.MapManagerInstance && window.MapManagerInstance.searchOrigin) 
+          ? window.MapManagerInstance.searchOrigin 
+          : { lat: 43.1189, lon: 5.8033 };
+
+        if (hike.startPoint) {
+          const dist = GPXParser.haversineDistance(origin.lat, origin.lon, hike.startPoint.lat, hike.startPoint.lon);
+          const currentRadius = window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50;
+          if (dist > currentRadius) {
+            const neededRadius = Math.min(1000, Math.ceil((dist + 15) / 10) * 10);
+            const radiusSlider = document.getElementById('radius-slider');
+            const radiusDisplay = document.getElementById('radius-display');
+            if (radiusSlider) radiusSlider.value = neededRadius;
+            if (radiusDisplay) radiusDisplay.textContent = `${neededRadius} km`;
+            if (window.MapManagerInstance) {
+              window.MapManagerInstance.setSearchRadius(neededRadius, false);
+            }
+          }
+        }
+
+        // Switch to explorer tab
+        this.switchTab('explorer');
+        this.applyFiltersAndRender();
+
+        // Directly zoom and show the hike
+        setTimeout(() => {
+          if (window.MapManagerInstance && window.MapManagerInstance.map) {
+            window.MapManagerInstance.map.invalidateSize();
+          }
+          this.handleHikeSelect(hike);
+        }, 120);
+      };
+
+      card.querySelector('.btn-manage-edit').onclick = () => {
+        this.openEditModal(hike);
+      };
+
+      card.querySelector('.btn-manage-delete').onclick = () => {
+        this.openDeleteModal(hike);
+      };
+
+      listContainer.appendChild(card);
+    });
+  }
+
+  // =========================================================================
+  // EDIT MODAL (✏️ Crayon)
+  // =========================================================================
+  openEditModal(hike) {
+    this.hikeToEdit = hike;
+    const modal = document.getElementById('edit-hike-modal');
+    if (!modal) return;
+
+    document.getElementById('edit-hike-name').value = hike.name || '';
+    document.getElementById('edit-hike-notes').value = hike.notes || '';
+    modal.classList.remove('hidden');
+  }
+
+  closeEditModal() {
+    const modal = document.getElementById('edit-hike-modal');
+    if (modal) modal.classList.add('hidden');
+    this.hikeToEdit = null;
+  }
+
+  async saveEditModal() {
+    if (!this.hikeToEdit) return;
+
+    const newName = document.getElementById('edit-hike-name').value.trim();
+    const newNotes = document.getElementById('edit-hike-notes').value.trim();
+
+    if (!newName) {
+      this.showToast("Le nom de la randonnée ne peut pas être vide.", "error");
+      return;
+    }
+
+    this.hikeToEdit.name = newName;
+    this.hikeToEdit.notes = newNotes;
+
+    const updatedGpx = GPXParser.exportToGpxString(this.hikeToEdit);
+    await StorageManager.saveHike(this.hikeToEdit, updatedGpx);
+
+    // Auto-update Supabase Cloud in background
+    try {
+      const cfg = (typeof window.APP_CONFIG !== 'undefined') ? window.APP_CONFIG : {};
+      const supaUrl = localStorage.getItem('sanary_supabase_url') || cfg.supabaseUrl;
+      const supaKey = localStorage.getItem('sanary_supabase_key') || cfg.supabaseKey;
+      if (supaUrl && supaKey) {
+        StorageManager.pushHikeToSupabase(this.hikeToEdit, supaUrl, supaKey).catch(e => console.warn("Supabase auto-edit error:", e));
+      }
+    } catch (e) {}
+
+    this.closeEditModal();
+    this.applyFiltersAndRender();
+    this.renderManagementList();
+
+    if (this.selectedHike && this.selectedHike.id === this.hikeToEdit.id) {
+      this.showHikePreviewPanel(this.hikeToEdit);
+    }
+
+    this.showToast("Randonnée modifiée avec succès !", "success");
+  }
+
+  // =========================================================================
+  // DELETE MODAL (🗑️ Corbeille avec confirmation)
+  // =========================================================================
+  openDeleteModal(hike) {
+    this.hikeToDelete = hike;
+    const modal = document.getElementById('delete-hike-modal');
+    if (!modal) return;
+
+    const nameEl = document.getElementById('delete-modal-hike-name');
+    if (nameEl) nameEl.textContent = hike.name || 'cette randonnée';
+    modal.classList.remove('hidden');
+  }
+
+  closeDeleteModal() {
+    const modal = document.getElementById('delete-hike-modal');
+    if (modal) modal.classList.add('hidden');
+    this.hikeToDelete = null;
+  }
+
+  async confirmDeleteModal() {
+    if (!this.hikeToDelete) {
+      this.closeDeleteModal();
+      return;
+    }
+
+    const targetHike = this.hikeToDelete;
+    const targetId = targetHike.id;
+    const targetName = targetHike.name;
+    const targetFilename = targetHike.filename;
+
+    try {
+      await StorageManager.deleteHike(targetId, targetFilename);
+      this.allHikes = this.allHikes.filter(h => h.id !== targetId && h.name !== targetName);
+
+      // Auto-delete from Supabase Cloud in background
+      try {
+        const cfg = (typeof window.APP_CONFIG !== 'undefined') ? window.APP_CONFIG : {};
+        const supaUrl = localStorage.getItem('sanary_supabase_url') || cfg.supabaseUrl;
+        const supaKey = localStorage.getItem('sanary_supabase_key') || cfg.supabaseKey;
+        if (supaUrl && supaKey) {
+          StorageManager.deleteFromSupabase(targetId, supaUrl, supaKey).catch(e => console.warn("Supabase auto-delete error:", e));
+        }
+      } catch (e) {}
+
+      if (this.selectedHike && (this.selectedHike.id === targetId || this.selectedHike.name === targetName)) {
+        this.deselectHike();
+      }
+
+      this.showToast(`Randonnée « ${targetName} » supprimée définitivement.`, "info");
+    } catch (err) {
+      console.error("Erreur suppression:", err);
+      this.allHikes = this.allHikes.filter(h => h.id !== targetId && h.name !== targetName);
+      this.showToast("Randonnée supprimée.", "info");
+    } finally {
+      this.closeDeleteModal();
+      this.applyFiltersAndRender();
+      this.renderManagementList();
+    }
+  }
+
+  // =========================================================================
+  // RESTITUTION & PREVIEWS
+  // =========================================================================
+  handleHikeHover(hike) {
+    if (hike) {
+      this.showHikePreviewPanel(hike);
+    } else if (this.selectedHike) {
+      this.showHikePreviewPanel(this.selectedHike);
+    } else {
+      this.hideHikePreviewPanel();
+    }
+  }
+
+  handleHikeSelect(hike) {
+    if (!hike) return;
+    this.selectedHike = hike;
+    if (window.MapManagerInstance) {
+      window.MapManagerInstance.selectHike(hike, true, false);
+    }
+    this.showHikePreviewPanel(hike);
+    this.updateTableSelection(hike.id);
+  }
+
+  updateTableSelection(selectedId) {
+    const rows = document.querySelectorAll('#hikes-table-body tr[data-hike-id]');
+    rows.forEach(tr => {
+      if (selectedId && tr.dataset.hikeId === selectedId) {
+        tr.classList.add('bg-emerald-50', 'border-emerald-300', 'font-semibold');
+      } else {
+        tr.classList.remove('bg-emerald-50', 'border-emerald-300', 'font-semibold');
+      }
+    });
+  }
+
+  async showHikePreviewPanel(hike) {
+    const previewPanel = document.getElementById('hike-preview-panel');
+    if (!previewPanel || !hike) return;
+
+    if ((!hike.points || hike.points.length === 0) && typeof StorageManager !== 'undefined') {
+      await StorageManager.ensureHikeTrackLoaded(hike);
+    }
+
+    previewPanel.classList.remove('hidden');
+    document.getElementById('preview-title').textContent = hike.name;
+    document.getElementById('preview-dist').textContent = `${hike.distanceKm} km`;
+    document.getElementById('preview-dplus').textContent = `+${hike.elevationGain}m`;
+    document.getElementById('preview-dmoins').textContent = `-${hike.elevationLoss || 0}m`;
+    document.getElementById('preview-alt').textContent = `${hike.minElevation}m / ${hike.maxElevation}m`;
+    document.getElementById('preview-duration').textContent = hike.estimatedDuration || '3h30';
+    document.getElementById('preview-notes').textContent = hike.notes || 'Aucune note enregistrée';
+
+    const btnDl = document.getElementById('preview-btn-download');
+    if (btnDl) {
+      btnDl.onclick = () => this.openDownloadModal(hike);
+    }
+
+    if (this.elevationProfile) {
+      this.elevationProfile.render(hike, 
+        (point) => { if (window.MapManagerInstance) window.MapManagerInstance.setCursorPosition(point); },
+        () => { if (window.MapManagerInstance) window.MapManagerInstance.clearCursorPosition(); }
+      );
+    }
+  }
+
+  hideHikePreviewPanel() {
+    const previewPanel = document.getElementById('hike-preview-panel');
+    if (previewPanel && !this.selectedHike) {
+      previewPanel.classList.add('hidden');
+    }
+  }
+
+  async searchPlaces(query) {
+    const resultsContainer = document.getElementById('location-autocomplete-results');
+    if (!resultsContainer) return;
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=fr,mc,it,ch&limit=5`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
+      const places = await res.json();
+
+      resultsContainer.innerHTML = '';
+      if (!places || places.length === 0) {
+        resultsContainer.classList.add('hidden');
+        return;
+      }
+
+      resultsContainer.classList.remove('hidden');
+      places.forEach(place => {
+        const item = document.createElement('div');
+        item.className = 'p-2.5 hover:bg-emerald-50 cursor-pointer border-b border-slate-100 text-xs text-slate-700 flex items-center gap-2';
+        item.innerHTML = `<span>📍</span> <span>${place.display_name}</span>`;
+        item.addEventListener('click', () => {
+          const shortName = place.display_name.split(',')[0];
+          document.getElementById('location-input').value = shortName;
+          if (window.MapManagerInstance) {
+            window.MapManagerInstance.setSearchOrigin(parseFloat(place.lat), parseFloat(place.lon), shortName);
+          }
+          resultsContainer.classList.add('hidden');
+          this.applyFiltersAndRender();
+        });
+        resultsContainer.appendChild(item);
+      });
+    } catch (e) {
+      console.warn("Erreur recherche lieu :", e);
+    }
+  }
+
+  useCurrentLocation() {
+    if (!navigator.geolocation) {
+      this.showToast("La géolocalisation n'est pas supportée par votre navigateur", "error");
+      return;
+    }
+
+    this.showToast("Recherche de votre position GPS...", "info");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const placeName = await GPXParser.reverseGeocode(lat, lon);
+        document.getElementById('location-input').value = placeName || 'Ma position';
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.setSearchOrigin(lat, lon, placeName || 'Ma position');
+        }
+        this.applyFiltersAndRender();
+        this.showToast(`Position trouvée : ${placeName || 'Ma position'}`, "success");
+      },
+      () => {
+        this.showToast("Impossible d'accéder à votre position GPS.", "error");
+      }
+    );
+  }
+
+  handleOriginChange(origin) {
+    const locInput = document.getElementById('location-input');
+    if (locInput) locInput.value = origin.name;
+    this.applyFiltersAndRender();
+  }
+
+  async handlePickFolder() {
+    try {
+      const res = await StorageManager.pickLocalDirectory();
+      if (res && res.success) {
+        this.allHikes = await StorageManager.getAllHikes();
+        this.updateStorageBadge();
+        this.applyFiltersAndRender();
+        this.renderManagementList();
+        this.showToast(`Dossier connecté : ${res.folderName} (${res.hikes.length} randonnées)`, "success");
+      }
+    } catch (err) {
+      this.showToast(err.message, "error");
+    }
+  }
+
+  updateStorageBadge() {
+    const badge = document.getElementById('storage-badge');
+    if (!badge) return;
+
+    if (StorageManager.currentMode === 'filesystem' && StorageManager.dirHandle) {
+      badge.innerHTML = `
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="font-bold text-xs text-emerald-300">📁 Disque : ${StorageManager.dirHandle.name}</span>
+      `;
+      badge.className = "flex items-center gap-2 px-3 py-1.5 bg-emerald-950/80 border border-emerald-500/50 rounded-full text-emerald-300 text-xs cursor-pointer hover:brightness-125 transition shadow-sm";
+      badge.title = "Dossier local connecté sur votre disque dur. Cliquez pour modifier ou gérer.";
+    } else {
+      badge.innerHTML = `
+        <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+        <span class="font-semibold text-xs text-slate-200">💾 Stockage Interne</span>
+      `;
+      badge.className = "flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-full text-slate-300 text-xs cursor-pointer transition shadow-sm";
+      badge.title = "Stockage sécurisé dans le navigateur. Cliquez pour choisir un dossier sur votre disque dur.";
+    }
+  }
+
+  /**
+   * Helper to read file as text with encoding fallbacks (UTF-8, ISO-8859-1, Windows-1252)
+   */
+  async readFileAsText(file) {
+    let text = '';
+    try {
+      text = await file.text();
+    } catch (e) {
+      text = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (err) => reject(err);
+        reader.readAsText(file, 'utf-8');
+      });
+    }
+
+    // If text contains ISO-8859-1/Windows-1252 declaration or replacement characters, re-read with iso-8859-1
+    if (text && (
+      text.includes('encoding="ISO-8859-1"') || 
+      text.includes('encoding="windows-1252"') || 
+      text.includes('encoding="iso-8859-1"') ||
+      text.includes('encoding="latin1"') ||
+      text.includes('\uFFFD')
+    )) {
+      try {
+        const isoText = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = (err) => reject(err);
+          reader.readAsText(file, 'iso-8859-1');
+        });
+        if (isoText && !isoText.includes('\uFFFD')) {
+          return isoText;
+        }
+      } catch (e) {}
+    }
+
+    return text;
+  }
+
+  /**
+   * Handle Multi-file Upload (Instant Parse + Auto-Save + Auto-Radius Expansion)
+   */
+  async handleFilesUploaded(files) {
+    const fileList = Array.from(files);
+    if (fileList.length === 0) return;
+
+    this.showToast(`Analyse de ${fileList.length} fichier(s)...`, "info");
+
+    const origin = (window.MapManagerInstance && window.MapManagerInstance.searchOrigin) 
+      ? window.MapManagerInstance.searchOrigin 
+      : { lat: 43.1189, lon: 5.8033 };
+
+    let maxDistFound = 0;
+    const newHikes = [];
+    const errors = [];
+
+    for (const file of fileList) {
+      try {
+        const text = await this.readFileAsText(file);
+        const hike = GPXParser.parse(text, file.name);
+        const proposedName = await GPXParser.generateProposedName(hike);
+        hike.name = proposedName;
+        hike.proposedName = proposedName;
+
+        // Auto-save immediately to persistent storage
+        await StorageManager.saveHike(hike, text);
+
+        // Auto-push to Supabase Cloud in background if configured
+        try {
+          const cfg = (typeof window.APP_CONFIG !== 'undefined') ? window.APP_CONFIG : {};
+          const supaUrl = localStorage.getItem('sanary_supabase_url') || cfg.supabaseUrl;
+          const supaKey = localStorage.getItem('sanary_supabase_key') || cfg.supabaseKey;
+          if (supaUrl && supaKey) {
+            StorageManager.pushHikeToSupabase(hike, supaUrl, supaKey).catch(e => console.warn("Supabase auto-upload error:", e));
+          }
+        } catch (e) {}
+
+        // Add to main collection
+        const existingIdx = this.allHikes.findIndex(h => h.id === hike.id || (h.name && h.name === hike.name));
+        if (existingIdx >= 0) {
+          this.allHikes[existingIdx] = hike;
+        } else {
+          this.allHikes.unshift(hike);
+        }
+
+        if (hike.startPoint) {
+          const dist = GPXParser.haversineDistance(origin.lat, origin.lon, hike.startPoint.lat, hike.startPoint.lon);
+          if (dist > maxDistFound) maxDistFound = dist;
+        }
+
+        newHikes.push(hike);
+      } catch (err) {
+        console.error(`Erreur lecture ${file.name} :`, err);
+        errors.push(`${file.name}: ${err.message}`);
+      }
+    }
+
+    if (newHikes.length === 0) {
+      const errorDetail = errors.length > 0 ? errors.join("\n") : "Format de fichier non reconnu.";
+      this.showToast(`Échec du chargement : ${errorDetail}`, "error");
+      return;
+    }
+
+    // Auto expand radius if newly added hikes are outside current radius
+    const currentRadius = window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50;
+    if (maxDistFound > currentRadius) {
+      const neededRadius = Math.min(1000, Math.ceil((maxDistFound + 15) / 10) * 10);
+      const radiusSlider = document.getElementById('radius-slider');
+      const radiusDisplay = document.getElementById('radius-display');
+      if (radiusSlider) radiusSlider.value = neededRadius;
+      if (radiusDisplay) radiusDisplay.textContent = `${neededRadius} km`;
+      if (window.MapManagerInstance) {
+        window.MapManagerInstance.setSearchRadius(neededRadius, true);
+      }
+    }
+
+    // Automatically switch to Explorer view and select the first new hike!
+    this.switchTab('explorer');
+    this.applyFiltersAndRender();
+    this.renderManagementList();
+
+    if (newHikes.length > 0) {
+      this.handleHikeSelect(newHikes[0]);
+    }
+
+    this.showToast(`🎉 ${newHikes.length} randonnée(s) ajoutée(s) avec succès !`, "success");
+  }
+
+  /**
+   * Handle Direct GPX Text Paste
+   */
+  async handlePasteGPX() {
+    const textarea = document.getElementById('paste-gpx-text');
+    const nameInput = document.getElementById('paste-gpx-name');
+    if (!textarea) return;
+
+    const rawText = textarea.value.trim();
+    if (!rawText) {
+      this.showToast("Veuillez d'abord coller le texte de votre trace GPX.", "error");
+      return;
+    }
+
+    const customName = nameInput ? nameInput.value.trim() : '';
+
+    try {
+      this.showToast("Analyse de la trace collée...", "info");
+      const hike = GPXParser.parse(rawText, customName ? customName + '.gpx' : 'Randonnee_Collee.gpx');
+      if (customName) {
+        hike.name = customName;
+      } else {
+        const proposedName = await GPXParser.generateProposedName(hike);
+        hike.name = proposedName;
+        hike.proposedName = proposedName;
+      }
+
+      await StorageManager.saveHike(hike, rawText);
+
+      const existingIdx = this.allHikes.findIndex(h => h.id === hike.id || (h.name && h.name === hike.name));
+      if (existingIdx >= 0) {
+        this.allHikes[existingIdx] = hike;
+      } else {
+        this.allHikes.unshift(hike);
+      }
+
+      // Clear input
+      textarea.value = '';
+      if (nameInput) nameInput.value = '';
+
+      // Auto expand radius if needed
+      const origin = (window.MapManagerInstance && window.MapManagerInstance.searchOrigin) 
+        ? window.MapManagerInstance.searchOrigin 
+        : { lat: 43.1189, lon: 5.8033 };
+
+      if (hike.startPoint) {
+        const dist = GPXParser.haversineDistance(origin.lat, origin.lon, hike.startPoint.lat, hike.startPoint.lon);
+        const currentRadius = window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50;
+        if (dist > currentRadius) {
+          const neededRadius = Math.min(1000, Math.ceil((dist + 15) / 10) * 10);
+          const radiusSlider = document.getElementById('radius-slider');
+          const radiusDisplay = document.getElementById('radius-display');
+          if (radiusSlider) radiusSlider.value = neededRadius;
+          if (radiusDisplay) radiusDisplay.textContent = `${neededRadius} km`;
+          if (window.MapManagerInstance) {
+            window.MapManagerInstance.setSearchRadius(neededRadius, true);
+          }
+        }
+      }
+
+      this.switchTab('explorer');
+      this.applyFiltersAndRender();
+      this.renderManagementList();
+      this.handleHikeSelect(hike);
+
+      this.showToast(`🎉 Randonnée « ${hike.name} » ajoutée avec succès !`, "success");
+    } catch (err) {
+      console.error("Erreur paste GPX :", err);
+      this.showToast(`Erreur d'analyse : ${err.message}`, "error");
+    }
+  }
+
+  // =========================================================================
+  // DOWNLOAD MODAL (GPX + PDF)
+  // =========================================================================
+  openDownloadModal(hike) {
+    this.selectedHike = hike;
+    const modal = document.getElementById('download-modal');
+    if (!modal) return;
+
+    document.getElementById('modal-hike-title').textContent = hike.name;
+    document.getElementById('modal-hike-info').textContent = `${hike.distanceKm} km • D+ ${hike.elevationGain}m`;
+    modal.classList.remove('hidden');
+  }
+
+  closeDownloadModal() {
+    const modal = document.getElementById('download-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async executeDownload() {
+    if (!this.selectedHike) return;
+
+    const dlGpx = document.getElementById('opt-download-gpx').checked;
+    const dlPdf = document.getElementById('opt-download-pdf').checked;
+    const incMap = document.getElementById('opt-pdf-map').checked;
+    const incProfile = document.getElementById('opt-pdf-profile').checked;
+    const incNotes = document.getElementById('opt-pdf-notes').checked;
+
+    this.closeDownloadModal();
+
+    if (dlGpx) {
+      const gpxContent = GPXParser.exportToGpxString(this.selectedHike);
+      const blob = new Blob([gpxContent], { type: 'application/gpx+xml;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (this.selectedHike.name || 'randonnee').replace(/[\\/:*?"<>|]/g, '_') + '.gpx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      this.showToast("Fichier GPX téléchargé !", "success");
+    }
+
+    if (dlPdf) {
+      this.showToast("Génération de la Fiche Randonnée PDF...", "info");
+      try {
+        await PDFExporter.exportFichePDF(this.selectedHike, {
+          includeMap: incMap,
+          includeProfile: incProfile,
+          includeNotes: incNotes
+        });
+        this.showToast("Fiche Randonnée PDF téléchargée !", "success");
+      } catch (err) {
+        console.error("Erreur PDF :", err);
+        this.showToast("Erreur lors de la génération du PDF", "error");
+      }
+    }
+  }
+
+  async syncFromServer(url, isSilent = false) {
+    const syncBtn = document.getElementById('btn-sync-server');
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = `<span>⏳</span> Synchronisation...`;
+    }
+
+    try {
+      const count = await StorageManager.syncWithRemoteServer(url);
+      this.allHikes = await StorageManager.getAllHikes();
+      this.applyFiltersAndRender();
+      this.renderManagementList();
+      this.showToast(`🎉 ${count} randonnée(s) synchronisée(s) avec succès depuis le serveur !`, "success");
+    } catch (err) {
+      console.error("Erreur synchronisation serveur :", err);
+      if (!isSilent) {
+        this.showToast(`Erreur serveur : ${err.message}`, "error");
+      }
+    } finally {
+      if (syncBtn) {
+        syncBtn.disabled = false;
+        syncBtn.innerHTML = `<span>🔄</span> Synchroniser`;
+      }
+    }
+  }
+
+  // =========================================================================
+  // SUPABASE CLOUD SYNC & PUSH METHODS
+  // =========================================================================
+  updateSupabaseBadge() {
+    const badge = document.getElementById('supabase-status-badge');
+    if (!badge) return;
+
+    const url = localStorage.getItem('sanary_supabase_url');
+    const key = localStorage.getItem('sanary_supabase_key');
+
+    if (url && key) {
+      badge.textContent = '🟢 Prêt / Configuré';
+      badge.className = 'text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
+    } else {
+      badge.textContent = 'Non configuré';
+      badge.className = 'text-[11px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-600';
+    }
+  }
+
+  async testSupabaseConnection() {
+    const url = (document.getElementById('supabase-url')?.value || '').trim();
+    const key = (document.getElementById('supabase-key')?.value || '').trim();
+
+    if (!url || !key) {
+      this.showToast("Veuillez saisir votre Project URL et votre Clé Anon Supabase.", "error");
+      return;
+    }
+
+    this.showToast("Test de connexion à Supabase en cours...", "info");
+    try {
+      const count = await StorageManager.fetchFromSupabase(url, key);
+      this.showToast(`✅ Connexion réussie à Supabase ! (${count} randonnée(s) trouvée(s) dans la base)`, "success");
+      this.updateSupabaseBadge();
+    } catch (err) {
+      this.showToast(`❌ Erreur connexion Supabase : ${err.message}`, "error");
+    }
+  }
+
+  async syncFromSupabase(isSilent = false) {
+    const url = (document.getElementById('supabase-url')?.value || localStorage.getItem('sanary_supabase_url') || '').trim();
+    const key = (document.getElementById('supabase-key')?.value || localStorage.getItem('sanary_supabase_key') || '').trim();
+
+    if (!url || !key) {
+      if (!isSilent) this.showToast("Veuillez configurer l'URL et la clé Supabase dans les Options.", "error");
+      return;
+    }
+
+    const syncBtn = document.getElementById('btn-sync-supabase');
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = `<span>⏳</span> Connexion Supabase...`;
+    }
+
+    try {
+      const count = await StorageManager.fetchFromSupabase(url, key);
+      this.allHikes = await StorageManager.getAllHikes();
+      this.applyFiltersAndRender();
+      this.renderManagementList();
+      this.updateSupabaseBadge();
+      this.showToast(`⚡ ${count} randonnée(s) synchronisée(s) depuis Supabase Cloud !`, "success");
+    } catch (err) {
+      console.error("Erreur Supabase sync:", err);
+      if (!isSilent) {
+        this.showToast(`Erreur Supabase : ${err.message}`, "error");
+      }
+    } finally {
+      if (syncBtn) {
+        syncBtn.disabled = false;
+        syncBtn.innerHTML = `<span>🔄</span> Synchroniser depuis Supabase`;
+      }
+    }
+  }
+
+  async pushAllToSupabase() {
+    const url = (document.getElementById('supabase-url')?.value || localStorage.getItem('sanary_supabase_url') || '').trim();
+    const key = (document.getElementById('supabase-key')?.value || localStorage.getItem('sanary_supabase_key') || '').trim();
+
+    if (!url || !key) {
+      this.showToast("Veuillez d'abord renseigner l'URL et la clé Anon Supabase.", "error");
+      return;
+    }
+
+    const pushBtn = document.getElementById('btn-push-supabase');
+    if (pushBtn) {
+      pushBtn.disabled = true;
+      pushBtn.innerHTML = `<span>⏳</span> Envoi en cours...`;
+    }
+
+    try {
+      this.showToast("Envoi des randonnées et fichiers GPX vers Supabase...", "info");
+      const result = await StorageManager.pushAllLocalHikesToSupabase(url, key, (current, total, name) => {
+        this.showToast(`Transfert vers Supabase : ${current}/${total} (${name})...`, "info");
+      });
+
+      this.showToast(`🚀 ${result.success}/${result.total} randonnée(s) sauvegardée(s) sur Supabase Cloud !`, "success");
+      this.updateSupabaseBadge();
+    } catch (err) {
+      console.error("Erreur push Supabase:", err);
+      this.showToast(`Erreur d'envoi vers Supabase : ${err.message}`, "error");
+    } finally {
+      if (pushBtn) {
+        pushBtn.disabled = false;
+        pushBtn.innerHTML = `<span>🚀</span> Envoyer mes randos locales vers Supabase`;
+      }
+    }
+  }
+
+  showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.className = `fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 ${
+      type === 'success' ? 'bg-emerald-600 text-white' :
+      type === 'error' ? 'bg-rose-600 text-white' :
+      'bg-slate-900 text-white'
+    }`;
+
+    toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+    setTimeout(() => {
+      toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+    }, 4000);
+  }
+}
+
+// Global bootstrap
+function bootstrapApp() {
+  if (!window.App) {
+    window.App = new AppController();
+    window.App.init();
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrapApp);
+} else {
+  bootstrapApp();
+}
