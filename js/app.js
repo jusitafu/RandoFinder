@@ -197,10 +197,15 @@ class AppController {
 
     console.log(`RandoFinder prêt ! ${this.allHikes.length} randonnées prêtes.`);
 
-    // 9. Lancement de la marche des 3 randonneurs du logo à l'ouverture
-    setTimeout(() => {
-      this.playLogoMarch();
-    }, 350);
+    // 9. Lancement de la marche des 3 randonneurs à l'ouverture (délai clair après affichage complet)
+    const triggerMarch = () => {
+      setTimeout(() => this.playLogoMarch(), 1200);
+    };
+    if (document.readyState === 'complete') {
+      triggerMarch();
+    } else {
+      window.addEventListener('load', triggerMarch, { once: true });
+    }
   }
 
   setupEventListeners() {
@@ -1729,37 +1734,37 @@ class AppController {
     const hikersWrapper = document.getElementById('logo-hikers-wrapper');
 
     if (!frame || !overlay || !staticLogo || !hikersWrapper) return;
-    if (this._isLogoMarching) return;
 
+    // Reset previous timers and allow immediate re-trigger
+    clearTimeout(this._logoMarchTimer);
+    clearTimeout(this._logoMarchEndTimer);
     this._isLogoMarching = true;
 
-    // Reset state & trigger reflow
+    // Force hard animation reset
     frame.classList.remove('logo-march-active');
     hikersWrapper.style.animation = 'none';
     void hikersWrapper.offsetWidth;
     hikersWrapper.style.animation = '';
 
-    // Show animated overlay, hide static base logo
-    overlay.classList.remove('opacity-0');
-    overlay.classList.add('opacity-100');
-    staticLogo.classList.add('opacity-0');
+    // Switch view: show animated overlay, hide static base logo
+    overlay.style.opacity = '1';
+    overlay.style.pointerEvents = 'none';
+    staticLogo.style.opacity = '0';
 
     // Start marching
     frame.classList.add('logo-march-active');
 
-    // When the 3 hikers exit the frame (after 3.5s)
-    clearTimeout(this._logoMarchTimer);
+    // When the 3 hikers exit the frame (after 4.5s)
     this._logoMarchTimer = setTimeout(() => {
       // Revenir au logo tel qu'il est (réapparition fluide du logo d'origine)
-      staticLogo.classList.remove('opacity-0');
-      overlay.classList.remove('opacity-100');
-      overlay.classList.add('opacity-0');
+      staticLogo.style.opacity = '1';
+      overlay.style.opacity = '0';
 
-      setTimeout(() => {
+      this._logoMarchEndTimer = setTimeout(() => {
         frame.classList.remove('logo-march-active');
         this._isLogoMarching = false;
-      }, 350);
-    }, 3500);
+      }, 400);
+    }, 4500);
   }
 }
 
