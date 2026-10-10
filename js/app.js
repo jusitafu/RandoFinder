@@ -253,7 +253,7 @@ class AppController {
       });
     }
 
-    // Search Location Input (Nominatim Autocomplete)
+    // Search Location Input (Worldwide Autocomplete + Enter support)
     const locationInput = document.getElementById('location-input');
     if (locationInput) {
       let debounceTimer = null;
@@ -261,9 +261,27 @@ class AppController {
         clearTimeout(debounceTimer);
         const query = e.target.value.trim();
         if (query.length < 2) return;
-        debounceTimer = setTimeout(() => this.searchPlaces(query), 350);
+        debounceTimer = setTimeout(() => this.searchPlaces(query), 300);
+      });
+
+      locationInput.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const query = e.target.value.trim();
+          if (query) {
+            await this.searchAndSelectFirstPlace(query);
+          }
+        }
       });
     }
+
+    // Fermer l'autocomplétion si clic à l'extérieur
+    document.addEventListener('click', (e) => {
+      const resultsContainer = document.getElementById('location-autocomplete-results');
+      if (resultsContainer && locationInput && !locationInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+        resultsContainer.classList.add('hidden');
+      }
+    });
 
     // Geolocation button "Ma position"
     const geolocBtn = document.getElementById('btn-geoloc');
@@ -282,13 +300,30 @@ class AppController {
       });
     }
 
-    // Quick text search in hikes (Explorer tab)
+    // Recherche synchronisée dans les randonnées (barre du haut & barre au-dessus du tableau)
     const hikeSearchInput = document.getElementById('hike-search-input');
+    const tableFilterInput = document.getElementById('table-filter-input');
+    const btnClearTableFilter = document.getElementById('btn-clear-table-filter');
+
+    const handleSearchInput = (val) => {
+      this.searchQuery = (val || '').trim().toLowerCase();
+      if (hikeSearchInput && hikeSearchInput.value !== val) hikeSearchInput.value = val;
+      if (tableFilterInput && tableFilterInput.value !== val) tableFilterInput.value = val;
+      if (btnClearTableFilter) {
+        if (val) btnClearTableFilter.classList.remove('hidden');
+        else btnClearTableFilter.classList.add('hidden');
+      }
+      this.applyFiltersAndRender();
+    };
+
     if (hikeSearchInput) {
-      hikeSearchInput.addEventListener('input', (e) => {
-        this.searchQuery = e.target.value.trim().toLowerCase();
-        this.applyFiltersAndRender();
-      });
+      hikeSearchInput.addEventListener('input', (e) => handleSearchInput(e.target.value));
+    }
+    if (tableFilterInput) {
+      tableFilterInput.addEventListener('input', (e) => handleSearchInput(e.target.value));
+    }
+    if (btnClearTableFilter) {
+      btnClearTableFilter.addEventListener('click', () => handleSearchInput(''));
     }
 
     // Manage tab search input
@@ -654,6 +689,15 @@ class AppController {
       }
     }
 
+    const tableBadge = document.getElementById('table-filtered-badge');
+    if (tableBadge) {
+      if (this.searchQuery) {
+        tableBadge.textContent = `${this.filteredHikes.length} résultat(s)`;
+      } else {
+        tableBadge.textContent = `${this.filteredHikes.length} rando(s)`;
+      }
+    }
+
     const manageCountBadge = document.getElementById('manage-total-count');
     if (manageCountBadge) {
       manageCountBadge.textContent = `${this.allHikes.length} randonnée(s)`;
@@ -819,7 +863,13 @@ class AppController {
     );
 
     const countBadge = document.getElementById('manage-total-count');
-    if (countBadge) countBadge.textContent = `${this.allHikes.length} randonnée(s)`;
+    if (countBadge) {
+      if (query) {
+        countBadge.textContent = `${filtered.length} sur ${this.allHikes.length} randonnée(s)`;
+      } else {
+        countBadge.textContent = `${this.allHikes.length} randonnée(s)`;
+      }
+    }
 
     if (filtered.length === 0) {
       listContainer.innerHTML = `
@@ -1092,15 +1142,57 @@ class AppController {
     }
   }
 
+  async fetchPlacesList(query) {
+    // 1. Photon Komoot API (mondial, ultra-rapide, reconnaît les parcs, sommets, volcans et villes)
+    try {
+      const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8`;
+      const pRes = await fetch(pUrl);
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        if (pData && pData.features && pData.features.length > 0) {
+          return pData.features.map(f => {
+            const props = f.properties || {};
+            const coords = f.geometry ? f.geometry.coordinates : [0, 0];
+            const name = props.name || props.city || '';
+            const details = [props.state, props.country].filter(Boolean).join(', ');
+            const fullName = details ? `${name} (${details})` : name;
+            return {
+              lat: coords[1],
+              lon: coords[0],
+              shortName: name || fullName,
+              displayName: fullName
+            };
+          }).filter(p => p.lat && p.lon);
+        }
+      }
+    } catch (e) {}
+
+    // 2. Nominatim fallback
+    try {
+      const nUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8`;
+      const nRes = await fetch(nUrl, { headers: { 'Accept-Language': 'fr' } });
+      if (nRes.ok) {
+        const nData = await nRes.json();
+        if (nData && nData.length > 0) {
+          return nData.map(p => ({
+            lat: parseFloat(p.lat),
+            lon: parseFloat(p.lon),
+            shortName: (p.display_name || '').split(',')[0],
+            displayName: p.display_name
+          }));
+        }
+      }
+    } catch (e) {}
+
+    return [];
+  }
+
   async searchPlaces(query) {
     const resultsContainer = document.getElementById('location-autocomplete-results');
     if (!resultsContainer) return;
 
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
-      const res = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
-      const places = await res.json();
-
+      const places = await this.fetchPlacesList(query);
       resultsContainer.innerHTML = '';
       if (!places || places.length === 0) {
         resultsContainer.classList.add('hidden');
@@ -1111,20 +1203,35 @@ class AppController {
       places.forEach(place => {
         const item = document.createElement('div');
         item.className = 'p-2.5 hover:bg-emerald-50 cursor-pointer border-b border-slate-100 text-xs text-slate-700 flex items-center gap-2';
-        item.innerHTML = `<span>📍</span> <span>${place.display_name}</span>`;
+        item.innerHTML = `<span>📍</span> <span class="font-medium text-slate-800">${place.displayName}</span>`;
         item.addEventListener('click', () => {
-          const shortName = place.display_name.split(',')[0];
-          document.getElementById('location-input').value = shortName;
-          if (window.MapManagerInstance) {
-            window.MapManagerInstance.setSearchOrigin(parseFloat(place.lat), parseFloat(place.lon), shortName);
-          }
-          resultsContainer.classList.add('hidden');
-          this.applyFiltersAndRender();
+          this.applySelectedPlace(place.lat, place.lon, place.shortName);
         });
         resultsContainer.appendChild(item);
       });
     } catch (e) {
       console.warn("Erreur recherche lieu :", e);
+    }
+  }
+
+  applySelectedPlace(lat, lon, label) {
+    const locationInput = document.getElementById('location-input');
+    const resultsContainer = document.getElementById('location-autocomplete-results');
+    if (locationInput) locationInput.value = label;
+    if (resultsContainer) resultsContainer.classList.add('hidden');
+    if (window.MapManagerInstance) {
+      window.MapManagerInstance.setSearchOrigin(lat, lon, label);
+    }
+    this.applyFiltersAndRender();
+  }
+
+  async searchAndSelectFirstPlace(query) {
+    const places = await this.fetchPlacesList(query);
+    if (places && places.length > 0) {
+      this.applySelectedPlace(places[0].lat, places[0].lon, places[0].shortName);
+      this.showToast(`Point de référence défini : ${places[0].displayName}`, "success");
+    } else {
+      this.showToast(`Aucun lieu mondial trouvé pour "${query}"`, "error");
     }
   }
 
