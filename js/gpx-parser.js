@@ -41,19 +41,21 @@ class GPXParser {
     const metaNameMatch = /<metadata\b[^>]*>[\s\S]*?<name\b[^>]*>([\s\S]*?)<\/name>/i.exec(cleanText);
     const generalNameMatch = /<([a-zA-Z0-9_:-]+:)?name\b[^>]*>([^<]+)<\//i.exec(cleanText);
 
+    const isGenericName = (n) => !n || /^(trail planner map|track|active log|export|randonn[eé]e|route|map|alltrails|visorando|komoot|strava|route\s*\d*|unnamed)$/i.test(n.trim());
+
     if (trkNameMatch && trkNameMatch[1] && trkNameMatch[1].trim()) {
       const extracted = trkNameMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '').trim();
-      if (extracted && !/^(track|active log|export|randonn[eé]e|route)$/i.test(extracted)) {
+      if (extracted && !isGenericName(extracted)) {
         name = extracted;
       }
     } else if (metaNameMatch && metaNameMatch[1] && metaNameMatch[1].trim()) {
       const extracted = metaNameMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '').trim();
-      if (extracted && !/^(track|active log|export|randonn[eé]e|route)$/i.test(extracted)) {
+      if (extracted && !isGenericName(extracted)) {
         name = extracted;
       }
     } else if (generalNameMatch && generalNameMatch[2] && generalNameMatch[2].trim()) {
       const extracted = generalNameMatch[2].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim();
-      if (extracted && !/^(track|active log|export|randonn[eé]e|route)$/i.test(extracted)) {
+      if (extracted && !isGenericName(extracted)) {
         name = extracted;
       }
     }
@@ -357,9 +359,36 @@ class GPXParser {
   /**
    * Fast reverse geocoding to identify starting municipality (1s timeout)
    */
+  /**
+   * Fast worldwide reverse geocoding (Photon Komoot API + Nominatim fallback)
+   */
   static async reverseGeocode(lat, lon) {
+    // 1. Try Photon (fast, worldwide, recognises trails, peaks, nature parks)
+    try {
+      const pController = new AbortController();
+      const pTimeout = setTimeout(() => pController.abort(), 1800);
+      const pRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}`, { signal: pController.signal });
+      clearTimeout(pTimeout);
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        if (pData && pData.features && pData.features.length > 0) {
+          const props = pData.features[0].properties || {};
+          const trailOrPlace = props.name || props.city || props.town || props.village || props.county || '';
+          const country = props.country || '';
+          const isFrance = /france/i.test(country);
+          if (trailOrPlace) {
+            if (!isFrance && country) {
+              return `${country} - ${trailOrPlace}`;
+            }
+            return trailOrPlace;
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 2. Nominatim fallback
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1200);
+    const timeout = setTimeout(() => controller.abort(), 1500);
 
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`;
@@ -375,7 +404,14 @@ class GPXParser {
           const addr = data.address;
           const place = addr.village || addr.town || addr.city || addr.municipality || 
                         addr.hamlet || addr.suburb || addr.county || '';
-          if (place) return place;
+          const country = addr.country || '';
+          const isFrance = /france/i.test(country);
+          if (place) {
+            if (!isFrance && country) {
+              return `${country} - ${place}`;
+            }
+            return place;
+          }
         }
       }
     } catch (e) {
@@ -395,16 +431,30 @@ class GPXParser {
       }
     } catch (e) {}
 
-    if (!placeName) {
-      placeName = (hike.originalName || hike.filename || 'Randonnée')
-        .replace(/\.(gpx|xml|kml|json|geojson|tcx|fit)$/i, '')
-        .replace(/[\\/:*?"<>|]/g, ' ')
-        .replace(/[-_]/g, ' ')
-        .trim();
+    const cleanOriginal = (hike.originalName || hike.filename || '')
+      .replace(/\.(gpx|xml|kml|json|geojson|tcx|fit)$/i, '')
+      .replace(/[\\/:*?"<>|]/g, ' ')
+      .replace(/[-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const isGeneric = (n) => !n || /^(trail planner map|track|active log|export|randonn[eé]e|route|map|alltrails|visorando|komoot|strava|route\s*\d*|unnamed)$/i.test(n.trim());
+
+    let baseName = '';
+    if (!isGeneric(cleanOriginal)) {
+      baseName = cleanOriginal;
+      if (placeName && placeName.includes(' - ')) {
+        const country = placeName.split(' - ')[0];
+        if (!baseName.toLowerCase().includes(country.toLowerCase())) {
+          baseName = `${country} - ${baseName}`;
+        }
+      }
+    } else {
+      baseName = placeName || 'Randonnée';
     }
 
-    const cleanPlace = placeName.replace(/[\\/:*?"<>|]/g, ' ').trim();
-    return `${cleanPlace} - ${hike.distanceKm} km - D+ ${hike.elevationGain}m`;
+    const cleanBase = baseName.replace(/[\\/:*?"<>|]/g, ' ').trim();
+    return `${cleanBase} - ${hike.distanceKm} km - D+ ${hike.elevationGain}m`;
   }
 
   /**
