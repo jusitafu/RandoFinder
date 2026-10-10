@@ -151,20 +151,32 @@ class MapManager {
 
     if (this.searchCircle) {
       this.searchCircle.remove();
+      this.searchCircle = null;
     }
 
-    this.searchCircle = L.circle([this.searchOrigin.lat, this.searchOrigin.lon], {
-      radius: this.searchRadiusKm * 1000,
-      color: '#2563eb',
-      weight: 1.5,
-      dashArray: '5, 5',
-      fillColor: '#3b82f6',
-      fillOpacity: 0.05,
-      interactive: false
-    }).addTo(this.map);
+    if (this.searchRadiusKm < 1000) {
+      this.searchCircle = L.circle([this.searchOrigin.lat, this.searchOrigin.lon], {
+        radius: this.searchRadiusKm * 1000,
+        color: '#2563eb',
+        weight: 1.5,
+        dashArray: '5, 5',
+        fillColor: '#3b82f6',
+        fillOpacity: 0.05,
+        interactive: false
+      }).addTo(this.map);
 
-    if (autoZoom && this.searchCircle) {
-      this.map.fitBounds(this.searchCircle.getBounds(), { padding: [30, 30], maxZoom: 14 });
+      if (autoZoom && this.searchCircle) {
+        this.map.fitBounds(this.searchCircle.getBounds(), { padding: [30, 30], maxZoom: 14 });
+      }
+    } else {
+      // Rayon Monde Entier (1000 km = Toutes les randonnées)
+      if (autoZoom && this.markersLayer && this.markersLayer.getLayers().length > 0) {
+        try {
+          this.map.fitBounds(this.markersLayer.getBounds(), { padding: [40, 40], maxZoom: 6 });
+        } catch (e) {
+          this.map.setView([25, 10], 2);
+        }
+      }
     }
   }
 
@@ -194,19 +206,15 @@ class MapManager {
         haloColor = 'bg-red-500';
       }
 
-      // Marker HTML
+      // Marker HTML - Clean and sharp pin
       const icon = L.divIcon({
         className: 'custom-hike-start-icon',
         html: `
           <div class="relative cursor-pointer -translate-x-1/2 -translate-y-full group">
-            <!-- Pulsing Radar Halo -->
-            <div class="absolute -inset-1.5 rounded-full ${haloColor} opacity-75 hike-pulse-ring pointer-events-none"></div>
-            
             <!-- Pin Body -->
-            <div class="relative ${isSelected ? 'w-8 h-8 scale-110 ring-4 ring-red-400/80 shadow-2xl' : 'w-7 h-7 shadow-lg'} ${colorClass} text-white rounded-full flex items-center justify-center border-2 border-white text-xs font-black transition-transform duration-150 transform group-hover:scale-125">
+            <div class="relative ${isSelected ? 'w-8 h-8 scale-110 ring-4 ring-red-400 shadow-2xl' : 'w-7 h-7 shadow-lg'} ${colorClass} text-white rounded-full flex items-center justify-center border-2 border-white text-xs font-black transition-transform duration-150 transform group-hover:scale-125">
               ▲
             </div>
-            
             <!-- Bottom Anchor Shadow -->
             <div class="w-1.5 h-1.5 bg-slate-900 rounded-full mx-auto -mt-0.5 opacity-80"></div>
           </div>
@@ -318,31 +326,9 @@ class MapManager {
     this.selectedHike = hike;
     this.displayTrack(hike, true);
 
-    // 1. Cercle rouge clignotant & pulsant autour de l'icône de départ
+    // 1. Nettoyage de l'ancien calque de sélection
     if (this.selectionHaloLayer) {
       this.selectionHaloLayer.clearLayers();
-
-      if (hike.startPoint && !isNaN(hike.startPoint.lat) && !isNaN(hike.startPoint.lon)) {
-        const redHaloIcon = L.divIcon({
-          className: 'custom-selected-beacon',
-          html: `
-            <div class="selected-beacon-container">
-              <!-- Ondes radar rouges concentriques clignotantes -->
-              <div class="selected-beacon-wave"></div>
-              <div class="selected-beacon-wave delay"></div>
-              <!-- Halo central rouge intense pulsant -->
-              <div class="selected-beacon-core"></div>
-            </div>
-          `,
-          iconSize: [0, 0]
-        });
-
-        L.marker([hike.startPoint.lat, hike.startPoint.lon], {
-          icon: redHaloIcon,
-          zIndexOffset: 3500,
-          interactive: false
-        }).addTo(this.selectionHaloLayer);
-      }
     }
 
     // 2. Re-render markers so the selected one has highlighted pin styling
