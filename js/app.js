@@ -4,6 +4,11 @@
  * Comprehensive features: Search, Native Upload, Management (Edit ✏️ & Delete 🗑️ with confirmation)
  */
 
+// Échelle de paliers de rayon de recherche (de 10 km à 20 000 km / Monde entier)
+const RADIUS_STEPS = [
+  10, 20, 30, 50, 75, 100, 150, 200, 300, 500, 750, 1000, 2500, 5000, 10000, 20000
+];
+
 class AppController {
   constructor() {
     this.allHikes = [];
@@ -21,6 +26,33 @@ class AppController {
     this.manageSearchQuery = '';
 
     this.pendingUploads = [];
+  }
+
+  getRadiusLabel(km) {
+    if (km >= 20000) return 'Monde entier 🌍';
+    if (km >= 10000) return `${km.toLocaleString('fr-FR')} km (Monde)`;
+    if (km >= 1000) return `${km.toLocaleString('fr-FR')} km`;
+    return `${km} km`;
+  }
+
+  getStepIndexForKm(km) {
+    const idx = RADIUS_STEPS.findIndex(s => s >= km);
+    return idx === -1 ? RADIUS_STEPS.length - 1 : idx;
+  }
+
+  setRadiusStep(stepIndex, autoZoomMap = true) {
+    const idx = Math.max(0, Math.min(RADIUS_STEPS.length - 1, Number(stepIndex)));
+    const km = RADIUS_STEPS[idx];
+    const radiusSlider = document.getElementById('radius-slider');
+    const radiusDisplay = document.getElementById('radius-display');
+
+    if (radiusSlider) radiusSlider.value = idx;
+    if (radiusDisplay) radiusDisplay.textContent = this.getRadiusLabel(km);
+
+    if (window.MapManagerInstance) {
+      window.MapManagerInstance.setSearchRadius(km, autoZoomMap);
+    }
+    this.applyFiltersAndRender();
   }
 
   async init() {
@@ -50,6 +82,29 @@ class AppController {
         window.MapManagerInstance.onHikeSelectCallback = (hike) => this.handleHikeSelect(hike);
         window.MapManagerInstance.onSearchOriginChangeCallback = (origin) => this.handleOriginChange(origin);
         window.MapManagerInstance.onMapBackgroundClickCallback = () => this.deselectHike();
+
+        // Écouteur de zoom carte (molette de la souris sur la carte)
+        window.MapManagerInstance.onMapZoomChangeCallback = (zoom) => {
+          if (zoom <= 5) {
+            // Vue continentale ou mondiale : bascule automatique sur Monde entier
+            if (window.MapManagerInstance.searchRadiusKm < 20000) {
+              this.setRadiusStep(RADIUS_STEPS.length - 1, false);
+            }
+          } else {
+            // Expansion adaptative selon l'étendue visible
+            const origin = window.MapManagerInstance.searchOrigin;
+            const bounds = window.MapManagerInstance.map.getBounds();
+            if (origin && bounds) {
+              const d1 = GPXParser.haversineDistance(origin.lat, origin.lon, bounds.getNorthEast().lat, bounds.getNorthEast().lng);
+              const d2 = GPXParser.haversineDistance(origin.lat, origin.lon, bounds.getSouthWest().lat, bounds.getSouthWest().lng);
+              const visibleRadius = Math.max(d1, d2);
+              if (visibleRadius > window.MapManagerInstance.searchRadiusKm) {
+                const stepIdx = this.getStepIndexForKm(visibleRadius);
+                this.setRadiusStep(stepIdx, false);
+              }
+            }
+          }
+        };
       }
     } catch (e) {
       console.error("Erreur map init :", e);
@@ -160,24 +215,41 @@ class AppController {
       });
     });
 
-    // Distance Radius Slider with immediate map adaptation
+    // Distance Radius Slider with immediate map adaptation and Mouse Wheel support
     const radiusSlider = document.getElementById('radius-slider');
-    const radiusDisplay = document.getElementById('radius-display');
-    if (radiusSlider && radiusDisplay) {
+    const radiusContainer = document.getElementById('radius-container');
+    const btnWorldView = document.getElementById('btn-world-view');
+
+    if (radiusSlider) {
       radiusSlider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        if (val >= 1000) {
-          radiusDisplay.textContent = 'Monde entier 🌍';
-          if (window.MapManagerInstance) {
-            window.MapManagerInstance.setSearchRadius(1000, true);
-          }
+        const stepIdx = parseInt(e.target.value, 10);
+        this.setRadiusStep(stepIdx, true);
+      });
+    }
+
+    // Support de la molette de la souris sur le conteneur du rayon et le slider :
+    // Molette vers le haut = agrandit le rayon jusqu'à 20 000 km (Monde entier)
+    // Molette vers le bas = réduit le rayon jusqu'à 10 km
+    if (radiusContainer) {
+      radiusContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const slider = document.getElementById('radius-slider');
+        if (!slider) return;
+        let currentStep = parseInt(slider.value, 10);
+        if (e.deltaY < 0) {
+          currentStep = Math.min(RADIUS_STEPS.length - 1, currentStep + 1);
         } else {
-          radiusDisplay.textContent = `${val} km`;
-          if (window.MapManagerInstance) {
-            window.MapManagerInstance.setSearchRadius(val, true);
-          }
+          currentStep = Math.max(0, currentStep - 1);
         }
-        this.applyFiltersAndRender();
+        this.setRadiusStep(currentStep, true);
+      }, { passive: false });
+    }
+
+    // Bouton d'accès rapide "Monde entier" (Canada, Chine...)
+    if (btnWorldView) {
+      btnWorldView.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.setRadiusStep(RADIUS_STEPS.length - 1, true);
       });
     }
 
@@ -526,7 +598,7 @@ class AppController {
       ? window.MapManagerInstance.searchRadiusKm 
       : 100;
 
-    const isWorldWide = radius >= 1000;
+    const isWorldWide = radius >= 20000;
 
     this.filteredHikes = (this.allHikes || []).map(hike => {
       const distFromOrigin = hike.startPoint
@@ -575,6 +647,8 @@ class AppController {
         countEl.textContent = `${this.filteredHikes.length} résultat${this.filteredHikes.length > 1 ? 's' : ''} pour "${this.searchQuery}"`;
       } else if (isWorldWide) {
         countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} (Monde entier 🌍)`;
+      } else if (radius >= 1000) {
+        countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} à moins de ${radius.toLocaleString('fr-FR')} km`;
       } else {
         countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} à moins de ${radius} km`;
       }
@@ -800,14 +874,8 @@ class AppController {
           const dist = GPXParser.haversineDistance(origin.lat, origin.lon, hike.startPoint.lat, hike.startPoint.lon);
           const currentRadius = window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50;
           if (dist > currentRadius) {
-            const neededRadius = Math.min(1000, Math.ceil((dist + 15) / 10) * 10);
-            const radiusSlider = document.getElementById('radius-slider');
-            const radiusDisplay = document.getElementById('radius-display');
-            if (radiusSlider) radiusSlider.value = neededRadius;
-            if (radiusDisplay) radiusDisplay.textContent = `${neededRadius} km`;
-            if (window.MapManagerInstance) {
-              window.MapManagerInstance.setSearchRadius(neededRadius, false);
-            }
+            const stepIdx = this.getStepIndexForKm(dist);
+            this.setRadiusStep(stepIdx, false);
           }
         }
 
@@ -1234,14 +1302,8 @@ class AppController {
     // Auto expand radius if newly added hikes are outside current radius
     const currentRadius = window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50;
     if (maxDistFound > currentRadius) {
-      const neededRadius = Math.min(1000, Math.ceil((maxDistFound + 15) / 10) * 10);
-      const radiusSlider = document.getElementById('radius-slider');
-      const radiusDisplay = document.getElementById('radius-display');
-      if (radiusSlider) radiusSlider.value = neededRadius;
-      if (radiusDisplay) radiusDisplay.textContent = `${neededRadius} km`;
-      if (window.MapManagerInstance) {
-        window.MapManagerInstance.setSearchRadius(neededRadius, true);
-      }
+      const stepIdx = this.getStepIndexForKm(maxDistFound);
+      this.setRadiusStep(stepIdx, true);
     }
 
     // Automatically switch to Explorer view and select the first new hike!
@@ -1305,14 +1367,8 @@ class AppController {
         const dist = GPXParser.haversineDistance(origin.lat, origin.lon, hike.startPoint.lat, hike.startPoint.lon);
         const currentRadius = window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50;
         if (dist > currentRadius) {
-          const neededRadius = Math.min(1000, Math.ceil((dist + 15) / 10) * 10);
-          const radiusSlider = document.getElementById('radius-slider');
-          const radiusDisplay = document.getElementById('radius-display');
-          if (radiusSlider) radiusSlider.value = neededRadius;
-          if (radiusDisplay) radiusDisplay.textContent = `${neededRadius} km`;
-          if (window.MapManagerInstance) {
-            window.MapManagerInstance.setSearchRadius(neededRadius, true);
-          }
+          const stepIdx = this.getStepIndexForKm(dist);
+          this.setRadiusStep(stepIdx, true);
         }
       }
 
