@@ -98,3 +98,37 @@ html, body {
 .tab-content.hidden {
   display: none !important;
 }
+
+/* Animated Marching Logo */
+@keyframes hikers-forward-march {
+  0% {
+    left: 0%;
+  }
+  100% {
+    left: 105%;
+  }
+}
+
+@keyframes hikers-step-bob {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-2px) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(0.5px) rotate(0.5deg);
+  }
+  75% {
+    transform: translateY(-2px) rotate(1.5deg);
+  }
+}
+
+.logo-march-active #logo-hikers-wrapper {
+  animation: hikers-forward-march 3.5s linear forwards;
+}
+
+.logo-march-active #logo-hikers-img {
+  animation: hikers-step-bob 0.35s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
