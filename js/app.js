@@ -789,9 +789,9 @@ class AppController {
             <button class="btn-table-delete p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Supprimer cette randonnée">
               🗑️
             </button>
-            <button class="btn-download-hike px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition flex items-center gap-1 ml-1" title="Télécharger / Fiche">
+            <button class="btn-download-hike px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition flex items-center gap-1 ml-1" title="Télécharger GPX / Fiche PDF">
               <span>📥</span>
-              <span class="hidden sm:inline">Options</span>
+              <span class="hidden sm:inline">Télécharger</span>
             </button>
           </div>
         </td>
