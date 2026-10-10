@@ -5,7 +5,7 @@
  */
 
 class StorageManager {
-  static CACHE_KEY = 'sanary_hikes_v12';
+  static CACHE_KEY = 'sanary_hikes_v20';
   static dirHandle = null;
   static dbName = 'RandonneursSanaryensDB';
   static storeName = 'randonnees';
@@ -14,18 +14,43 @@ class StorageManager {
   static isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
   static currentMode = 'browser';
 
+  static FAKE_SAMPLE_IDS = [
+    'sample_cap_sicie',
+    'sample_gros_cerveau',
+    'sample_portissol',
+    'sample_sainte_baume',
+    'sample_calanques',
+    'sample_mont_faron'
+  ];
+
+  static FAKE_SAMPLE_NAMES = [
+    'Six-Fours-les-Plages - Cap Sicié & Notre-Dame du Mai',
+    'Sanary-sur-Mer - Le Gros Cerveau & Fort de la Cride',
+    'Sanary-sur-Mer - Sentier Littoral & Baie de Portissol',
+    "Plan-d'Aups-Sainte-Baume - Crêtes & Grotte Sacrée",
+    'Cassis - Calanques de Port-Pin & En-Vau',
+    'Toulon - Mont Faron & Sentier des Forts'
+  ];
+
+  static isFakeHike(hike) {
+    if (!hike) return true;
+    if (hike.id && (this.FAKE_SAMPLE_IDS.includes(hike.id) || hike.id.startsWith('sample_'))) return true;
+    if (hike.name && this.FAKE_SAMPLE_NAMES.includes(hike.name)) return true;
+    if (hike.points && hike.points.length > 0 && hike.points.length < 5) return true;
+    return false;
+  }
+
   static loadFromLocalStorage() {
     try {
       const allCacheKeys = [
-        'sanary_hikes_v12', 'sanary_hikes_v11', 'sanary_hikes_v10', 'sanary_hikes_v9', 
+        'sanary_hikes_v20', 'sanary_hikes_v15', 'sanary_hikes_v12', 'sanary_hikes_v11', 'sanary_hikes_v10', 'sanary_hikes_v9', 
         'sanary_hikes_v8', 'sanary_hikes_v7', 'sanary_hikes_v6', 'sanary_hikes_cache_v5', 
         'sanary_hikes_cache_v4', 'sanary_hikes_cache_v3', 'sanary_hikes_cache_v2', 'sanary_hikes_cache'
       ];
 
-      const sampleIds = ['sample_cap_sicie', 'sample_gros_cerveau', 'sample_portissol', 'sample_sainte_baume', 'sample_calanques', 'sample_mont_faron'];
       const recoveredCustomHikes = [];
 
-      // Scan all localStorage versions to salvage every user custom hike ever saved
+      // Scan all localStorage versions to salvage every genuine user hike
       for (const k of allCacheKeys) {
         const raw = localStorage.getItem(k);
         if (raw) {
@@ -33,8 +58,7 @@ class StorageManager {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
               for (const h of parsed) {
-                if (h && h.name && !sampleIds.includes(h.id)) {
-                  // If not already in recovered list, keep it!
+                if (h && h.name && !this.isFakeHike(h)) {
                   if (!recoveredCustomHikes.some(existing => existing.id === h.id || existing.name === h.name)) {
                     recoveredCustomHikes.push(h);
                   }
@@ -53,6 +77,7 @@ class StorageManager {
 
   static saveToLocalStorage() {
     try {
+      this.memoryHikes = (this.memoryHikes || []).filter(h => !this.isFakeHike(h));
       localStorage.setItem(this.CACHE_KEY, JSON.stringify(this.memoryHikes));
     } catch (e) {
       console.warn("LocalStorage save warning (Quota exceeded, relying on IndexedDB):", e);
@@ -112,31 +137,35 @@ class StorageManager {
         });
 
         if (idbHikes && idbHikes.length > 0) {
-          const sampleIds = ['sample_cap_sicie', 'sample_gros_cerveau', 'sample_portissol', 'sample_sainte_baume', 'sample_calanques', 'sample_mont_faron'];
           for (const h of idbHikes) {
-            if (h && h.name && !sampleIds.includes(h.id)) {
+            if (h && h.name && !this.isFakeHike(h)) {
               if (!this.memoryHikes.some(m => m.id === h.id || m.name === h.name)) {
                 this.memoryHikes.push(h);
               }
             }
           }
+          // Clean up old sample dummy hikes from IndexedDB
+          try {
+            const delTx = this.db.transaction([this.storeName], 'readwrite');
+            const delStore = delTx.objectStore(this.storeName);
+            for (const sid of this.FAKE_SAMPLE_IDS) {
+              delStore.delete(sid);
+            }
+            for (const h of idbHikes) {
+              if (this.isFakeHike(h)) {
+                delStore.delete(h.id);
+              }
+            }
+          } catch (delErr) {}
         }
       } catch (e) {
         console.warn("IndexedDB read error in init:", e);
       }
     }
 
-    // 3. Ensure official sample hikes are loaded with authentic trail coordinates
-    let sampleHikes = [];
-    if (typeof SampleData !== 'undefined') {
-      sampleHikes = SampleData.getSampleHikes();
-    }
+    // 3. Filter out any obsolete fake sample/demo hikes
+    this.memoryHikes = (this.memoryHikes || []).filter(h => h && h.name && !this.isFakeHike(h));
 
-    // 4. Combine fresh sample hikes with all user custom hikes
-    const sampleIds = ['sample_cap_sicie', 'sample_gros_cerveau', 'sample_portissol', 'sample_sainte_baume', 'sample_calanques', 'sample_mont_faron'];
-    const userCustomHikes = this.memoryHikes.filter(h => h && h.name && !sampleIds.includes(h.id));
-
-    this.memoryHikes = [...sampleHikes, ...userCustomHikes];
     this.saveToLocalStorage();
   }
 
@@ -222,7 +251,18 @@ class StorageManager {
    */
   static async ensureHikeTrackLoaded(hike) {
     if (!hike) return hike;
-    if (hike.points && hike.points.length > 0) return hike;
+    if (hike.points && hike.points.length >= 5) return hike;
+
+    if (hike.rawGpx) {
+      try {
+        const parsed = GPXParser.parse(hike.rawGpx, hike.filename || 'trace.gpx');
+        if (parsed.points && parsed.points.length >= 5) {
+          hike.points = parsed.points;
+          if (!hike.startPoint) hike.startPoint = parsed.startPoint;
+          return hike;
+        }
+      } catch (e) {}
+    }
 
     if (hike.gpxUrl) {
       try {
@@ -230,12 +270,15 @@ class StorageManager {
         if (res.ok) {
           const text = await res.text();
           const parsed = GPXParser.parse(text, hike.filename || 'trace.gpx');
-          hike.points = parsed.points;
-          hike.rawGpx = text;
-          if (!hike.elevationGain && parsed.elevationGain) hike.elevationGain = parsed.elevationGain;
-          if (!hike.elevationLoss && parsed.elevationLoss) hike.elevationLoss = parsed.elevationLoss;
-          if (!hike.minElevation && parsed.minElevation) hike.minElevation = parsed.minElevation;
-          if (!hike.maxElevation && parsed.maxElevation) hike.maxElevation = parsed.maxElevation;
+          if (parsed.points && parsed.points.length >= 5) {
+            hike.points = parsed.points;
+            hike.rawGpx = text;
+            if (!hike.startPoint) hike.startPoint = parsed.startPoint;
+            if (!hike.elevationGain && parsed.elevationGain) hike.elevationGain = parsed.elevationGain;
+            if (!hike.elevationLoss && parsed.elevationLoss) hike.elevationLoss = parsed.elevationLoss;
+            if (!hike.minElevation && parsed.minElevation) hike.minElevation = parsed.minElevation;
+            if (!hike.maxElevation && parsed.maxElevation) hike.maxElevation = parsed.maxElevation;
+          }
         }
       } catch (e) {
         console.warn("Échec chargement trace distante à la demande:", e);
@@ -422,6 +465,7 @@ class StorageManager {
     if (!Array.isArray(rows)) return 0;
 
     let count = 0;
+    const cloudHikes = [];
     for (const row of rows) {
       let hike = {
         id: row.id,
@@ -440,18 +484,28 @@ class StorageManager {
         points: []
       };
 
+      if (this.isFakeHike(hike)) continue;
+
       // If raw GPX is stored directly in DB, parse points immediately
       if (hike.rawGpx && typeof GPXParser !== 'undefined') {
         try {
           const parsed = GPXParser.parse(hike.rawGpx, hike.filename);
-          hike.points = parsed.points;
-          if (!hike.startPoint) hike.startPoint = parsed.startPoint;
+          if (parsed.points && parsed.points.length >= 5) {
+            hike.points = parsed.points;
+            if (!hike.startPoint) hike.startPoint = parsed.startPoint;
+          }
         } catch (e) {}
       }
 
       await this.saveHike(hike, hike.rawGpx);
+      cloudHikes.push(hike);
       count++;
     }
+
+    // Refresh memoryHikes with clean cloud hikes (keeping only genuine user local hikes)
+    const customLocal = (this.memoryHikes || []).filter(h => !cloudHikes.some(c => c.id === h.id || c.name === h.name) && !this.isFakeHike(h));
+    this.memoryHikes = [...cloudHikes, ...customLocal];
+    this.saveToLocalStorage();
 
     return count;
   }
