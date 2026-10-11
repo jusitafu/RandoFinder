@@ -134,3 +134,42 @@ html, body {
   transform-origin: 50% 90%;
   will-change: transform;
 }
+
+/* Auth & Lock Screen UI Styles */
+.pwd-criterion {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.pwd-criterion.valid {
+  color: #059669;
+  font-weight: 600;
+}
+
+.pwd-criterion.valid .criterion-icon::before {
+  content: '✓';
+  color: #059669;
+  font-weight: 800;
+}
+
+.pwd-criterion.invalid .criterion-icon::before {
+  content: '○';
+  color: #94a3b8;
+}
+
+.pwd-eye-btn {
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.pwd-eye-btn:hover {
+  transform: scale(1.1);
+}
+.pwd-eye-btn:active {
+  transform: scale(0.92);
+}
