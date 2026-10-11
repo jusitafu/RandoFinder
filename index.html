@@ -32,7 +32,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/styles.css?v=28">
+  <link rel="stylesheet" href="css/styles.css?v=29">
 </head>
 <body class="h-full flex flex-col bg-slate-50 text-slate-800 antialiased select-none overflow-hidden">
 
@@ -40,67 +40,78 @@
   <!-- HEADER -->
   <!-- ========================================================================= -->
   <header class="bg-slate-900 text-white shadow-lg border-b border-slate-800 z-30 flex-shrink-0">
-    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 sm:gap-4">
-      
-      <!-- Brand / Logo & Titles -->
-      <div class="flex items-center gap-3">
-        <div class="bg-white/95 p-1 rounded-lg shadow-sm flex items-center justify-center">
-          <div id="logo-frame" class="relative overflow-hidden cursor-pointer select-none rounded hover:scale-105 active:scale-95 transition-transform duration-200" title="Les Randonneurs Sanaryens (Cliquez pour faire marcher les randonneurs)">
-            <!-- Logo officiel statique de base -->
-            <img id="app-logo" src="logo.png" alt="Les Randonneurs Sanaryens" class="h-8 sm:h-11 w-auto block object-contain transition-opacity duration-300" style="opacity: 1;">
-            
-            <!-- Calque d'animation de marche à l'ouverture -->
-            <div id="logo-anim-overlay" class="absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-300" style="opacity: 0;">
-              <img src="logo_text.png" class="absolute top-0 bottom-0 right-0 h-full w-[64.583%] object-contain" alt="">
-              <div id="logo-hikers-wrapper" class="absolute top-0 bottom-0 left-0 h-full w-[35.417%]">
-                <img id="logo-hikers-img" src="logo_hikers.png" class="w-full h-full object-contain" alt="">
-              </div>
+    <!-- BANDEAU OFFICIEL SUPÉRIEUR : ÉLARGI AU MAXIMUM DE LA FENÊTRE -->
+    <div class="w-full bg-white border-b border-slate-200/90 py-1.5 sm:py-2.5 px-3 sm:px-6 shadow-sm flex items-center justify-between relative overflow-hidden">
+      <!-- Accent gauche -->
+      <div class="hidden md:flex items-center gap-2 text-slate-700 text-xs font-semibold select-none min-w-[140px]">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-slate-800 font-bold">Sanary-sur-Mer</span>
+        <span class="text-slate-400">•</span>
+        <span class="text-slate-500 text-[11px]">Var (83)</span>
+      </div>
+
+      <!-- LOGO CENTRAL ÉLARGI AVEC ANIMATION DE MARCHE -->
+      <div class="flex-1 flex items-center justify-center min-w-0 px-2">
+        <div id="logo-frame" class="relative overflow-hidden cursor-pointer select-none rounded-xl hover:scale-[1.01] active:scale-[0.99] transition-transform duration-200 inline-flex items-center justify-center" title="Les Randonneurs Sanaryens (Cliquez pour faire marcher les randonneurs)">
+          <!-- Logo officiel grand format -->
+          <img id="app-logo" src="logo.png" alt="Les Randonneurs Sanaryens" class="h-12 sm:h-16 md:h-20 lg:h-22 w-auto max-w-[92vw] block object-contain transition-opacity duration-300" style="opacity: 1;">
+          
+          <!-- Calque d'animation de marche à l'ouverture -->
+          <div id="logo-anim-overlay" class="absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-300 flex items-center justify-center" style="opacity: 0;">
+            <img src="logo_text.png" class="absolute top-0 bottom-0 right-0 h-full w-[64.583%] object-contain" alt="">
+            <div id="logo-hikers-wrapper" class="absolute top-0 bottom-0 left-0 h-full w-[35.417%]">
+              <img id="logo-hikers-img" src="logo_hikers.png" class="w-full h-full object-contain" alt="">
             </div>
           </div>
         </div>
-        <div class="flex flex-col">
-          <div class="flex items-center gap-2">
-            <h1 class="text-base sm:text-xl font-bold tracking-tight text-white">
-              Randonneurs Sanaryens
-            </h1>
-            <span class="inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 tracking-wide uppercase shadow-sm">
-              RandoFinder
-            </span>
-          </div>
-          <span class="text-[10px] sm:text-xs font-normal text-slate-400 tracking-wider">
+      </div>
+
+      <!-- Badge RandoFinder à droite -->
+      <div class="hidden md:flex items-center justify-end min-w-[140px] select-none">
+        <div class="flex flex-col items-end">
+          <span class="inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white tracking-wide uppercase shadow-sm">
+            RandoFinder
+          </span>
+          <span class="text-[10px] font-medium text-slate-500 tracking-wider mt-0.5">
             JLD Apps - 2026
           </span>
         </div>
       </div>
+    </div>
 
+    <!-- BARRE DE NAVIGATION ET CONTRÔLES PLEINE LARGEUR -->
+    <div class="w-full px-3 sm:px-6 py-2 flex items-center justify-between gap-2 sm:gap-4 flex-wrap">
+      
       <!-- Navigation Tabs -->
-      <nav class="flex items-center gap-1.5 sm:gap-2">
-        <button data-tab="explorer" class="tab-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-emerald-700 text-white shadow-sm hover:brightness-110">
+      <nav class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <button data-tab="explorer" class="tab-btn px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-emerald-700 text-white shadow-sm hover:brightness-110">
           <span class="text-base">🔍</span>
           <span>Trouver des randonnées</span>
         </button>
-        <button data-tab="upload" class="tab-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
+        <button data-tab="upload" class="tab-btn px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
           <span class="text-base">📤</span>
           <span>Charger une randonnée</span>
         </button>
-        <button data-tab="manage" class="tab-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
+        <button data-tab="manage" class="tab-btn px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
           <span class="text-base">📁</span>
           <span>Gérer les randonnées</span>
           <span id="manage-total-count" class="hidden md:inline-block px-2 py-0.5 bg-slate-800 text-emerald-300 border border-slate-700 text-[11px] rounded-full font-semibold"></span>
         </button>
-        <button data-tab="settings" class="tab-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
+        <button data-tab="settings" class="tab-btn px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
           <span class="text-base">⚙️</span>
           <span>Options</span>
         </button>
       </nav>
 
-      <!-- Storage Badge / Action Button -->
-      <div class="hidden lg:flex items-center">
-        <button id="storage-badge" onclick="App.switchTab('settings')" class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full text-slate-300 text-xs transition cursor-pointer shadow-sm hover:border-slate-500" title="Cliquez pour gérer le stockage (dossier local sur disque ou sauvegardes)">
-          <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
-          <span class="font-medium text-xs">Stockage interne</span>
-        </button>
-      </div>
+      <!-- Contrôles droits : Stockage & Utilisateur -->
+      <div class="flex items-center gap-2">
+        <!-- Storage Badge / Action Button -->
+        <div class="hidden lg:flex items-center">
+          <button id="storage-badge" onclick="App.switchTab('settings')" class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full text-slate-300 text-xs transition cursor-pointer shadow-sm hover:border-slate-500" title="Cliquez pour gérer le stockage (dossier local sur disque ou sauvegardes)">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+            <span class="font-medium text-xs">Stockage interne</span>
+          </button>
+        </div>
 
       <!-- User Session & Auth Controls -->
       <div id="auth-header-container" class="flex items-center gap-2">
@@ -736,22 +747,21 @@
   <!-- MODAL : ÉCRAN DE VERROUILLAGE / AUTHENTIFICATION (MODE B2 - ACCÈS PRIVÉ) -->
   <!-- ========================================================================= -->
   <div id="login-lock-modal" class="fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md sm:max-w-lg w-full overflow-hidden border border-slate-700 animate-in fade-in zoom-in-95 duration-200">
       
-      <!-- Top banner with logo -->
-      <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-6 text-center border-b border-emerald-900/60 relative">
-        <div class="w-16 h-16 mx-auto mb-3 bg-white p-1 rounded-2xl shadow-md flex items-center justify-center">
-          <img src="logo.png" alt="Les Randonneurs Sanaryens" class="max-h-full max-w-full object-contain">
+      <!-- Top banner with wide logo -->
+      <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-5 sm:p-6 text-center border-b border-emerald-900/60 relative">
+        <div class="w-full bg-white p-2.5 sm:p-3 rounded-2xl shadow-lg mb-3 flex items-center justify-center">
+          <img src="logo.png" alt="Les Randonneurs Sanaryens" class="w-auto h-14 sm:h-18 max-w-full object-contain">
         </div>
-        <h2 class="text-lg font-extrabold tracking-tight text-white">Randonneurs Sanaryens</h2>
-        <div class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black uppercase tracking-wider mt-1.5 shadow-sm">
+        <div class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-sm">
           <span>🔒 RandoFinder • Accès Privé</span>
         </div>
-        <p class="text-xs text-slate-300 mt-2">Veuillez vous identifier pour consulter et explorer les randonnées du club.</p>
+        <p class="text-xs text-slate-300 mt-2">Veuillez vous identifier pour explorer les randonnées du club.</p>
       </div>
 
-      <!-- Login Form -->
-      <form id="form-login" class="p-6 space-y-4" onsubmit="event.preventDefault(); App.handleLoginSubmit();">
+      <!-- Login Form compatible Google Password Manager -->
+      <form id="form-login" action="#" method="post" autocomplete="on" class="p-6 space-y-4" onsubmit="event.preventDefault(); App.handleLoginSubmit();">
         <!-- Error Banner -->
         <div id="login-error-msg" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2">
           <span>⚠️</span>
@@ -764,7 +774,7 @@
           </label>
           <div class="relative">
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">👤</span>
-            <input type="text" id="login-username" autocomplete="username" placeholder="ex: admin" required
+            <input type="text" id="login-username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="ex: admin ou Jean-Michel Populaire" required
               class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
           </div>
         </div>
@@ -775,15 +785,15 @@
           </label>
           <div class="relative">
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">🔑</span>
-            <input type="password" id="login-password" autocomplete="current-password" placeholder="Votre mot de passe..." required
+            <input type="password" id="login-password" name="password" autocomplete="current-password" placeholder="Votre mot de passe..." required
               class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
-            <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" title="Afficher/Masquer le mot de passe" onclick="App.togglePasswordVisibility('login-password', this)">
+            <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer" title="Afficher/Masquer le mot de passe" onclick="App.togglePasswordVisibility('login-password', this)">
               👁️
             </button>
           </div>
         </div>
 
-        <button type="submit" id="btn-login-submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-900/10 transition flex items-center justify-center gap-2">
+        <button type="submit" id="btn-login-submit" name="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-900/10 transition flex items-center justify-center gap-2 cursor-pointer">
           <span>🔓</span>
           <span>Se connecter</span>
         </button>
@@ -895,8 +905,10 @@
         <button onclick="App.closeChangePasswordModal()" class="text-slate-400 hover:text-white p-1 rounded-lg text-lg">✕</button>
       </div>
 
-      <form id="form-change-password" class="p-6 space-y-4" onsubmit="event.preventDefault(); App.handleChangePasswordSubmit();">
-        
+      <form id="form-change-password" action="#" method="post" autocomplete="on" class="p-6 space-y-4" onsubmit="event.preventDefault(); App.handleChangePasswordSubmit();">
+        <!-- Hidden username for Google Password Manager -->
+        <input type="text" id="change-pwd-username" name="username" autocomplete="username" class="hidden" style="display:none;" readonly>
+
         <div id="change-pwd-error" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2">
           <span>⚠️</span>
           <span id="change-pwd-error-text"></span>
@@ -908,7 +920,7 @@
             Mot de passe actuel
           </label>
           <div class="relative">
-            <input type="password" id="change-pwd-current" placeholder="Votre mot de passe actuel..." required
+            <input type="password" id="change-pwd-current" name="current-password" autocomplete="current-password" placeholder="Votre mot de passe actuel..." required
               class="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
             <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" onclick="App.togglePasswordVisibility('change-pwd-current', this)">
               👁️
@@ -922,7 +934,7 @@
             Nouveau mot de passe <span class="text-[11px] font-normal text-slate-400">(8 à 26 caractères)</span>
           </label>
           <div class="relative">
-            <input type="password" id="change-pwd-new" placeholder="Nouveau mot de passe..." required
+            <input type="password" id="change-pwd-new" name="new-password" autocomplete="new-password" placeholder="Nouveau mot de passe..." required
               class="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
               oninput="App.updatePasswordCriteriaCheck('change-pwd-new', 'change-pwd-criteria')">
             <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" onclick="App.togglePasswordVisibility('change-pwd-new', this)">
@@ -957,7 +969,7 @@
             Confirmer le nouveau mot de passe
           </label>
           <div class="relative">
-            <input type="password" id="change-pwd-confirm" placeholder="Confirmez à l'identique..." required
+            <input type="password" id="change-pwd-confirm" name="confirm-password" autocomplete="new-password" placeholder="Confirmez à l'identique..." required
               class="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
             <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" onclick="App.togglePasswordVisibility('change-pwd-confirm', this)">
               👁️
@@ -1164,14 +1176,14 @@
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=28"></script>
-  <script src="js/auth-manager.js?v=28"></script>
-  <script src="js/gpx-parser.js?v=28"></script>
-  <script src="js/sample-data.js?v=28"></script>
-  <script src="js/storage.js?v=28"></script>
-  <script src="js/elevation-profile.js?v=28"></script>
-  <script src="js/map-manager.js?v=28"></script>
-  <script src="js/pdf-exporter.js?v=28"></script>
-  <script src="js/app.js?v=28"></script>
+  <script src="js/config.js?v=29"></script>
+  <script src="js/auth-manager.js?v=29"></script>
+  <script src="js/gpx-parser.js?v=29"></script>
+  <script src="js/sample-data.js?v=29"></script>
+  <script src="js/storage.js?v=29"></script>
+  <script src="js/elevation-profile.js?v=29"></script>
+  <script src="js/map-manager.js?v=29"></script>
+  <script src="js/pdf-exporter.js?v=29"></script>
+  <script src="js/app.js?v=29"></script>
 </body>
 </html>
