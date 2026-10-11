@@ -58,10 +58,20 @@ class AppController {
   async init() {
     console.log("Démarrage de RandoFinder - Randonneurs Sanaryens...");
 
-    // 0. Lancement immédiat de la marche des 3 randonneurs dès l'ouverture de la page
+    // 0. Initialisation de l'authentification et session (Mode B2 - Accès Privé)
+    if (typeof AuthManager !== 'undefined') {
+      try {
+        await AuthManager.init();
+      } catch (err) {
+        console.warn("Erreur AuthManager init :", err);
+      }
+    }
+    this.checkAuthenticationState();
+
+    // 1. Lancement immédiat de la marche des 3 randonneurs dès l'ouverture de la page
     this.playLogoMarch();
 
-    // 1. Setup UI & Event Listeners
+    // 2. Setup UI & Event Listeners
     try {
       this.setupEventListeners();
     } catch (e) {
@@ -350,6 +360,16 @@ class AppController {
       storageBadge.addEventListener('click', () => this.switchTab('settings'));
     }
 
+    // Close user menu dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const userDropdown = document.getElementById('user-menu-dropdown');
+      if (userDropdown && !userDropdown.classList.contains('hidden')) {
+        if (!e.target.closest('#btn-user-badge') && !e.target.closest('#user-menu-dropdown')) {
+          userDropdown.classList.add('hidden');
+        }
+      }
+    });
+
     // Native File Input & Dropzone Setup
     const fileInput = document.getElementById('file-input');
     const dropzone = document.getElementById('upload-dropzone');
@@ -553,6 +573,11 @@ class AppController {
   }
 
   switchTab(tabName) {
+    if (tabName === 'upload' && typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_upload')) {
+      this.showToast("Accès restreint : Vous n'avez pas l'autorisation de charger des randonnées.", "error");
+      return;
+    }
+
     this.currentTab = tabName;
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.querySelectorAll('[data-tab]').forEach(btn => {
@@ -786,12 +811,14 @@ class AppController {
         </td>
         <td class="p-3 text-right whitespace-nowrap">
           <div class="flex items-center justify-end gap-1">
-            <button class="btn-table-edit p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Modifier le nom et les notes">
-              ✏️
-            </button>
-            <button class="btn-table-delete p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Supprimer cette randonnée">
-              🗑️
-            </button>
+            ${(typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit')) ? '' : `
+              <button class="btn-table-edit p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Modifier le nom et les notes">
+                ✏️
+              </button>
+              <button class="btn-table-delete p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Supprimer cette randonnée">
+                🗑️
+              </button>
+            `}
             <button class="btn-download-hike px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition flex items-center gap-1 ml-1" title="Télécharger GPX / Fiche PDF">
               <span>📥</span>
               <span class="hidden sm:inline">Télécharger</span>
@@ -932,6 +959,8 @@ class AppController {
       return;
     }
 
+    const canEdit = (typeof AuthManager === 'undefined' || AuthManager.hasPermission('can_edit'));
+
     filtered.forEach((hike, idx) => {
       const card = document.createElement('div');
       card.className = 'bg-white border border-slate-200 hover:border-emerald-300 rounded-2xl p-4 shadow-sm transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3';
@@ -947,6 +976,7 @@ class AppController {
             <span class="font-medium text-emerald-700">↗️ +${hike.elevationGain}m</span>
             <span>⛰️ ${hike.minElevation}m - ${hike.maxElevation}m</span>
             <span>⏱️ ${hike.estimatedDuration || '3h30'}</span>
+            ${hike.ajoutee_par ? `<span class="text-slate-500 font-medium">👤 Par : <strong class="text-slate-700">${hike.ajoutee_par}</strong></span>` : ''}
           </div>
           ${hike.notes ? `<div class="text-xs text-slate-600 line-clamp-2 mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100 italic">« ${hike.notes} »</div>` : ''}
         </div>
@@ -955,12 +985,14 @@ class AppController {
           <button class="btn-manage-view px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1" title="Voir sur la carte">
             <span>🗺️</span> <span>Voir</span>
           </button>
-          <button class="btn-manage-edit px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Modifier nom et notes">
-            <span>✏️</span> <span>Modifier</span>
-          </button>
-          <button class="btn-manage-delete px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Supprimer">
-            <span>🗑️</span> <span>Supprimer</span>
-          </button>
+          ${canEdit ? `
+            <button class="btn-manage-edit px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Modifier nom et notes">
+              <span>✏️</span> <span>Modifier</span>
+            </button>
+            <button class="btn-manage-delete px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Supprimer">
+              <span>🗑️</span> <span>Supprimer</span>
+            </button>
+          ` : ''}
         </div>
       `;
 
@@ -968,13 +1000,15 @@ class AppController {
         this.showHikeOnMap(hike);
       };
 
-      card.querySelector('.btn-manage-edit').onclick = () => {
-        this.openEditModal(hike);
-      };
+      const editBtn = card.querySelector('.btn-manage-edit');
+      if (editBtn) {
+        editBtn.onclick = () => this.openEditModal(hike);
+      }
 
-      card.querySelector('.btn-manage-delete').onclick = () => {
-        this.openDeleteModal(hike);
-      };
+      const delBtn = card.querySelector('.btn-manage-delete');
+      if (delBtn) {
+        delBtn.onclick = () => this.openDeleteModal(hike);
+      }
 
       listContainer.appendChild(card);
     });
@@ -984,6 +1018,10 @@ class AppController {
   // EDIT MODAL (✏️ Crayon)
   // =========================================================================
   openEditModal(hike) {
+    if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit')) {
+      this.showToast("Accès restreint : Vous n'avez pas l'autorisation de modifier des randonnées.", "error");
+      return;
+    }
     this.hikeToEdit = hike;
     const modal = document.getElementById('edit-hike-modal');
     if (!modal) return;
@@ -1041,6 +1079,10 @@ class AppController {
   // DELETE MODAL (🗑️ Corbeille avec confirmation)
   // =========================================================================
   openDeleteModal(hike) {
+    if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit')) {
+      this.showToast("Accès restreint : Vous n'avez pas l'autorisation de supprimer des randonnées.", "error");
+      return;
+    }
     this.hikeToDelete = hike;
     const modal = document.getElementById('delete-hike-modal');
     if (!modal) return;
@@ -1372,6 +1414,11 @@ class AppController {
    * Handle Multi-file Upload (Instant Parse + Auto-Save + Auto-Radius Expansion)
    */
   async handleFilesUploaded(files) {
+    if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_upload')) {
+      this.showToast("Accès restreint : Vous n'avez pas l'autorisation de charger des randonnées.", "error");
+      return;
+    }
+
     const fileList = Array.from(files);
     if (fileList.length === 0) return;
 
@@ -1392,6 +1439,7 @@ class AppController {
         const proposedName = await GPXParser.generateProposedName(hike);
         hike.name = proposedName;
         hike.proposedName = proposedName;
+        hike.ajoutee_par = (typeof AuthManager !== 'undefined' && AuthManager.getCurrentUser()) ? AuthManager.getCurrentUser().username : 'admin';
 
         // Auto-save immediately to persistent storage
         await StorageManager.saveHike(hike, text);
@@ -1455,6 +1503,11 @@ class AppController {
    * Handle Direct GPX Text Paste
    */
   async handlePasteGPX() {
+    if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_upload')) {
+      this.showToast("Accès restreint : Vous n'avez pas l'autorisation de charger des randonnées.", "error");
+      return;
+    }
+
     const textarea = document.getElementById('paste-gpx-text');
     const nameInput = document.getElementById('paste-gpx-name');
     if (!textarea) return;
@@ -1477,6 +1530,8 @@ class AppController {
         hike.name = proposedName;
         hike.proposedName = proposedName;
       }
+
+      hike.ajoutee_par = (typeof AuthManager !== 'undefined' && AuthManager.getCurrentUser()) ? AuthManager.getCurrentUser().username : 'admin';
 
       await StorageManager.saveHike(hike, rawText);
 
@@ -1714,15 +1769,15 @@ class AppController {
     if (!toast) return;
 
     toast.textContent = message;
-    toast.className = `fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 ${
+    toast.className = `fixed bottom-5 right-5 z-[150] pointer-events-none px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 ${
       type === 'success' ? 'bg-emerald-600 text-white' :
       type === 'error' ? 'bg-rose-600 text-white' :
       'bg-slate-900 text-white'
     }`;
 
-    toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+    toast.classList.remove('opacity-0', 'translate-y-4');
     setTimeout(() => {
-      toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+      toast.classList.add('opacity-0', 'translate-y-4');
     }, 4000);
   }
 
@@ -1764,6 +1819,542 @@ class AppController {
         this._isLogoMarching = false;
       }, 400);
     }, 4500);
+  }
+
+  // =========================================================================
+  // AUTHENTIFICATION & GESTION DES UTILISATEURS (MODE B2 - JLD APPS 2026)
+  // =========================================================================
+
+  checkAuthenticationState() {
+    const lockModal = document.getElementById('login-lock-modal');
+    const authContainer = document.getElementById('auth-header-container');
+    const isAuthed = typeof AuthManager !== 'undefined' && AuthManager.isAuthenticated();
+
+    if (!isAuthed) {
+      if (lockModal) lockModal.classList.remove('hidden');
+      if (authContainer) authContainer.classList.add('opacity-0', 'pointer-events-none');
+      return false;
+    } else {
+      if (lockModal) lockModal.classList.add('hidden');
+      if (authContainer) authContainer.classList.remove('opacity-0', 'pointer-events-none');
+      this.updateAuthHeaderUI();
+      this.applyPermissionGuards();
+      return true;
+    }
+  }
+
+  updateAuthHeaderUI() {
+    const user = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUser() : null;
+    if (!user) return;
+
+    const usernameDisplay = document.getElementById('header-username-display');
+    const roleBadge = document.getElementById('header-role-badge');
+    const dropdownUsername = document.getElementById('dropdown-username-info');
+    const dropdownPerms = document.getElementById('dropdown-permissions-info');
+
+    if (usernameDisplay) usernameDisplay.textContent = user.username;
+    if (roleBadge) {
+      if (user.role === 'admin') {
+        roleBadge.textContent = 'Admin';
+        roleBadge.className = 'px-1.5 py-0.5 bg-emerald-950 text-emerald-300 text-[10px] rounded font-semibold border border-emerald-800';
+      } else {
+        roleBadge.textContent = 'Membre';
+        roleBadge.className = 'px-1.5 py-0.5 bg-slate-800 text-slate-300 text-[10px] rounded font-semibold border border-slate-700';
+      }
+    }
+
+    if (dropdownUsername) {
+      dropdownUsername.textContent = `Connecté : ${user.username} (${user.role === 'admin' ? 'Administrateur' : 'Membre'})`;
+    }
+    if (dropdownPerms) {
+      const perms = [];
+      if (user.role === 'admin' || user.can_upload) perms.push('📤 Upload');
+      if (user.role === 'admin' || user.can_edit) perms.push('✏️ Édition');
+      dropdownPerms.textContent = perms.length > 0 ? `Droits : ${perms.join(', ')}` : 'Droits : Consultation seule';
+    }
+  }
+
+  applyPermissionGuards() {
+    const canUpload = typeof AuthManager !== 'undefined' && AuthManager.hasPermission('can_upload');
+    const isAdmin = typeof AuthManager !== 'undefined' && AuthManager.isAdmin();
+
+    // 1. Onglet Charger
+    const uploadTabBtn = document.querySelector('[data-tab="upload"]');
+    if (uploadTabBtn) {
+      if (!canUpload) {
+        uploadTabBtn.classList.add('opacity-40', 'cursor-not-allowed');
+        uploadTabBtn.title = "Chargement désactivé (Permissions restreintes)";
+      } else {
+        uploadTabBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+        uploadTabBtn.title = "";
+      }
+    }
+
+    // 2. Boutons Admin dans le menu déroulant et modal post-login
+    const adminMenuBtn = document.getElementById('btn-menu-admin-users');
+    if (adminMenuBtn) {
+      adminMenuBtn.classList.toggle('hidden', !isAdmin);
+    }
+    const postLoginAdminBtn = document.getElementById('btn-post-login-manage-users');
+    if (postLoginAdminBtn) {
+      postLoginAdminBtn.classList.toggle('hidden', !isAdmin);
+    }
+
+    // 3. Dropzone
+    const dropzone = document.getElementById('upload-dropzone');
+    if (dropzone) {
+      if (!canUpload) {
+        dropzone.classList.add('pointer-events-none', 'opacity-50');
+      } else {
+        dropzone.classList.remove('pointer-events-none', 'opacity-50');
+      }
+    }
+  }
+
+  toggleUserDropdown() {
+    const dd = document.getElementById('user-menu-dropdown');
+    if (dd) dd.classList.toggle('hidden');
+  }
+
+  closeUserDropdown() {
+    const dd = document.getElementById('user-menu-dropdown');
+    if (dd) dd.classList.add('hidden');
+  }
+
+  togglePasswordVisibility(inputId, btnEl) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (btnEl) btnEl.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      if (btnEl) btnEl.textContent = '👁️';
+    }
+  }
+
+  updatePasswordCriteriaCheck(inputId, criteriaContainerId) {
+    const input = document.getElementById(inputId);
+    const container = document.getElementById(criteriaContainerId);
+    if (!input || !container || typeof AuthManager === 'undefined') return;
+
+    const val = input.value;
+    const res = AuthManager.validatePassword(val);
+
+    const updateEl = (rule, isValid) => {
+      const el = container.querySelector(`[data-rule="${rule}"]`);
+      if (el) {
+        if (isValid) {
+          el.classList.remove('invalid');
+          el.classList.add('valid');
+        } else {
+          el.classList.remove('valid');
+          el.classList.add('invalid');
+        }
+      }
+    };
+
+    updateEl('length', res.lengthOk);
+    updateEl('uppercase', res.uppercaseOk);
+    updateEl('lowercase', res.lowercaseOk);
+    updateEl('number', res.numberOk);
+    updateEl('special', res.specialOk);
+  }
+
+  async handleLoginSubmit() {
+    const userInput = document.getElementById('login-username');
+    const pwdInput = document.getElementById('login-password');
+    const errBox = document.getElementById('login-error-msg');
+    const errText = document.getElementById('login-error-text');
+
+    if (!userInput || !pwdInput) return;
+
+    const username = userInput.value;
+    const password = pwdInput.value;
+
+    if (errBox) errBox.classList.add('hidden');
+
+    const result = await AuthManager.login(username, password);
+    if (!result.success) {
+      if (errBox && errText) {
+        errText.textContent = result.error || "Identifiant ou mot de passe incorrect.";
+        errBox.classList.remove('hidden');
+      }
+      return;
+    }
+
+    // Succès de connexion
+    pwdInput.value = '';
+    this.checkAuthenticationState();
+    this.openPostLoginModal(result);
+    this.showToast(`Bienvenue ${result.user.username} !`, "success");
+  }
+
+  openPostLoginModal(loginResult) {
+    const modal = document.getElementById('post-login-modal');
+    if (!modal) return;
+
+    const user = (loginResult && loginResult.user) || (typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUser() : null);
+    if (!user) return;
+
+    const userSpan = document.getElementById('post-login-username');
+    if (userSpan) userSpan.textContent = user.username;
+
+    const roleSpan = document.getElementById('post-login-role');
+    if (roleSpan) {
+      if (user.role === 'admin') {
+        roleSpan.textContent = 'Administrateur (Tous pouvoirs)';
+        roleSpan.className = 'px-2 py-0.5 rounded-full font-bold text-[11px] bg-emerald-100 text-emerald-800 border border-emerald-300';
+      } else {
+        roleSpan.textContent = 'Membre du club';
+        roleSpan.className = 'px-2 py-0.5 rounded-full font-bold text-[11px] bg-slate-100 text-slate-700 border border-slate-300';
+      }
+    }
+
+    const uploadSpan = document.getElementById('post-login-upload-right');
+    if (uploadSpan) {
+      const allowed = user.role === 'admin' || user.can_upload;
+      uploadSpan.textContent = allowed ? '✅ Autorisé' : '❌ Non autorisé';
+      uploadSpan.className = allowed ? 'font-bold text-emerald-700' : 'font-bold text-slate-400';
+    }
+
+    const editSpan = document.getElementById('post-login-edit-right');
+    if (editSpan) {
+      const allowed = user.role === 'admin' || user.can_edit;
+      editSpan.textContent = allowed ? '✅ Autorisé' : '❌ Non autorisé';
+      editSpan.className = allowed ? 'font-bold text-emerald-700' : 'font-bold text-slate-400';
+    }
+
+    // Avertissement mot de passe admin d'origine
+    const adminWarn = document.getElementById('post-login-admin-warning');
+    if (adminWarn) {
+      adminWarn.classList.toggle('hidden', !(loginResult && loginResult.isInitialAdminPassword));
+    }
+
+    // Bouton de gestion des utilisateurs (Admin uniquement)
+    const adminManageBtn = document.getElementById('btn-post-login-manage-users');
+    if (adminManageBtn) {
+      adminManageBtn.classList.toggle('hidden', user.role !== 'admin');
+    }
+
+    modal.classList.remove('hidden');
+  }
+
+  closePostLoginModal() {
+    const modal = document.getElementById('post-login-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  handleLogout() {
+    if (typeof AuthManager !== 'undefined') {
+      AuthManager.logout();
+    }
+    this.closePostLoginModal();
+    this.closeChangePasswordModal();
+    this.closeUserManagementModal();
+    this.checkAuthenticationState();
+    this.showToast("Vous avez été déconnecté.", "info");
+  }
+
+  openChangePasswordModal() {
+    const modal = document.getElementById('change-password-modal');
+    if (!modal) return;
+
+    const user = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUser() : null;
+    const nameEl = document.getElementById('change-pwd-account-name');
+    if (nameEl && user) nameEl.textContent = user.username;
+
+    // Réinitialiser les champs
+    const curInput = document.getElementById('change-pwd-current');
+    const newInput = document.getElementById('change-pwd-new');
+    const confInput = document.getElementById('change-pwd-confirm');
+    const errBox = document.getElementById('change-pwd-error');
+
+    if (curInput) curInput.value = '';
+    if (newInput) newInput.value = '';
+    if (confInput) confInput.value = '';
+    if (errBox) errBox.classList.add('hidden');
+
+    this.updatePasswordCriteriaCheck('change-pwd-new', 'change-pwd-criteria');
+    modal.classList.remove('hidden');
+  }
+
+  closeChangePasswordModal() {
+    const modal = document.getElementById('change-password-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async handleChangePasswordSubmit() {
+    const curInput = document.getElementById('change-pwd-current');
+    const newInput = document.getElementById('change-pwd-new');
+    const confInput = document.getElementById('change-pwd-confirm');
+    const errBox = document.getElementById('change-pwd-error');
+    const errText = document.getElementById('change-pwd-error-text');
+
+    const user = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUser() : null;
+    if (!user) return;
+
+    if (newInput.value !== confInput.value) {
+      if (errBox && errText) {
+        errText.textContent = "Les deux nouveaux mots de passe ne correspondent pas.";
+        errBox.classList.remove('hidden');
+      }
+      return;
+    }
+
+    const res = await AuthManager.changePassword(user.username, curInput.value, newInput.value);
+    if (!res.success) {
+      if (errBox && errText) {
+        errText.textContent = res.error;
+        errBox.classList.remove('hidden');
+      }
+      return;
+    }
+
+    this.closeChangePasswordModal();
+    this.showToast("🎉 Mot de passe modifié avec succès !", "success");
+  }
+
+  openUserManagementModal() {
+    if (typeof AuthManager === 'undefined' || !AuthManager.isAdmin()) {
+      this.showToast("Accès réservé à l'administrateur.", "error");
+      return;
+    }
+
+    const modal = document.getElementById('user-management-modal');
+    if (!modal) return;
+
+    // Réinitialiser formulaire création
+    const userInp = document.getElementById('new-user-username');
+    const pwdInp = document.getElementById('new-user-password');
+    const upChk = document.getElementById('new-user-can-upload');
+    const edChk = document.getElementById('new-user-can-edit');
+    const errBox = document.getElementById('create-user-error');
+
+    if (userInp) userInp.value = '';
+    if (pwdInp) pwdInp.value = '';
+    if (upChk) upChk.checked = true;
+    if (edChk) edChk.checked = false;
+    if (errBox) errBox.classList.add('hidden');
+
+    this.updatePasswordCriteriaCheck('new-user-password', 'create-user-pwd-criteria');
+    this.renderUsersTable();
+    this.updateSupabaseUsersStatusBadge();
+
+    modal.classList.remove('hidden');
+  }
+
+  closeUserManagementModal() {
+    const modal = document.getElementById('user-management-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  generateTempPasswordForCreation() {
+    if (typeof AuthManager === 'undefined') return;
+    const pwdInp = document.getElementById('new-user-password');
+    if (!pwdInp) return;
+
+    const temp = AuthManager.generateTemporaryPassword();
+    pwdInp.value = temp;
+    pwdInp.type = 'text';
+    this.updatePasswordCriteriaCheck('new-user-password', 'create-user-pwd-criteria');
+    this.showToast(`Mot de passe temporaire généré : ${temp}`, "info");
+  }
+
+  async handleCreateUserSubmit() {
+    const userInp = document.getElementById('new-user-username');
+    const pwdInp = document.getElementById('new-user-password');
+    const upChk = document.getElementById('new-user-can-upload');
+    const edChk = document.getElementById('new-user-can-edit');
+    const errBox = document.getElementById('create-user-error');
+
+    if (!userInp || !pwdInp) return;
+
+    if (errBox) errBox.classList.add('hidden');
+
+    const res = await AuthManager.createUser({
+      username: userInp.value,
+      password: pwdInp.value,
+      can_upload: upChk ? upChk.checked : false,
+      can_edit: edChk ? edChk.checked : false
+    });
+
+    if (!res.success) {
+      if (errBox) {
+        errBox.textContent = res.error;
+        errBox.classList.remove('hidden');
+      }
+      return;
+    }
+
+    userInp.value = '';
+    pwdInp.value = '';
+    this.updatePasswordCriteriaCheck('new-user-password', 'create-user-pwd-criteria');
+    this.renderUsersTable();
+    this.showToast(`✅ Utilisateur « ${res.user.username} » créé avec succès !`, "success");
+  }
+
+  renderUsersTable() {
+    const tbody = document.getElementById('users-table-body');
+    const countBadge = document.getElementById('users-count-badge');
+    if (!tbody || typeof AuthManager === 'undefined') return;
+
+    const users = AuthManager.getAllUsers();
+    if (countBadge) {
+      countBadge.textContent = `${users.length} compte${users.length > 1 ? 's' : ''}`;
+    }
+
+    tbody.innerHTML = '';
+
+    users.forEach(u => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 transition';
+
+      const isAdmin = u.role === 'admin';
+      const canUploadBadge = (isAdmin || u.can_upload) 
+        ? `<span class="px-2 py-0.5 rounded font-bold text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300">📤 Upload</span>`
+        : `<span class="px-2 py-0.5 rounded font-medium text-[10px] bg-slate-100 text-slate-400">📤 Non</span>`;
+
+      const canEditBadge = (isAdmin || u.can_edit)
+        ? `<span class="px-2 py-0.5 rounded font-bold text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300">✏️ Édition</span>`
+        : `<span class="px-2 py-0.5 rounded font-medium text-[10px] bg-slate-100 text-slate-400">✏️ Non</span>`;
+
+      tr.innerHTML = `
+        <td class="py-3 px-4 font-bold text-slate-900">
+          <div class="flex items-center gap-1.5">
+            <span>👤</span>
+            <span>${u.username}</span>
+            ${isAdmin ? '<span class="text-[9px] text-emerald-700 font-extrabold bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-300">Principal</span>' : ''}
+          </div>
+        </td>
+        <td class="py-3 px-3">
+          <span class="px-2 py-0.5 rounded font-bold text-[10px] ${isAdmin ? 'bg-indigo-100 text-indigo-800 border border-indigo-300' : 'bg-slate-100 text-slate-700 border border-slate-200'}">
+            ${isAdmin ? 'Administrateur' : 'Membre'}
+          </span>
+        </td>
+        <td class="py-3 px-3">
+          <div class="flex items-center gap-1.5">
+            ${canUploadBadge}
+            ${canEditBadge}
+          </div>
+        </td>
+        <td class="py-3 px-4 text-right">
+          <div class="flex items-center justify-end gap-1.5">
+            <button class="btn-user-reset-pwd px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition" title="Générer un mot de passe temporaire">
+              🔑 Réinit. MDP
+            </button>
+            ${!isAdmin ? `
+              <button class="btn-user-edit-perms px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-semibold transition" title="Modifier les droits">
+                ⚙️ Droits
+              </button>
+              <button class="btn-user-delete px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-semibold transition" title="Supprimer cet utilisateur">
+                🗑️
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      `;
+
+      tr.querySelector('.btn-user-reset-pwd').onclick = () => this.promptResetUserPassword(u.id, u.username);
+
+      const editPermsBtn = tr.querySelector('.btn-user-edit-perms');
+      if (editPermsBtn) {
+        editPermsBtn.onclick = () => this.promptEditUserPermissions(u);
+      }
+
+      const delBtn = tr.querySelector('.btn-user-delete');
+      if (delBtn) {
+        delBtn.onclick = () => this.confirmDeleteUser(u.id, u.username);
+      }
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  async promptResetUserPassword(userId, username) {
+    if (typeof AuthManager === 'undefined') return;
+    const tempPwd = AuthManager.generateTemporaryPassword();
+    const conf = confirm(`Voulez-vous réinitialiser le mot de passe pour « ${username} » ?\n\nNouveau mot de passe temporaire généré automatiquement :\n${tempPwd}`);
+    if (!conf) return;
+
+    const res = await AuthManager.resetUserPassword(userId, tempPwd);
+    if (res.success) {
+      prompt(`✅ Mot de passe temporaire pour ${username} (Copiez-le avec Ctrl+C puis transmettez-le au membre) :`, tempPwd);
+      this.showToast(`Mot de passe réinitialisé pour « ${username} »`, "success");
+      this.renderUsersTable();
+    } else {
+      this.showToast(`Erreur : ${res.error}`, "error");
+    }
+  }
+
+  async promptEditUserPermissions(user) {
+    if (typeof AuthManager === 'undefined') return;
+    const newUpload = confirm(`Droits pour « ${user.username} » :\n\n1. Autoriser le CHARGEMENT de nouveaux fichiers GPX ?\n\n(OK = Autoriser, Annuler = Refuser)`);
+    const newEdit = confirm(`Droits pour « ${user.username} » :\n\n2. Autoriser l'ÉDITION et SUPPRESSION dans la bibliothèque ?\n\n(OK = Autoriser, Annuler = Refuser)`);
+
+    await AuthManager.updateUserPermissions(user.id, {
+      can_upload: newUpload,
+      can_edit: newEdit
+    });
+
+    this.showToast(`Permissions mises à jour pour « ${user.username} »`, "success");
+    this.renderUsersTable();
+    this.applyPermissionGuards();
+  }
+
+  async confirmDeleteUser(userId, username) {
+    if (typeof AuthManager === 'undefined') return;
+    const conf = confirm(`Êtes-vous certain de vouloir supprimer définitivement le compte utilisateur « ${username} » ?`);
+    if (!conf) return;
+
+    const res = await AuthManager.deleteUser(userId);
+    if (res.success) {
+      this.showToast(`Utilisateur « ${username} » supprimé.`, "info");
+      this.renderUsersTable();
+    } else {
+      this.showToast(`Erreur : ${res.error}`, "error");
+    }
+  }
+
+  copySupabaseSqlScript() {
+    if (typeof AuthManager === 'undefined') return;
+    const sql = AuthManager.getSupabaseTableSQL();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(sql).then(() => {
+        this.showToast("📋 Script SQL Supabase copié dans le presse-papier !", "success");
+      }).catch(() => {
+        prompt("Copiez le script SQL Supabase ci-dessous :", sql);
+      });
+    } else {
+      prompt("Copiez le script SQL Supabase ci-dessous :", sql);
+    }
+  }
+
+  async testAndSyncSupabaseUsers() {
+    if (typeof AuthManager === 'undefined') return;
+    this.showToast("Vérification de la table Supabase app_users...", "info");
+    const ok = await AuthManager.syncFromSupabase();
+    if (ok) {
+      this.showToast("✅ Synchronisation réussie avec la table Cloud Supabase !", "success");
+    } else {
+      this.showToast("ℹ️ Table app_users non trouvée sur Supabase. Mode local actif.", "info");
+    }
+    this.updateSupabaseUsersStatusBadge();
+    this.renderUsersTable();
+  }
+
+  updateSupabaseUsersStatusBadge() {
+    const badge = document.getElementById('supa-users-status');
+    if (!badge || typeof AuthManager === 'undefined') return;
+
+    if (AuthManager.isSupabaseAvailable) {
+      badge.textContent = '🟢 Cloud Supabase Connecté';
+      badge.className = 'px-2 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300';
+    } else {
+      badge.textContent = '💾 Stockage Local Actif';
+      badge.className = 'px-2 py-0.5 rounded-full font-bold text-[10px] bg-slate-200 text-slate-700';
+    }
   }
 }
 
