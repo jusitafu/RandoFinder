@@ -293,27 +293,42 @@ class AuthManager {
     }
 
     const cleanUser = (username || '').trim();
-    if (!cleanUser || cleanUser.length < 3) {
-      return { success: false, error: "Le nom d'utilisateur doit comporter au moins 3 caractères." };
+    if (!cleanUser || cleanUser.length < 2) {
+      return { success: false, error: "Le nom d'utilisateur doit comporter au moins 2 caractères." };
     }
 
-    if (!/^[a-zA-Z0-9_\-\.]+$/.test(cleanUser)) {
-      return { success: false, error: "Le nom d'utilisateur ne peut contenir que des lettres, chiffres, tirets et underscores." };
+    if (cleanUser.length > 50) {
+      return { success: false, error: "Le nom d'utilisateur ne peut pas dépasser 50 caractères." };
+    }
+
+    // Autorise lettres (avec accents français), chiffres, espaces, tirets, apostrophes et underscores
+    if (!/^[\p{L}0-9\s_\-'.]{2,50}$/u.test(cleanUser)) {
+      return { 
+        success: false, 
+        error: "Règle non respectée : Le nom d'utilisateur peut contenir des lettres (avec accents), chiffres, espaces, tirets (-), apostrophes (') et underscores (_)." 
+      };
     }
 
     if (this.users.some(u => u.username.toLowerCase() === cleanUser.toLowerCase())) {
       return { success: false, error: `L'utilisateur « ${cleanUser} » existe déjà.` };
     }
 
-    const val = this.validatePassword(password);
-    if (!val.isValid) {
-      return { success: false, error: val.errors.join(' • ') };
+    const cleanPwd = (password || '').trim();
+    if (!cleanPwd) {
+      return { success: false, error: "Veuillez renseigner un mot de passe temporaire." };
+    }
+
+    // Si le mot de passe est égal au nom d'utilisateur (par défaut club), il est accepté directement.
+    // Sinon, il doit faire au moins 4 caractères (ou satisfaire les critères).
+    const isEqualToUsername = (cleanPwd.toLowerCase() === cleanUser.toLowerCase());
+    if (!isEqualToUsername && cleanPwd.length < 4) {
+      return { success: false, error: "Le mot de passe temporaire doit comporter au moins 4 caractères (ou être identique au nom d'utilisateur)." };
     }
 
     const newUser = {
       id: 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
       username: cleanUser,
-      password_hash: await this.hashPassword(password),
+      password_hash: await this.hashPassword(cleanPwd),
       role: role || 'user',
       can_upload: Boolean(can_upload),
       can_edit: Boolean(can_edit),
@@ -385,10 +400,9 @@ class AuthManager {
       return { success: false, error: "Utilisateur introuvable." };
     }
 
-    const tempPwd = newTempPassword || this.generateTemporaryPassword();
-    const val = this.validatePassword(tempPwd);
-    if (!val.isValid) {
-      return { success: false, error: val.errors.join(' • ') };
+    const tempPwd = (newTempPassword || user.username || this.generateTemporaryPassword()).trim();
+    if (!tempPwd) {
+      return { success: false, error: "Le mot de passe temporaire ne peut pas être vide." };
     }
 
     user.password_hash = await this.hashPassword(tempPwd);
