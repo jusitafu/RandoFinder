@@ -2125,6 +2125,8 @@ class AppController {
     const modal = document.getElementById('user-management-modal');
     if (!modal) return;
 
+    this._customTempPwd = false;
+
     // Réinitialiser formulaire création
     const userInp = document.getElementById('new-user-username');
     const pwdInp = document.getElementById('new-user-password');
@@ -2138,11 +2140,22 @@ class AppController {
     if (edChk) edChk.checked = false;
     if (errBox) errBox.classList.add('hidden');
 
-    this.updatePasswordCriteriaCheck('new-user-password', 'create-user-pwd-criteria');
     this.renderUsersTable();
     this.updateSupabaseUsersStatusBadge();
 
     modal.classList.remove('hidden');
+  }
+
+  handleNewUserUsernameInput(val) {
+    if (this._customTempPwd) return;
+    const pwdInp = document.getElementById('new-user-password');
+    if (pwdInp) {
+      pwdInp.value = val;
+    }
+  }
+
+  onUserTempPasswordEdited() {
+    this._customTempPwd = true;
   }
 
   closeUserManagementModal() {
@@ -2158,7 +2171,7 @@ class AppController {
     const temp = AuthManager.generateTemporaryPassword();
     pwdInp.value = temp;
     pwdInp.type = 'text';
-    this.updatePasswordCriteriaCheck('new-user-password', 'create-user-pwd-criteria');
+    this._customTempPwd = true;
     this.showToast(`Mot de passe temporaire généré : ${temp}`, "info");
   }
 
@@ -2190,7 +2203,7 @@ class AppController {
 
     userInp.value = '';
     pwdInp.value = '';
-    this.updatePasswordCriteriaCheck('new-user-password', 'create-user-pwd-criteria');
+    this._customTempPwd = false;
     this.renderUsersTable();
     this.showToast(`✅ Utilisateur « ${res.user.username} » créé avec succès !`, "success");
   }
@@ -2241,7 +2254,7 @@ class AppController {
         </td>
         <td class="py-3 px-4 text-right">
           <div class="flex items-center justify-end gap-1.5">
-            <button class="btn-user-reset-pwd px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition" title="Générer un mot de passe temporaire">
+            <button class="btn-user-reset-pwd px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition" title="Générer ou définir un mot de passe temporaire">
               🔑 Réinit. MDP
             </button>
             ${!isAdmin ? `
@@ -2274,14 +2287,16 @@ class AppController {
 
   async promptResetUserPassword(userId, username) {
     if (typeof AuthManager === 'undefined') return;
-    const tempPwd = AuthManager.generateTemporaryPassword();
-    const conf = confirm(`Voulez-vous réinitialiser le mot de passe pour « ${username} » ?\n\nNouveau mot de passe temporaire généré automatiquement :\n${tempPwd}`);
-    if (!conf) return;
+    const inputPwd = prompt(
+      `Réinitialisation du mot de passe pour « ${username} ».\n\nMot de passe temporaire proposé par défaut (= nom d'utilisateur) :\n(Conservez-le ou saisissez-en un autre)`,
+      username
+    );
+    if (inputPwd === null) return;
+    const chosenPwd = inputPwd.trim() || username;
 
-    const res = await AuthManager.resetUserPassword(userId, tempPwd);
+    const res = await AuthManager.resetUserPassword(userId, chosenPwd);
     if (res.success) {
-      prompt(`✅ Mot de passe temporaire pour ${username} (Copiez-le avec Ctrl+C puis transmettez-le au membre) :`, tempPwd);
-      this.showToast(`Mot de passe réinitialisé pour « ${username} »`, "success");
+      this.showToast(`Mot de passe réinitialisé pour « ${username} » : ${chosenPwd}`, "success");
       this.renderUsersTable();
     } else {
       this.showToast(`Erreur : ${res.error}`, "error");
