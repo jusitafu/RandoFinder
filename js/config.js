@@ -2,8 +2,7 @@
  * Configuration Globale Centralisée - RandoFinder
  * Les Randonneurs Sanaryens - JLD Apps 2026
  * 
- * Identifiants Cloud Supabase intégrés par défaut
- * Prêt pour l'utilisation et le partage immédiat (Zero-configuration requise)
+ * Identifiants Cloud Supabase & Architecture Multi-Bases
  */
 
 window.APP_CONFIG = {
@@ -16,9 +15,39 @@ window.APP_CONFIG = {
   // Bucket de stockage public pour les fichiers GPX
   storageBucket: 'traces-gpx',
 
-  // Nom de la table PostgreSQL
-  tableName: 'randonnees',
-
   // Synchronisation automatique activée par défaut à l'ouverture
-  autoSync: true
+  autoSync: true,
+
+  // Base active par défaut à la première ouverture
+  defaultDatabase: 'sanaryens',
+
+  // Définition des bases de données disponibles
+  databases: {
+    sanaryens: {
+      id: 'sanaryens',
+      name: 'Randonneurs Sanaryens',
+      label: 'Randonneurs Sanaryens (Base active)',
+      badge: '🌿 Randonneurs Sanaryens',
+      shortName: 'Sanaryens',
+      tableName: 'randonnees_sanaryens',
+      cacheKey: 'sanary_hikes_sanaryens',
+      storeName: 'randonnees_sanaryens',
+      isSanctuary: false,
+      allowSampleData: false,
+      description: 'Base officielle du club (vierge par défaut, ajouts et modifications autorisés)'
+    },
+    jldapps: {
+      id: 'jldapps',
+      name: 'Base JLDApps',
+      label: 'Base JLDApps (Sanctuarisée)',
+      badge: '🔒 Base JLDApps',
+      shortName: 'JLDApps',
+      tableName: 'randonnees',
+      cacheKey: 'sanary_hikes_v20',
+      storeName: 'randonnees',
+      isSanctuary: true,
+      allowSampleData: false,
+      description: 'Base historique sanctuarisée (139 randonnées protégées en lecture seule)'
+    }
+  }
 };
