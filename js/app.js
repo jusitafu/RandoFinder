@@ -1385,8 +1385,16 @@ class AppController {
       this.deselectHike();
 
       // Nettoyer les marqueurs de la carte
-      if (window.MapManagerInstance) {
-        window.MapManagerInstance.clearMarkers();
+      try {
+        if (window.MapManagerInstance) {
+          if (typeof window.MapManagerInstance.clearMarkers === 'function') {
+            window.MapManagerInstance.clearMarkers();
+          } else if (window.MapManagerInstance.markersLayer) {
+            window.MapManagerInstance.markersLayer.clearLayers();
+          }
+        }
+      } catch (mapErr) {
+        console.warn("Nettoyage marqueurs :", mapErr);
       }
 
       // Réactualiser tous les affichages
