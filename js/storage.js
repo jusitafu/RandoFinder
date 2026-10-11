@@ -2,17 +2,50 @@
  * Storage Manager (100% Guaranteed Persistence across LocalStorage, IndexedDB, Disk & Remote Server)
  * Les Randonneurs Sanaryens - RandoFinder - JLD Apps 2026
  * Pure Static & Bulletproof API
+ * 
+ * Multi-Database Partitioning Architecture:
+ * - Base 'sanaryens' (Randonneurs Sanaryens) : Base officielle active par défaut, vierge (0 rando), ajouts et éditions autorisés.
+ * - Base 'jldapps' (Base JLDApps) : Base historique sanctuarisée (139 randos protégées en lecture seule).
  */
 
 class StorageManager {
-  static CACHE_KEY = 'sanary_hikes_v20';
+  static ACTIVE_DB_KEY = 'randofinder_active_db';
   static dirHandle = null;
   static dbName = 'RandonneursSanaryensDB';
-  static storeName = 'randonnees';
+  static storeName = 'randonnees_sanaryens';
   static db = null;
   static memoryHikes = [];
   static isFileSystemSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
   static currentMode = 'browser';
+
+  static DATABASES = {
+    sanaryens: {
+      id: 'sanaryens',
+      name: 'Randonneurs Sanaryens',
+      label: 'Randonneurs Sanaryens (Base active)',
+      badge: '🌿 Randonneurs Sanaryens',
+      shortName: 'Sanaryens',
+      tableName: 'randonnees_sanaryens',
+      cacheKey: 'sanary_hikes_sanaryens',
+      storeName: 'randonnees_sanaryens',
+      isSanctuary: false,
+      allowSampleData: false,
+      description: 'Base officielle du club (vierge par défaut, ajouts et modifications autorisés)'
+    },
+    jldapps: {
+      id: 'jldapps',
+      name: 'Base JLDApps',
+      label: 'Base JLDApps (Sanctuarisée)',
+      badge: '🔒 Base JLDApps',
+      shortName: 'JLDApps',
+      tableName: 'randonnees',
+      cacheKey: 'sanary_hikes_v20',
+      storeName: 'randonnees',
+      isSanctuary: true,
+      allowSampleData: false,
+      description: 'Base historique sanctuarisée (139 randonnées protégées en lecture seule)'
+    }
+  };
 
   static FAKE_SAMPLE_IDS = [
     'sample_cap_sicie',
@@ -40,8 +73,67 @@ class StorageManager {
     return false;
   }
 
+  static getDatabases() {
+    if (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.databases) {
+      return window.APP_CONFIG.databases;
+    }
+    return this.DATABASES;
+  }
+
+  static getActiveDatabaseId() {
+    try {
+      const saved = localStorage.getItem(this.ACTIVE_DB_KEY);
+      if (saved && (saved === 'sanaryens' || saved === 'jldapps')) {
+        return saved;
+      }
+    } catch (e) {}
+    return 'sanaryens'; // Active par défaut
+  }
+
+  static getActiveDatabase() {
+    const dbs = this.getDatabases();
+    const id = this.getActiveDatabaseId();
+    return dbs[id] || dbs['sanaryens'] || this.DATABASES.sanaryens;
+  }
+
+  static isCurrentDatabaseSanctuary() {
+    return this.getActiveDatabase().isSanctuary === true;
+  }
+
+  static async setActiveDatabase(dbId) {
+    if (dbId !== 'sanaryens' && dbId !== 'jldapps') {
+      dbId = 'sanaryens';
+    }
+    try {
+      localStorage.setItem(this.ACTIVE_DB_KEY, dbId);
+    } catch (e) {}
+    this.memoryHikes = [];
+    await this.init();
+    return this.getActiveDatabase();
+  }
+
   static loadFromLocalStorage() {
     try {
+      const activeDb = this.getActiveDatabase();
+
+      if (activeDb.id === 'sanaryens') {
+        // Base Randonneurs Sanaryens : Strictement isolée.
+        // Vierge par défaut, lit uniquement sa propre clé sanary_hikes_sanaryens
+        const raw = localStorage.getItem(activeDb.cacheKey);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              this.memoryHikes = parsed.filter(h => h && h.name && !this.isFakeHike(h));
+              return;
+            }
+          } catch (e) {}
+        }
+        this.memoryHikes = [];
+        return;
+      }
+
+      // Base JLDApps : Lit les 139 randonnées historiques (sanary_hikes_v20 et versions précédentes)
       const allCacheKeys = [
         'sanary_hikes_v20', 'sanary_hikes_v15', 'sanary_hikes_v12', 'sanary_hikes_v11', 'sanary_hikes_v10', 'sanary_hikes_v9', 
         'sanary_hikes_v8', 'sanary_hikes_v7', 'sanary_hikes_v6', 'sanary_hikes_cache_v5', 
@@ -50,7 +142,6 @@ class StorageManager {
 
       const recoveredCustomHikes = [];
 
-      // Scan all localStorage versions to salvage every genuine user hike
       for (const k of allCacheKeys) {
         const raw = localStorage.getItem(k);
         if (raw) {
@@ -77,28 +168,34 @@ class StorageManager {
 
   static saveToLocalStorage() {
     try {
+      const activeDb = this.getActiveDatabase();
       this.memoryHikes = (this.memoryHikes || []).filter(h => !this.isFakeHike(h));
-      localStorage.setItem(this.CACHE_KEY, JSON.stringify(this.memoryHikes));
+      localStorage.setItem(activeDb.cacheKey, JSON.stringify(this.memoryHikes));
     } catch (e) {
       console.warn("LocalStorage save warning (Quota exceeded, relying on IndexedDB):", e);
     }
   }
 
   static async init() {
+    const activeDb = this.getActiveDatabase();
+    this.storeName = activeDb.storeName;
     this.loadFromLocalStorage();
 
-    // 1. Open IndexedDB first to load any hikes stored there
+    // 1. Open IndexedDB (version 10 pour garantir les deux objectStores 'randonnees' et 'randonnees_sanaryens')
     if (typeof window !== 'undefined' && window.indexedDB) {
       try {
         await new Promise((resolve) => {
           let done = false;
-          const req = indexedDB.open(this.dbName, 9);
+          const req = indexedDB.open(this.dbName, 10);
 
           req.onupgradeneeded = (e) => {
             try {
               const db = e.target.result;
-              if (!db.objectStoreNames.contains(this.storeName)) {
-                db.createObjectStore(this.storeName, { keyPath: 'id' });
+              if (!db.objectStoreNames.contains('randonnees')) {
+                db.createObjectStore('randonnees', { keyPath: 'id' });
+              }
+              if (!db.objectStoreNames.contains('randonnees_sanaryens')) {
+                db.createObjectStore('randonnees_sanaryens', { keyPath: 'id' });
               }
             } catch (err) {}
           };
@@ -121,8 +218,8 @@ class StorageManager {
       }
     }
 
-    // 2. Read all hikes from IndexedDB
-    if (this.db) {
+    // 2. Read hikes from active store
+    if (this.db && this.db.objectStoreNames.contains(this.storeName)) {
       try {
         const idbHikes = await new Promise((resolve) => {
           try {
@@ -144,19 +241,6 @@ class StorageManager {
               }
             }
           }
-          // Clean up old sample dummy hikes from IndexedDB
-          try {
-            const delTx = this.db.transaction([this.storeName], 'readwrite');
-            const delStore = delTx.objectStore(this.storeName);
-            for (const sid of this.FAKE_SAMPLE_IDS) {
-              delStore.delete(sid);
-            }
-            for (const h of idbHikes) {
-              if (this.isFakeHike(h)) {
-                delStore.delete(h.id);
-              }
-            }
-          } catch (delErr) {}
         }
       } catch (e) {
         console.warn("IndexedDB read error in init:", e);
@@ -177,6 +261,10 @@ class StorageManager {
   }
 
   static async saveHike(hike, gpxContent = null) {
+    if (this.isCurrentDatabaseSanctuary()) {
+      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule). Basculez sur la base Randonneurs Sanaryens pour enregistrer des parcours.");
+    }
+
     if (!hike.id) {
       hike.id = 'hike_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
     }
@@ -193,7 +281,7 @@ class StorageManager {
     this.saveToLocalStorage();
 
     // 3. Save to IndexedDB if available
-    if (this.db) {
+    if (this.db && this.db.objectStoreNames.contains(this.storeName)) {
       try {
         const tx = this.db.transaction([this.storeName], 'readwrite');
         const store = tx.objectStore(this.storeName);
@@ -221,12 +309,16 @@ class StorageManager {
   }
 
   static async deleteHike(id, filename = null) {
+    if (this.isCurrentDatabaseSanctuary()) {
+      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule). La suppression de randonnées y est interdite.");
+    }
+
     // 1. Remove from memory
     this.memoryHikes = this.memoryHikes.filter(h => h.id !== id);
     this.saveToLocalStorage();
 
     // 2. Remove from IndexedDB
-    if (this.db) {
+    if (this.db && this.db.objectStoreNames.contains(this.storeName)) {
       try {
         const tx = this.db.transaction([this.storeName], 'readwrite');
         const store = tx.objectStore(this.storeName);
@@ -244,6 +336,42 @@ class StorageManager {
     }
 
     return true;
+  }
+
+  /**
+   * Compte les randonnées dans chaque base
+   */
+  static getDatabaseCounts() {
+    let countSanaryens = 0;
+    let countJldapps = 139; // 139 randonnées historiques de la base JLDApps par défaut
+
+    try {
+      const rawSanary = localStorage.getItem('sanary_hikes_sanaryens');
+      if (rawSanary) {
+        const parsed = JSON.parse(rawSanary);
+        if (Array.isArray(parsed)) countSanaryens = parsed.length;
+      }
+    } catch (e) {}
+
+    try {
+      const rawJld = localStorage.getItem('sanary_hikes_v20');
+      if (rawJld) {
+        const parsed = JSON.parse(rawJld);
+        if (Array.isArray(parsed) && parsed.length > 0) countJldapps = parsed.length;
+      }
+    } catch (e) {}
+
+    // Si la base est actuellement active en mémoire, son compte est exact
+    if (this.getActiveDatabaseId() === 'sanaryens') {
+      countSanaryens = this.memoryHikes.length;
+    } else {
+      countJldapps = this.memoryHikes.length;
+    }
+
+    return {
+      sanaryens: countSanaryens,
+      jldapps: countJldapps
+    };
   }
 
   /**
@@ -291,6 +419,10 @@ class StorageManager {
    * Synchronize with Remote Server (Web Server, Cloud Folder, API, GitHub)
    */
   static async syncWithRemoteServer(url) {
+    if (this.isCurrentDatabaseSanctuary()) {
+      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule).");
+    }
+
     if (!url || typeof url !== 'string' || url.trim().length === 0) {
       throw new Error("Veuillez saisir une URL de serveur valide.");
     }
@@ -305,7 +437,6 @@ class StorageManager {
     const contentType = response.headers.get('content-type') || '';
     const baseUrl = cleanUrl.substring(0, cleanUrl.lastIndexOf('/') + 1);
 
-    // If it's direct GPX XML text
     if (cleanUrl.toLowerCase().endsWith('.gpx') || contentType.includes('xml')) {
       const gpxText = await response.text();
       const fileName = cleanUrl.split('/').pop() || 'randonnee_serveur.gpx';
@@ -314,15 +445,12 @@ class StorageManager {
       return 1;
     }
 
-    // If it's JSON
     const data = await response.json();
 
     if (Array.isArray(data)) {
-      // A. Master Catalog or Lightweight Index JSON array of hike objects
       if (data.length > 0 && (data[0].points || data[0].startPoint || data[0].gpxUrl)) {
         for (const hike of data) {
           if (hike) {
-            // Resolve relative gpxUrl if provided
             if (hike.gpxUrl && !hike.gpxUrl.startsWith('http')) {
               hike.gpxUrl = baseUrl + hike.gpxUrl;
             }
@@ -330,9 +458,7 @@ class StorageManager {
             importedCount++;
           }
         }
-      }
-      // B. Array of GPX file URLs / names: ["randonnee1.gpx", "randonnee2.gpx"]
-      else if (data.length > 0 && typeof data[0] === 'string') {
+      } else if (data.length > 0 && typeof data[0] === 'string') {
         for (const item of data) {
           const fileUrl = item.startsWith('http') ? item : baseUrl + item;
           const fileName = item.split('/').pop() || 'trace.gpx';
@@ -410,16 +536,20 @@ class StorageManager {
 
   static async exportBackupJSON() {
     const hikes = await this.getAllHikes();
+    const activeDb = this.getActiveDatabase();
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(hikes, null, 2));
     const a = document.createElement('a');
     a.href = dataStr;
-    a.download = `sauvegarde_randonneurs_sanaryens_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `sauvegarde_${activeDb.shortName.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
   }
 
   static async importBackupJSON(jsonString) {
+    if (this.isCurrentDatabaseSanctuary()) {
+      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule).");
+    }
     const data = JSON.parse(jsonString);
     if (!Array.isArray(data)) throw new Error("Format de fichier invalide.");
     let count = 0;
@@ -437,15 +567,20 @@ class StorageManager {
   // =========================================================================
 
   /**
-   * Fetch all hikes from Supabase Database
+   * Fetch all hikes from Supabase Database for the target database
    */
-  static async fetchFromSupabase(supabaseUrl, anonKey) {
+  static async fetchFromSupabase(supabaseUrl, anonKey, specificDbId = null) {
     if (!supabaseUrl || !anonKey) {
       throw new Error("Veuillez renseigner l'URL Supabase et la clé Anon.");
     }
 
+    const dbs = this.getDatabases();
+    const targetDbId = specificDbId || this.getActiveDatabaseId();
+    const targetDb = dbs[targetDbId] || this.getActiveDatabase();
+    const tableName = targetDb.tableName || 'randonnees';
+
     const cleanUrl = supabaseUrl.replace(/\/+$/, '');
-    const apiUrl = `${cleanUrl}/rest/v1/randonnees?select=*&order=name.asc`;
+    const apiUrl = `${cleanUrl}/rest/v1/${tableName}?select=*&order=name.asc`;
 
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -455,6 +590,12 @@ class StorageManager {
         'Content-Type': 'application/json'
       }
     });
+
+    // Si la table n'existe pas encore sur Supabase (ex: randonnees_sanaryens non encore créée)
+    if (response.status === 404) {
+      console.info(`Table Supabase '${tableName}' non initialisée sur le Cloud. 0 randonnées chargées pour cette base.`);
+      return 0;
+    }
 
     if (!response.ok) {
       const errText = await response.text();
@@ -486,7 +627,6 @@ class StorageManager {
 
       if (this.isFakeHike(hike)) continue;
 
-      // If raw GPX is stored directly in DB, parse points immediately
       if (hike.rawGpx && typeof GPXParser !== 'undefined') {
         try {
           const parsed = GPXParser.parse(hike.rawGpx, hike.filename);
@@ -497,15 +637,26 @@ class StorageManager {
         } catch (e) {}
       }
 
-      await this.saveHike(hike, hike.rawGpx);
       cloudHikes.push(hike);
       count++;
     }
 
-    // Refresh memoryHikes with clean cloud hikes (keeping only genuine user local hikes)
-    const customLocal = (this.memoryHikes || []).filter(h => !cloudHikes.some(c => c.id === h.id || c.name === h.name) && !this.isFakeHike(h));
-    this.memoryHikes = [...cloudHikes, ...customLocal];
-    this.saveToLocalStorage();
+    // Si la table interrogée correspond à la base active, actualiser memoryHikes
+    if (targetDbId === this.getActiveDatabaseId()) {
+      const customLocal = (this.memoryHikes || []).filter(h => !cloudHikes.some(c => c.id === h.id || c.name === h.name) && !this.isFakeHike(h));
+      this.memoryHikes = [...cloudHikes, ...customLocal];
+      this.saveToLocalStorage();
+
+      if (this.db && this.db.objectStoreNames.contains(this.storeName)) {
+        try {
+          const tx = this.db.transaction([this.storeName], 'readwrite');
+          const store = tx.objectStore(this.storeName);
+          for (const h of this.memoryHikes) {
+            store.put(h);
+          }
+        } catch (e) {}
+      }
+    }
 
     return count;
   }
@@ -514,9 +665,15 @@ class StorageManager {
    * Push a single hike and its GPX file to Supabase (Bucket + Table)
    */
   static async pushHikeToSupabase(hike, supabaseUrl, anonKey) {
+    if (this.isCurrentDatabaseSanctuary()) {
+      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule).");
+    }
+
     if (!supabaseUrl || !anonKey) throw new Error("Paramètres Supabase manquants.");
     const cleanUrl = supabaseUrl.replace(/\/+$/, '');
     const key = anonKey.trim();
+    const activeDb = this.getActiveDatabase();
+    const tableName = activeDb.tableName || 'randonnees';
 
     const gpxText = hike.rawGpx || GPXParser.exportToGpxString(hike);
     const cleanFileName = (hike.id || 'rando') + '_' + (hike.name || 'trace').replace(/[\\/:*?"<>|]/g, '_').toLowerCase() + '.gpx';
@@ -544,7 +701,7 @@ class StorageManager {
       console.warn("Storage upload warning (continuation vers DB):", err);
     }
 
-    // 2. Upsert metadata to Supabase DB table 'randonnees'
+    // 2. Upsert metadata to Supabase DB table
     const payload = [{
       id: hike.id || 'hike_' + Date.now(),
       name: hike.name,
@@ -562,7 +719,7 @@ class StorageManager {
       updated_at: new Date().toISOString()
     }];
 
-    const dbRes = await fetch(`${cleanUrl}/rest/v1/randonnees`, {
+    const dbRes = await fetch(`${cleanUrl}/rest/v1/${tableName}`, {
       method: 'POST',
       headers: {
         'apikey': key,
@@ -575,7 +732,7 @@ class StorageManager {
 
     if (!dbRes.ok) {
       const errText = await dbRes.text();
-      throw new Error(`Erreur insertion table Supabase (${dbRes.status}): ${errText}`);
+      throw new Error(`Erreur insertion table Supabase '${tableName}' (${dbRes.status}): ${errText}`);
     }
 
     return true;
@@ -585,6 +742,10 @@ class StorageManager {
    * Push all current local hikes to Supabase Cloud
    */
   static async pushAllLocalHikesToSupabase(supabaseUrl, anonKey, progressCallback = null) {
+    if (this.isCurrentDatabaseSanctuary()) {
+      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule).");
+    }
+
     const hikes = await this.getAllHikes();
     let successCount = 0;
 
@@ -606,12 +767,17 @@ class StorageManager {
    * Delete a hike from Supabase Cloud DB & Storage
    */
   static async deleteFromSupabase(hikeId, supabaseUrl, anonKey) {
+    if (this.isCurrentDatabaseSanctuary()) {
+      return false;
+    }
+
     if (!supabaseUrl || !anonKey) return false;
     const cleanUrl = supabaseUrl.replace(/\/+$/, '');
     const key = anonKey.trim();
+    const tableName = this.getActiveDatabase().tableName || 'randonnees';
 
     try {
-      await fetch(`${cleanUrl}/rest/v1/randonnees?id=eq.${hikeId}`, {
+      await fetch(`${cleanUrl}/rest/v1/${tableName}?id=eq.${hikeId}`, {
         method: 'DELETE',
         headers: {
           'apikey': key,
