@@ -32,7 +32,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/styles.css?v=26">
+  <link rel="stylesheet" href="css/styles.css?v=27">
 </head>
 <body class="h-full flex flex-col bg-slate-50 text-slate-800 antialiased select-none overflow-hidden">
 
@@ -99,6 +99,42 @@
         <button id="storage-badge" onclick="App.switchTab('settings')" class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full text-slate-300 text-xs transition cursor-pointer shadow-sm hover:border-slate-500" title="Cliquez pour gérer le stockage (dossier local sur disque ou sauvegardes)">
           <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
           <span class="font-medium text-xs">Stockage interne</span>
+        </button>
+      </div>
+
+      <!-- User Session & Auth Controls -->
+      <div id="auth-header-container" class="flex items-center gap-2">
+        <div class="relative">
+          <button id="btn-user-badge" onclick="App.toggleUserDropdown()" class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500 rounded-full text-white text-xs transition cursor-pointer shadow-sm" title="Mon compte & Options">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span id="header-username-display" class="font-bold">admin</span>
+            <span id="header-role-badge" class="px-1.5 py-0.5 bg-emerald-950 text-emerald-300 text-[10px] rounded font-semibold border border-emerald-800">Admin</span>
+            <span class="text-[10px] text-slate-400">▾</span>
+          </button>
+          
+          <!-- Dropdown menu -->
+          <div id="user-menu-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 text-slate-800 animate-in fade-in duration-150">
+            <div class="px-4 py-2.5 border-b border-slate-100 text-xs">
+              <div class="font-bold text-slate-900" id="dropdown-username-info">Connecté en tant que admin</div>
+              <div class="text-[11px] text-slate-500 mt-0.5" id="dropdown-permissions-info">Droits complets</div>
+            </div>
+            <button id="btn-menu-change-pwd" onclick="App.openChangePasswordModal(); App.closeUserDropdown();" class="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 flex items-center gap-2 text-slate-700">
+              <span>🔑</span> <span>Changer mon mot de passe</span>
+            </button>
+            <button id="btn-menu-admin-users" onclick="App.openUserManagementModal(); App.closeUserDropdown();" class="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 flex items-center gap-2 text-slate-700">
+              <span>👥</span> <span>Gestion des comptes</span>
+            </button>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button id="btn-menu-logout" onclick="App.handleLogout(); App.closeUserDropdown();" class="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-rose-50 text-rose-600 flex items-center gap-2">
+              <span>🚪</span> <span>Se déconnecter</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Direct Logout button -->
+        <button id="btn-header-logout" onclick="App.handleLogout()" title="Se déconnecter" class="px-2.5 py-1.5 bg-rose-950/70 hover:bg-rose-900 border border-rose-800/80 text-rose-200 hover:text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+          <span>🚪</span>
+          <span class="hidden sm:inline">Déconnexion</span>
         </button>
       </div>
 
@@ -696,17 +732,447 @@
     </div>
   </div>
 
+  <!-- ========================================================================= -->
+  <!-- MODAL : ÉCRAN DE VERROUILLAGE / AUTHENTIFICATION (MODE B2 - ACCÈS PRIVÉ) -->
+  <!-- ========================================================================= -->
+  <div id="login-lock-modal" class="fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Top banner with logo -->
+      <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-6 text-center border-b border-emerald-900/60 relative">
+        <div class="w-16 h-16 mx-auto mb-3 bg-white p-1 rounded-2xl shadow-md flex items-center justify-center">
+          <img src="logo.png" alt="Les Randonneurs Sanaryens" class="max-h-full max-w-full object-contain">
+        </div>
+        <h2 class="text-lg font-extrabold tracking-tight text-white">Randonneurs Sanaryens</h2>
+        <div class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black uppercase tracking-wider mt-1.5 shadow-sm">
+          <span>🔒 RandoFinder • Accès Privé</span>
+        </div>
+        <p class="text-xs text-slate-300 mt-2">Veuillez vous identifier pour consulter et explorer les randonnées du club.</p>
+      </div>
+
+      <!-- Login Form -->
+      <form id="form-login" class="p-6 space-y-4" onsubmit="event.preventDefault(); App.handleLoginSubmit();">
+        <!-- Error Banner -->
+        <div id="login-error-msg" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2">
+          <span>⚠️</span>
+          <span id="login-error-text">Identifiant ou mot de passe incorrect.</span>
+        </div>
+
+        <div>
+          <label for="login-username" class="block text-xs font-bold text-slate-700 mb-1">
+            Nom d'utilisateur
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">👤</span>
+            <input type="text" id="login-username" autocomplete="username" placeholder="ex: admin" required
+              class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+          </div>
+        </div>
+
+        <div>
+          <label for="login-password" class="block text-xs font-bold text-slate-700 mb-1">
+            Mot de passe
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">🔑</span>
+            <input type="password" id="login-password" autocomplete="current-password" placeholder="Votre mot de passe..." required
+              class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+            <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" title="Afficher/Masquer le mot de passe" onclick="App.togglePasswordVisibility('login-password', this)">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" id="btn-login-submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-900/10 transition flex items-center justify-center gap-2">
+          <span>🔓</span>
+          <span>Se connecter</span>
+        </button>
+      </form>
+
+      <div class="bg-slate-50 border-t border-slate-200 px-6 py-3 text-center">
+        <p class="text-[11px] text-slate-400">
+          Accès réservé aux adhérents • Les Randonneurs Sanaryens © 2026
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL : ACCÈS POST-CONNEXION (CHOIX DE DIRECTION) -->
+  <!-- ========================================================================= -->
+  <div id="post-login-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      
+      <div class="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl font-bold">
+            👋
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Connexion réussie !</h3>
+            <p class="text-xs text-slate-300">Bienvenue, <strong id="post-login-username" class="text-emerald-400"></strong></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <!-- User role and rights summary -->
+        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500 font-medium">Rôle du compte :</span>
+            <span id="post-login-role" class="px-2 py-0.5 rounded-full font-bold text-[11px]"></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500 font-medium">Chargement des traces GPX :</span>
+            <span id="post-login-upload-right" class="font-bold"></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500 font-medium">Édition / Suppression GPX :</span>
+            <span id="post-login-edit-right" class="font-bold"></span>
+          </div>
+        </div>
+
+        <!-- Initial admin password advisory notice -->
+        <div id="post-login-admin-warning" class="hidden p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-800 text-xs">
+          <div class="font-bold flex items-center gap-1.5">
+            <span>⚠️</span> <span>Mot de passe d'origine détecté</span>
+          </div>
+          <p class="mt-1 text-[11px] text-amber-700 leading-relaxed">
+            Vous utilisez actuellement le mot de passe initial par défaut (<code class="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold">JLDApps#2026</code>). Pour la sécurité de l'application, nous vous recommandons de le modifier dès maintenant.
+          </p>
+        </div>
+
+        <p class="text-xs text-slate-600 font-medium">Que souhaitez-vous faire ?</p>
+
+        <div class="space-y-2.5">
+          <!-- Button 1: Enter app -->
+          <button id="btn-post-login-enter" onclick="App.closePostLoginModal()" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <span>🗺️</span>
+              <span>Accéder à RandoFinder</span>
+            </span>
+            <span>➔</span>
+          </button>
+
+          <!-- Button 2: Change password -->
+          <button id="btn-post-login-change-pwd" onclick="App.openChangePasswordModal()" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <span>🔑</span>
+              <span>Changer mon mot de passe</span>
+            </span>
+            <span>➔</span>
+          </button>
+
+          <!-- Button 3: User Management (Admin only) -->
+          <button id="btn-post-login-manage-users" onclick="App.openUserManagementModal()" class="hidden w-full py-2.5 px-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <span>👥</span>
+              <span>Gestion des comptes utilisateurs</span>
+            </span>
+            <span>➔</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL : CHANGEMENT DE MOT DE PASSE -->
+  <!-- ========================================================================= -->
+  <div id="change-password-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      
+      <div class="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <span class="text-xl">🔑</span>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white">Changer mon mot de passe</h3>
+            <p class="text-xs text-slate-400">Compte : <strong id="change-pwd-account-name" class="text-emerald-400"></strong></p>
+          </div>
+        </div>
+        <button onclick="App.closeChangePasswordModal()" class="text-slate-400 hover:text-white p-1 rounded-lg text-lg">✕</button>
+      </div>
+
+      <form id="form-change-password" class="p-6 space-y-4" onsubmit="event.preventDefault(); App.handleChangePasswordSubmit();">
+        
+        <div id="change-pwd-error" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2">
+          <span>⚠️</span>
+          <span id="change-pwd-error-text"></span>
+        </div>
+
+        <!-- Ancien mot de passe -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            Mot de passe actuel
+          </label>
+          <div class="relative">
+            <input type="password" id="change-pwd-current" placeholder="Votre mot de passe actuel..." required
+              class="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+            <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" onclick="App.togglePasswordVisibility('change-pwd-current', this)">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <!-- Nouveau mot de passe -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            Nouveau mot de passe <span class="text-[11px] font-normal text-slate-400">(8 à 26 caractères)</span>
+          </label>
+          <div class="relative">
+            <input type="password" id="change-pwd-new" placeholder="Nouveau mot de passe..." required
+              class="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+              oninput="App.updatePasswordCriteriaCheck('change-pwd-new', 'change-pwd-criteria')">
+            <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" onclick="App.togglePasswordVisibility('change-pwd-new', this)">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <!-- Critères de validation visuels en direct -->
+        <div id="change-pwd-criteria" class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+          <div class="text-[11px] font-bold text-slate-600 mb-1">Règles obligatoires de sécurité :</div>
+          <div class="pwd-criterion invalid" data-rule="length">
+            <span class="criterion-icon"></span> <span>8 à 26 caractères</span>
+          </div>
+          <div class="pwd-criterion invalid" data-rule="uppercase">
+            <span class="criterion-icon"></span> <span>Au moins 1 majuscule (A-Z)</span>
+          </div>
+          <div class="pwd-criterion invalid" data-rule="lowercase">
+            <span class="criterion-icon"></span> <span>Au moins 1 minuscule (a-z)</span>
+          </div>
+          <div class="pwd-criterion invalid" data-rule="number">
+            <span class="criterion-icon"></span> <span>Au moins 1 chiffre (0-9)</span>
+          </div>
+          <div class="pwd-criterion invalid" data-rule="special">
+            <span class="criterion-icon"></span> <span>Au moins 1 caractère spécial (!@#$%^&*...)</span>
+          </div>
+        </div>
+
+        <!-- Confirmer le mot de passe -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            Confirmer le nouveau mot de passe
+          </label>
+          <div class="relative">
+            <input type="password" id="change-pwd-confirm" placeholder="Confirmez à l'identique..." required
+              class="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+            <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" onclick="App.togglePasswordVisibility('change-pwd-confirm', this)">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="App.closeChangePasswordModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+            Annuler
+          </button>
+          <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-1.5">
+            <span>💾</span> <span>Enregistrer le mot de passe</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL : GESTION DES COMPTES UTILISATEURS (ADMINISTRATEUR) -->
+  <!-- ========================================================================= -->
+  <div id="user-management-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Header -->
+      <div class="bg-slate-900 text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800 flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl font-bold">
+            👥
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white">Gestion des comptes & Droits d'accès</h3>
+            <p class="text-xs text-slate-400">Création d'utilisateurs, mot de passe temporaire et affectation des permissions</p>
+          </div>
+        </div>
+        <button onclick="App.closeUserManagementModal()" class="text-slate-400 hover:text-white p-1 rounded-lg text-lg">✕</button>
+      </div>
+
+      <!-- Body / Scrollable content -->
+      <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        
+        <!-- SECTION 1 : Formulaire de création d'un utilisateur -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <span>➕</span> <span>Créer un nouvel utilisateur</span>
+            </h4>
+            <span class="text-[11px] text-slate-500">Mot de passe temporaire configurable</span>
+          </div>
+
+          <form id="form-create-user" onsubmit="event.preventDefault(); App.handleCreateUserSubmit();" class="space-y-4">
+            
+            <div id="create-user-error" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Nom d'utilisateur -->
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">
+                  Nom d'utilisateur <span class="text-rose-500">*</span>
+                </label>
+                <input type="text" id="new-user-username" placeholder="ex: jean_dupont" required
+                  class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+                <span class="text-[10px] text-slate-400">Lettres, chiffres, tirets ou underscores</span>
+              </div>
+
+              <!-- Mot de passe temporaire -->
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-xs font-bold text-slate-700">
+                    Mot de passe temporaire <span class="text-rose-500">*</span>
+                  </label>
+                  <button type="button" onclick="App.generateTempPasswordForCreation()" class="text-[11px] text-emerald-700 font-bold hover:underline flex items-center gap-1">
+                    <span>🎲</span> <span>Générer</span>
+                  </button>
+                </div>
+                <div class="relative">
+                  <input type="password" id="new-user-password" placeholder="Mot de passe temporaire..." required
+                    class="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                    oninput="App.updatePasswordCriteriaCheck('new-user-password', 'create-user-pwd-criteria')">
+                  <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" onclick="App.togglePasswordVisibility('new-user-password', this)">
+                    👁️
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Critères de mot de passe en direct -->
+            <div id="create-user-pwd-criteria" class="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+              <div class="text-[11px] font-bold text-slate-600 mb-1">Critères exigés :</div>
+              <div class="pwd-criterion invalid" data-rule="length">
+                <span class="criterion-icon"></span> <span>8 à 26 caractères</span>
+              </div>
+              <div class="pwd-criterion invalid" data-rule="uppercase">
+                <span class="criterion-icon"></span> <span>Au moins 1 majuscule (A-Z)</span>
+              </div>
+              <div class="pwd-criterion invalid" data-rule="lowercase">
+                <span class="criterion-icon"></span> <span>Au moins 1 minuscule (a-z)</span>
+              </div>
+              <div class="pwd-criterion invalid" data-rule="number">
+                <span class="criterion-icon"></span> <span>Au moins 1 chiffre (0-9)</span>
+              </div>
+              <div class="pwd-criterion invalid" data-rule="special">
+                <span class="criterion-icon"></span> <span>Au moins 1 caractère spécial (!@#$%^&*...)</span>
+              </div>
+            </div>
+
+            <!-- Affectation des droits (Cases à cocher) -->
+            <div class="pt-2">
+              <label class="block text-xs font-bold text-slate-700 mb-2">
+                Affectation des droits & Permissions :
+              </label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="flex items-start gap-2.5 p-3 bg-white border border-slate-200 rounded-xl cursor-pointer hover:bg-emerald-50/50 hover:border-emerald-300 transition">
+                  <input type="checkbox" id="new-user-can-upload" checked class="mt-0.5 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+                  <div class="text-xs">
+                    <span class="font-bold text-slate-800 block">📤 Chargement des GPX</span>
+                    <span class="text-slate-500 text-[11px]">Permet d'ajouter de nouveaux fichiers GPX à la collection</span>
+                  </div>
+                </label>
+                <label class="flex items-start gap-2.5 p-3 bg-white border border-slate-200 rounded-xl cursor-pointer hover:bg-emerald-50/50 hover:border-emerald-300 transition">
+                  <input type="checkbox" id="new-user-can-edit" class="mt-0.5 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+                  <div class="text-xs">
+                    <span class="font-bold text-slate-800 block">✏️ Édition des GPX</span>
+                    <span class="text-slate-500 text-[11px]">Permet de modifier les noms, notes ou de supprimer des randos dans l'onglet Gérer</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+              <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-2">
+                <span>➕</span> <span>Créer cet utilisateur</span>
+              </button>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- SECTION 2 : Tableau des utilisateurs existants -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <span>📋</span> <span>Comptes utilisateurs enregistrés</span>
+            </h4>
+            <span id="users-count-badge" class="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs rounded-full font-semibold border border-slate-200">
+              0 utilisateur
+            </span>
+          </div>
+
+          <div class="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-600">
+                <thead class="bg-slate-50 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="py-3 px-4">Utilisateur</th>
+                    <th class="py-3 px-3">Rôle</th>
+                    <th class="py-3 px-3">Droits GPX</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body" class="divide-y divide-slate-100">
+                  <!-- Lignes générées dynamiquement -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3 : Synchronisation Supabase Cloud -->
+        <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50 text-xs space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 font-bold text-slate-800">
+              <span>☁️</span> <span>Synchronisation Cloud Supabase (Multi-appareils)</span>
+            </div>
+            <span id="supa-users-status" class="px-2 py-0.5 rounded-full font-bold text-[10px] bg-slate-200 text-slate-700">Local actif</span>
+          </div>
+          <p class="text-slate-600 text-[11px]">
+            Pour partager les utilisateurs et leurs mots de passe de manière synchronisée sur tous les ordinateurs et téléphones des membres, exécutez le script SQL ci-dessous dans votre console Supabase (<span class="font-semibold text-slate-800">SQL Editor</span>).
+          </p>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="App.copySupabaseSqlScript()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+              <span>📋</span> <span>Copier le script SQL Supabase</span>
+            </button>
+            <button type="button" onclick="App.testAndSyncSupabaseUsers()" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+              <span>🔄</span> <span>Vérifier la synchronisation Cloud</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="bg-slate-50 border-t border-slate-200 p-4 flex justify-end flex-shrink-0">
+        <button onclick="App.closeUserManagementModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-bold transition">
+          Fermer
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Toast Notifications -->
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=26"></script>
-  <script src="js/gpx-parser.js?v=26"></script>
-  <script src="js/sample-data.js?v=26"></script>
-  <script src="js/storage.js?v=26"></script>
-  <script src="js/elevation-profile.js?v=26"></script>
-  <script src="js/map-manager.js?v=26"></script>
-  <script src="js/pdf-exporter.js?v=26"></script>
-  <script src="js/app.js?v=26"></script>
+  <script src="js/config.js?v=27"></script>
+  <script src="js/auth-manager.js?v=27"></script>
+  <script src="js/gpx-parser.js?v=27"></script>
+  <script src="js/sample-data.js?v=27"></script>
+  <script src="js/storage.js?v=27"></script>
+  <script src="js/elevation-profile.js?v=27"></script>
+  <script src="js/map-manager.js?v=27"></script>
+  <script src="js/pdf-exporter.js?v=27"></script>
+  <script src="js/app.js?v=27"></script>
 </body>
 </html>
