@@ -32,7 +32,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/styles.css?v=30">
+  <link rel="stylesheet" href="css/styles.css?v=31">
 </head>
 <body class="h-full flex flex-col bg-slate-50 text-slate-800 antialiased select-none overflow-hidden">
 
@@ -103,8 +103,18 @@
         </button>
       </nav>
 
-      <!-- Contrôles droits : Stockage & Utilisateur -->
-      <div class="flex items-center gap-2">
+      <!-- Contrôles droits : Base, Stockage & Utilisateur -->
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <!-- Sélecteur de Base de Données -->
+        <div class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-full px-2.5 py-1 text-xs shadow-sm transition">
+          <span class="text-sm">🗄️</span>
+          <label for="header-db-selector" class="text-[11px] font-bold text-slate-300 hidden md:inline">Base :</label>
+          <select id="header-db-selector" onchange="App.handleDatabaseChange(this.value)" class="bg-slate-900 text-white font-bold text-xs rounded-lg px-2 py-0.5 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+            <option value="sanaryens">🌿 Randonneurs Sanaryens</option>
+            <option value="jldapps">🔒 Base JLDApps (Sanctuarisée)</option>
+          </select>
+        </div>
+
         <!-- Storage Badge / Action Button -->
         <div class="hidden lg:flex items-center">
           <button id="storage-badge" onclick="App.switchTab('settings')" class="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full text-slate-300 text-xs transition cursor-pointer shadow-sm hover:border-slate-500" title="Cliquez pour gérer le stockage (dossier local sur disque ou sauvegardes)">
@@ -365,6 +375,20 @@
           </p>
         </div>
 
+        <!-- Alerte si base sanctuarisée -->
+        <div id="sanctuary-upload-banner" class="hidden p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-900 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+          <div class="flex items-start sm:items-center gap-3">
+            <span class="text-2xl flex-shrink-0">🔒</span>
+            <div>
+              <div class="font-bold text-xs sm:text-sm">Base JLDApps sanctuarisée (Lecture seule)</div>
+              <div class="text-[11px] sm:text-xs text-amber-800 mt-0.5">L'importation de nouveaux fichiers GPX est verrouillée pour protéger l'historique des 139 randonnées.</div>
+            </div>
+          </div>
+          <button type="button" onclick="App.handleDatabaseChange('sanaryens')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex-shrink-0 shadow-sm">
+            🌿 Basculer sur Randonneurs Sanaryens
+          </button>
+        </div>
+
         <!-- Native Reliable Dropzone with Label -->
         <label for="file-input" id="upload-dropzone" class="block border-2 border-dashed border-emerald-400 hover:border-emerald-600 bg-white hover:bg-emerald-50/60 rounded-3xl p-8 sm:p-12 text-center cursor-pointer transition-all shadow-sm group">
           <input type="file" id="file-input" accept=".gpx,.xml,.kml,.geojson,.json,*" multiple class="hidden">
@@ -445,6 +469,15 @@
           </div>
         </div>
 
+        <!-- Alerte si base sanctuarisée -->
+        <div id="sanctuary-manage-banner" class="hidden p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-900 shadow-sm flex items-start sm:items-center gap-3 animate-in fade-in">
+          <span class="text-2xl flex-shrink-0">🔒</span>
+          <div>
+            <div class="font-bold text-xs sm:text-sm">Base JLDApps sanctuarisée (Consultation seule)</div>
+            <div class="text-[11px] sm:text-xs text-amber-800 mt-0.5">La modification des noms, notes et la suppression de parcours sont désactivées pour protéger l'intégrité de l'historique des 139 randonnées.</div>
+          </div>
+        </div>
+
         <!-- List of Hikes for Management -->
         <div id="manage-hikes-list" class="space-y-3">
           <!-- Injected dynamically -->
@@ -462,6 +495,32 @@
         <div class="text-center space-y-1">
           <h2 class="text-xl sm:text-2xl font-bold text-slate-900">Options & Stockage</h2>
           <p class="text-xs sm:text-sm text-slate-500">Configuration du stockage local et gestion des sauvegardes</p>
+        </div>
+
+        <!-- Carte Choix de la Base de Données -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <div class="flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg">
+                🗄️
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-slate-800">Sélection de la Base de Données</h3>
+                <p class="text-xs text-slate-500">Choisissez la base active pour vos consultations, recherches et chargements</p>
+              </div>
+            </div>
+            
+            <div>
+              <select id="settings-db-selector" onchange="App.handleDatabaseChange(this.value)" class="bg-slate-900 text-white font-bold text-xs sm:text-sm rounded-xl px-3 py-2 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-sm">
+                <option value="sanaryens">🌿 Randonneurs Sanaryens (Active)</option>
+                <option value="jldapps">🔒 Base JLDApps (Sanctuarisée)</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="settings-db-description" class="p-3 bg-slate-50 rounded-xl text-xs text-slate-600 border border-slate-100">
+            <!-- Rempli dynamiquement -->
+          </div>
         </div>
 
         <!-- Storage Mode Card -->
@@ -1014,6 +1073,101 @@
       <!-- Body / Scrollable content -->
       <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
         
+        <!-- SECTION 0 : Gestion & Choix de la Base de Données -->
+        <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm border border-slate-700">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700/80 pb-3">
+            <div>
+              <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                <span>🗄️</span> <span>Base de données active & Partitionnement</span>
+              </h4>
+              <p class="text-xs text-slate-300 mt-0.5">Basculez entre la base officielle du club et la base historique</p>
+            </div>
+            
+            <!-- Sélecteur liste déroulante -->
+            <div class="flex items-center gap-2">
+              <label for="admin-db-selector" class="text-xs font-bold text-emerald-400">Base active :</label>
+              <select id="admin-db-selector" onchange="App.handleDatabaseChange(this.value)" class="bg-slate-950 text-white font-bold text-xs rounded-xl px-3 py-1.5 border border-emerald-500/70 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer shadow-inner">
+                <option value="sanaryens">🌿 Randonneurs Sanaryens (Active)</option>
+                <option value="jldapps">🔒 Base JLDApps (Sanctuarisée)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Cartes comparatives des deux bases -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <!-- Carte 1 : Randonneurs Sanaryens -->
+            <div id="card-db-sanaryens" class="p-3.5 rounded-xl border border-emerald-500/50 bg-emerald-950/40 space-y-2 transition">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-emerald-300 flex items-center gap-1.5">
+                  <span>🌿</span> <span>Randonneurs Sanaryens</span>
+                </span>
+                <span id="badge-status-sanaryens" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-slate-950">Active</span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">
+                Base officielle du club. Démarre vierge (0 rando préchargée). Ajouts, modifications et suppressions autorisés selon les droits des membres.
+              </p>
+              <div class="pt-1 flex items-center justify-between text-[11px] border-t border-emerald-800/60 text-slate-300">
+                <span>Randonnées enregistrées :</span>
+                <span id="count-db-sanaryens" class="font-bold text-white bg-slate-900 px-2 py-0.5 rounded-md border border-slate-700">0 rando</span>
+              </div>
+            </div>
+
+            <!-- Carte 2 : Base JLDApps -->
+            <div id="card-db-jldapps" class="p-3.5 rounded-xl border border-amber-500/30 bg-slate-900/60 space-y-2 transition">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-amber-300 flex items-center gap-1.5">
+                  <span>🔒</span> <span>Base JLDApps</span>
+                </span>
+                <span id="badge-status-jldapps" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">Sanctuarisée</span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">
+                Base historique préservée. Verrouillée en <strong class="text-amber-200">lecture seule</strong> : aucune rando ne peut être effacée ou altérée par mégarde.
+              </p>
+              <div class="pt-1 flex items-center justify-between text-[11px] border-t border-slate-800 text-slate-300">
+                <span>Randonnées historiques :</span>
+                <span id="count-db-jldapps" class="font-bold text-white bg-slate-900 px-2 py-0.5 rounded-md border border-slate-700">139 randos</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Helper script SQL Supabase -->
+          <div class="pt-1">
+            <details class="text-[11px] text-slate-400 group">
+              <summary class="cursor-pointer text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 select-none">
+                <span>⚙️</span> <span>Initialiser la table Cloud Supabase « randonnees_sanaryens » (Facultatif)</span>
+                <span class="text-[10px] text-slate-500 group-open:rotate-180 transition-transform">▾</span>
+              </summary>
+              <div class="mt-2.5 p-3 bg-slate-950 rounded-xl border border-slate-700 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-300">Script SQL à exécuter dans le <strong>SQL Editor</strong> de Supabase :</span>
+                  <button type="button" onclick="navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS randonnees_sanaryens (id TEXT PRIMARY KEY, name TEXT, distance_km NUMERIC, elevation_gain NUMERIC, elevation_loss NUMERIC, min_elevation NUMERIC, max_elevation NUMERIC, start_lat NUMERIC, start_lon NUMERIC, estimated_duration TEXT, notes TEXT, gpx_url TEXT, raw_gpx TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()); ALTER TABLE randonnees_sanaryens ENABLE ROW LEVEL SECURITY; CREATE POLICY \`Public Read/Write\` ON randonnees_sanaryens FOR ALL USING (true) WITH CHECK (true);`); App.showToast('Code SQL copié dans le presse-papier !', 'success');" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition">
+                    📋 Copier le SQL
+                  </button>
+                </div>
+                <pre class="p-2 bg-slate-900 rounded text-[10px] text-emerald-300 overflow-x-auto font-mono">CREATE TABLE IF NOT EXISTS randonnees_sanaryens (
+  id TEXT PRIMARY KEY,
+  name TEXT,
+  distance_km NUMERIC,
+  elevation_gain NUMERIC,
+  elevation_loss NUMERIC,
+  min_elevation NUMERIC,
+  max_elevation NUMERIC,
+  start_lat NUMERIC,
+  start_lon NUMERIC,
+  estimated_duration TEXT,
+  notes TEXT,
+  gpx_url TEXT,
+  raw_gpx TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE randonnees_sanaryens ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) WITH CHECK (true);</pre>
+              </div>
+            </details>
+          </div>
+        </div>
+
         <!-- SECTION 1 : Formulaire de création d'un utilisateur -->
         <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
           <div class="flex items-center justify-between">
@@ -1176,14 +1330,14 @@
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=30"></script>
-  <script src="js/auth-manager.js?v=30"></script>
-  <script src="js/gpx-parser.js?v=30"></script>
-  <script src="js/sample-data.js?v=30"></script>
-  <script src="js/storage.js?v=30"></script>
-  <script src="js/elevation-profile.js?v=30"></script>
-  <script src="js/map-manager.js?v=30"></script>
-  <script src="js/pdf-exporter.js?v=30"></script>
-  <script src="js/app.js?v=30"></script>
+  <script src="js/config.js?v=31"></script>
+  <script src="js/auth-manager.js?v=31"></script>
+  <script src="js/gpx-parser.js?v=31"></script>
+  <script src="js/sample-data.js?v=31"></script>
+  <script src="js/storage.js?v=31"></script>
+  <script src="js/elevation-profile.js?v=31"></script>
+  <script src="js/map-manager.js?v=31"></script>
+  <script src="js/pdf-exporter.js?v=31"></script>
+  <script src="js/app.js?v=31"></script>
 </body>
 </html>
