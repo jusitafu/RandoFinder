@@ -32,7 +32,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/styles.css?v=27">
+  <link rel="stylesheet" href="css/styles.css?v=28">
 </head>
 <body class="h-full flex flex-col bg-slate-50 text-slate-800 antialiased select-none overflow-hidden">
 
@@ -1021,9 +1021,12 @@
                 <label class="block text-xs font-bold text-slate-700 mb-1">
                   Nom d'utilisateur <span class="text-rose-500">*</span>
                 </label>
-                <input type="text" id="new-user-username" placeholder="ex: jean_dupont" required
-                  class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
-                <span class="text-[10px] text-slate-400">Lettres, chiffres, tirets ou underscores</span>
+                <input type="text" id="new-user-username" placeholder="ex: Jean-Michel Populaire" required
+                  class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                  oninput="App.handleNewUserUsernameInput(this.value)">
+                <div class="mt-1.5 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600 font-medium leading-snug">
+                  <span class="text-emerald-700 font-bold">📌 Règle du nom :</span> 2 à 50 caractères. Lettres (avec accents français), chiffres, espaces, tirets (-), apostrophes (') autorisés.
+                </div>
               </div>
 
               <!-- Mot de passe temporaire -->
@@ -1033,38 +1036,34 @@
                     Mot de passe temporaire <span class="text-rose-500">*</span>
                   </label>
                   <button type="button" onclick="App.generateTempPasswordForCreation()" class="text-[11px] text-emerald-700 font-bold hover:underline flex items-center gap-1">
-                    <span>🎲</span> <span>Générer</span>
+                    <span>🎲</span> <span>Générer aléatoire</span>
                   </button>
                 </div>
                 <div class="relative">
-                  <input type="password" id="new-user-password" placeholder="Mot de passe temporaire..." required
+                  <input type="text" id="new-user-password" placeholder="Mot de passe temporaire..." required
                     class="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
-                    oninput="App.updatePasswordCriteriaCheck('new-user-password', 'create-user-pwd-criteria')">
+                    oninput="App.onUserTempPasswordEdited()">
                   <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" onclick="App.togglePasswordVisibility('new-user-password', this)">
                     👁️
                   </button>
                 </div>
+                <div class="mt-1.5 p-2 bg-emerald-50/70 border border-emerald-200 rounded-lg text-[11px] text-emerald-900 font-medium leading-snug">
+                  <span class="text-emerald-700 font-bold">💡 Par défaut :</span> Identique au nom d'utilisateur. Le membre pourra définir son mot de passe définitif dès sa première connexion.
+                </div>
               </div>
             </div>
 
-            <!-- Critères de mot de passe en direct -->
-            <div id="create-user-pwd-criteria" class="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
-              <div class="text-[11px] font-bold text-slate-600 mb-1">Critères exigés :</div>
-              <div class="pwd-criterion invalid" data-rule="length">
-                <span class="criterion-icon"></span> <span>8 à 26 caractères</span>
+            <!-- Note explicative politique de mot de passe -->
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs space-y-1.5">
+              <div class="flex items-center gap-1.5 font-bold text-slate-800">
+                <span>🔐</span>
+                <span>Politique d'accès & Mots de passe du club :</span>
               </div>
-              <div class="pwd-criterion invalid" data-rule="uppercase">
-                <span class="criterion-icon"></span> <span>Au moins 1 majuscule (A-Z)</span>
-              </div>
-              <div class="pwd-criterion invalid" data-rule="lowercase">
-                <span class="criterion-icon"></span> <span>Au moins 1 minuscule (a-z)</span>
-              </div>
-              <div class="pwd-criterion invalid" data-rule="number">
-                <span class="criterion-icon"></span> <span>Au moins 1 chiffre (0-9)</span>
-              </div>
-              <div class="pwd-criterion invalid" data-rule="special">
-                <span class="criterion-icon"></span> <span>Au moins 1 caractère spécial (!@#$%^&*...)</span>
-              </div>
+              <ul class="text-[11px] text-slate-600 list-disc list-inside space-y-1">
+                <li><strong class="text-slate-800">Création par l'admin :</strong> Le mot de passe temporaire est automatiquement égal au nom d'utilisateur par simplicité (ou vous pouvez cliquer sur « Générer aléatoire »).</li>
+                <li><strong class="text-slate-800">Première connexion du membre :</strong> L'adhérent se connecte avec son nom et son mot de passe temporaire, puis clique sur <em class="text-emerald-700 font-semibold">« Changer de mot de passe »</em>.</li>
+                <li><strong class="text-slate-800">Mot de passe personnel définitif :</strong> Règle de sécurité renforcée (8 à 26 caractères, au moins 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial).</li>
+              </ul>
             </div>
 
             <!-- Affectation des droits (Cases à cocher) -->
@@ -1165,14 +1164,14 @@
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=27"></script>
-  <script src="js/auth-manager.js?v=27"></script>
-  <script src="js/gpx-parser.js?v=27"></script>
-  <script src="js/sample-data.js?v=27"></script>
-  <script src="js/storage.js?v=27"></script>
-  <script src="js/elevation-profile.js?v=27"></script>
-  <script src="js/map-manager.js?v=27"></script>
-  <script src="js/pdf-exporter.js?v=27"></script>
-  <script src="js/app.js?v=27"></script>
+  <script src="js/config.js?v=28"></script>
+  <script src="js/auth-manager.js?v=28"></script>
+  <script src="js/gpx-parser.js?v=28"></script>
+  <script src="js/sample-data.js?v=28"></script>
+  <script src="js/storage.js?v=28"></script>
+  <script src="js/elevation-profile.js?v=28"></script>
+  <script src="js/map-manager.js?v=28"></script>
+  <script src="js/pdf-exporter.js?v=28"></script>
+  <script src="js/app.js?v=28"></script>
 </body>
 </html>
