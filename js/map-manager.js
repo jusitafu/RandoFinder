@@ -195,6 +195,15 @@ class MapManager {
     }
   }
 
+  clearMarkers() {
+    if (this.markersLayer) {
+      this.markersLayer.clearLayers();
+    }
+    this.currentHikesList = [];
+    this.clearTrack();
+    this.clearCursorPosition();
+  }
+
   renderHikeMarkers(hikes) {
     if (!this.markersLayer) return;
     this.currentHikesList = hikes || [];
