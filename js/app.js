@@ -1833,7 +1833,17 @@ class AppController {
     if (!isAuthed) {
       if (lockModal) lockModal.classList.remove('hidden');
       if (authContainer) authContainer.classList.add('opacity-0', 'pointer-events-none');
-      this.tryAutofillFromGoogleCredentials();
+      
+      // S'assurer que les champs restent strictement vierges à l'affichage (ni identifiant ni mot de passe pré-affichés)
+      const userInp = document.getElementById('login-username');
+      const pwdInp = document.getElementById('login-password');
+      const eyeBtn = document.querySelector('#form-login .pwd-eye-btn');
+      if (userInp) userInp.value = '';
+      if (pwdInp) {
+        pwdInp.value = '';
+        pwdInp.type = 'password';
+      }
+      if (eyeBtn) eyeBtn.textContent = '👁️';
       return false;
     } else {
       if (lockModal) lockModal.classList.add('hidden');
@@ -1841,25 +1851,6 @@ class AppController {
       this.updateAuthHeaderUI();
       this.applyPermissionGuards();
       return true;
-    }
-  }
-
-  async tryAutofillFromGoogleCredentials() {
-    if (typeof navigator !== 'undefined' && navigator.credentials && navigator.credentials.get) {
-      try {
-        const cred = await navigator.credentials.get({
-          password: true,
-          mediation: 'optional'
-        });
-        if (cred && cred.id) {
-          const userInp = document.getElementById('login-username');
-          const pwdInp = document.getElementById('login-password');
-          if (userInp && !userInp.value) userInp.value = cred.id;
-          if (pwdInp && cred.password && !pwdInp.value) pwdInp.value = cred.password;
-        }
-      } catch (e) {
-        // Ignorer si l'utilisateur refuse ou si non disponible
-      }
     }
   }
 
