@@ -1833,6 +1833,7 @@ class AppController {
     if (!isAuthed) {
       if (lockModal) lockModal.classList.remove('hidden');
       if (authContainer) authContainer.classList.add('opacity-0', 'pointer-events-none');
+      this.tryAutofillFromGoogleCredentials();
       return false;
     } else {
       if (lockModal) lockModal.classList.add('hidden');
@@ -1840,6 +1841,25 @@ class AppController {
       this.updateAuthHeaderUI();
       this.applyPermissionGuards();
       return true;
+    }
+  }
+
+  async tryAutofillFromGoogleCredentials() {
+    if (typeof navigator !== 'undefined' && navigator.credentials && navigator.credentials.get) {
+      try {
+        const cred = await navigator.credentials.get({
+          password: true,
+          mediation: 'optional'
+        });
+        if (cred && cred.id) {
+          const userInp = document.getElementById('login-username');
+          const pwdInp = document.getElementById('login-password');
+          if (userInp && !userInp.value) userInp.value = cred.id;
+          if (pwdInp && cred.password && !pwdInp.value) pwdInp.value = cred.password;
+        }
+      } catch (e) {
+        // Ignorer si l'utilisateur refuse ou si non disponible
+      }
     }
   }
 
@@ -1984,11 +2004,32 @@ class AppController {
       return;
     }
 
+    // Enregistrement auprès du gestionnaire de mots de passe Google / Navigateur
+    if (typeof window !== 'undefined' && window.PasswordCredential && navigator.credentials && navigator.credentials.store) {
+      try {
+        const formEl = document.getElementById('form-login');
+        const cred = formEl ? new PasswordCredential(formEl) : new PasswordCredential({
+          id: username,
+          password: password,
+          name: username
+        });
+        if (cred) {
+          navigator.credentials.store(cred).catch(e => console.info("Info stockage mot de passe :", e));
+        }
+      } catch (e) {
+        console.info("Info Credential Management API :", e);
+      }
+    }
+
     // Succès de connexion
-    pwdInput.value = '';
     this.checkAuthenticationState();
     this.openPostLoginModal(result);
     this.showToast(`Bienvenue ${result.user.username} !`, "success");
+
+    // Nettoyage temporisé pour laisser à Google Password Manager le temps d'enregistrer les identifiants
+    setTimeout(() => {
+      if (pwdInput) pwdInput.value = '';
+    }, 2000);
   }
 
   openPostLoginModal(loginResult) {
@@ -2065,6 +2106,10 @@ class AppController {
     const nameEl = document.getElementById('change-pwd-account-name');
     if (nameEl && user) nameEl.textContent = user.username;
 
+    // Renseigner l'identifiant pour Google Password Manager
+    const hiddenUser = document.getElementById('change-pwd-username');
+    if (hiddenUser && user) hiddenUser.value = user.username;
+
     // Réinitialiser les champs
     const curInput = document.getElementById('change-pwd-current');
     const newInput = document.getElementById('change-pwd-new');
@@ -2110,6 +2155,23 @@ class AppController {
         errBox.classList.remove('hidden');
       }
       return;
+    }
+
+    // Mise à jour auprès de Google Password Manager
+    if (typeof window !== 'undefined' && window.PasswordCredential && navigator.credentials && navigator.credentials.store) {
+      try {
+        const formEl = document.getElementById('form-change-password');
+        const cred = formEl ? new PasswordCredential(formEl) : new PasswordCredential({
+          id: user.username,
+          password: newInput.value,
+          name: user.username
+        });
+        if (cred) {
+          navigator.credentials.store(cred).catch(() => {});
+        }
+      } catch (e) {
+        console.info("Info Credential Management API (update) :", e);
+      }
     }
 
     this.closeChangePasswordModal();
