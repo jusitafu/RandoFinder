@@ -32,7 +32,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/styles.css?v=29">
+  <link rel="stylesheet" href="css/styles.css?v=30">
 </head>
 <body class="h-full flex flex-col bg-slate-50 text-slate-800 antialiased select-none overflow-hidden">
 
@@ -774,7 +774,7 @@
           </label>
           <div class="relative">
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">👤</span>
-            <input type="text" id="login-username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="ex: admin ou Jean-Michel Populaire" required
+            <input type="text" id="login-username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" value="" placeholder="Votre identifiant..." required
               class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
           </div>
         </div>
@@ -785,7 +785,7 @@
           </label>
           <div class="relative">
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">🔑</span>
-            <input type="password" id="login-password" name="password" autocomplete="current-password" placeholder="Votre mot de passe..." required
+            <input type="password" id="login-password" name="password" autocomplete="current-password" value="" placeholder="Votre mot de passe..." required
               class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
             <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer" title="Afficher/Masquer le mot de passe" onclick="App.togglePasswordVisibility('login-password', this)">
               👁️
@@ -1176,14 +1176,14 @@
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=29"></script>
-  <script src="js/auth-manager.js?v=29"></script>
-  <script src="js/gpx-parser.js?v=29"></script>
-  <script src="js/sample-data.js?v=29"></script>
-  <script src="js/storage.js?v=29"></script>
-  <script src="js/elevation-profile.js?v=29"></script>
-  <script src="js/map-manager.js?v=29"></script>
-  <script src="js/pdf-exporter.js?v=29"></script>
-  <script src="js/app.js?v=29"></script>
+  <script src="js/config.js?v=30"></script>
+  <script src="js/auth-manager.js?v=30"></script>
+  <script src="js/gpx-parser.js?v=30"></script>
+  <script src="js/sample-data.js?v=30"></script>
+  <script src="js/storage.js?v=30"></script>
+  <script src="js/elevation-profile.js?v=30"></script>
+  <script src="js/map-manager.js?v=30"></script>
+  <script src="js/pdf-exporter.js?v=30"></script>
+  <script src="js/app.js?v=30"></script>
 </body>
 </html>
