@@ -132,30 +132,18 @@ class AppController {
       console.error("Erreur profile init :", e);
     }
 
-    // 5. Load Hikes from Storage
+    // 5. Load Hikes from Storage for the Active Database
     try {
-      let hikes = await StorageManager.getAllHikes();
-      if (!hikes || hikes.length === 0) {
-        if (typeof SampleData !== 'undefined') {
-          console.log("Chargement initial des randonnées d'exemple...");
-          const samples = SampleData.getSampleHikes();
-          for (const s of samples) {
-            await StorageManager.saveHike(s);
-          }
-          hikes = samples;
-        }
-      }
+      const hikes = await StorageManager.getAllHikes();
       this.allHikes = hikes || [];
     } catch (e) {
       console.error("Erreur chargement randonnées :", e);
-      if (typeof SampleData !== 'undefined') {
-        this.allHikes = SampleData.getSampleHikes();
-      }
+      this.allHikes = [];
     }
 
-    // 6. Update UI
+    // 6. Update UI & Database Status
     try {
-      this.updateStorageBadge();
+      this.updateDatabaseStatusUI();
       this.applyFiltersAndRender();
       this.renderManagementList();
     } catch (e) {
@@ -604,6 +592,7 @@ class AppController {
     } else if (tabName === 'manage') {
       this.renderManagementList();
     }
+    this.updateDatabaseStatusUI();
   }
 
   setViewMode(mode) {
@@ -704,16 +693,18 @@ class AppController {
       }
     }
 
+    const activeDb = StorageManager.getActiveDatabase();
     const countEl = document.getElementById('results-count');
     if (countEl) {
+      const dbTag = activeDb.isSanctuary ? ` [🔒 ${activeDb.name}]` : ` [🌿 ${activeDb.name}]`;
       if (this.searchQuery) {
-        countEl.textContent = `${this.filteredHikes.length} résultat${this.filteredHikes.length > 1 ? 's' : ''} pour "${this.searchQuery}"`;
+        countEl.textContent = `${this.filteredHikes.length} résultat${this.filteredHikes.length > 1 ? 's' : ''} pour "${this.searchQuery}"${dbTag}`;
       } else if (isWorldWide) {
-        countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} (Monde entier 🌍)`;
+        countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} (Monde entier 🌍)${dbTag}`;
       } else if (radius >= 1000) {
-        countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} à moins de ${radius.toLocaleString('fr-FR')} km`;
+        countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} à moins de ${radius.toLocaleString('fr-FR')} km${dbTag}`;
       } else {
-        countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} à moins de ${radius} km`;
+        countEl.textContent = `${this.filteredHikes.length} randonnée${this.filteredHikes.length > 1 ? 's' : ''} à moins de ${radius} km${dbTag}`;
       }
     }
 
@@ -811,7 +802,7 @@ class AppController {
         </td>
         <td class="p-3 text-right whitespace-nowrap">
           <div class="flex items-center justify-end gap-1">
-            ${(typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit')) ? '' : `
+            ${(StorageManager.isCurrentDatabaseSanctuary() || (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit'))) ? '' : `
               <button class="btn-table-edit p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Modifier le nom et les notes">
                 ✏️
               </button>
@@ -959,7 +950,8 @@ class AppController {
       return;
     }
 
-    const canEdit = (typeof AuthManager === 'undefined' || AuthManager.hasPermission('can_edit'));
+    const isSanctuary = StorageManager.isCurrentDatabaseSanctuary();
+    const canEdit = !isSanctuary && (typeof AuthManager === 'undefined' || AuthManager.hasPermission('can_edit'));
 
     filtered.forEach((hike, idx) => {
       const card = document.createElement('div');
@@ -985,14 +977,18 @@ class AppController {
           <button class="btn-manage-view px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1" title="Voir sur la carte">
             <span>🗺️</span> <span>Voir</span>
           </button>
-          ${canEdit ? `
+          ${isSanctuary ? `
+            <span class="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold flex items-center gap-1 select-none" title="Base sanctuarisée en lecture seule">
+              <span>🔒</span> <span>Sanctuarisée</span>
+            </span>
+          ` : (canEdit ? `
             <button class="btn-manage-edit px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Modifier nom et notes">
               <span>✏️</span> <span>Modifier</span>
             </button>
             <button class="btn-manage-delete px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Supprimer">
               <span>🗑️</span> <span>Supprimer</span>
             </button>
-          ` : ''}
+          ` : '')}
         </div>
       `;
 
@@ -1018,6 +1014,10 @@ class AppController {
   // EDIT MODAL (✏️ Crayon)
   // =========================================================================
   openEditModal(hike) {
+    if (StorageManager.isCurrentDatabaseSanctuary()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule.", "warning");
+      return;
+    }
     if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit')) {
       this.showToast("Accès restreint : Vous n'avez pas l'autorisation de modifier des randonnées.", "error");
       return;
@@ -1079,6 +1079,10 @@ class AppController {
   // DELETE MODAL (🗑️ Corbeille avec confirmation)
   // =========================================================================
   openDeleteModal(hike) {
+    if (StorageManager.isCurrentDatabaseSanctuary()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule.", "warning");
+      return;
+    }
     if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit')) {
       this.showToast("Accès restreint : Vous n'avez pas l'autorisation de supprimer des randonnées.", "error");
       return;
@@ -1349,6 +1353,154 @@ class AppController {
     }
   }
 
+  /**
+   * Bascule dynamique de la base de données active
+   * (Randonneurs Sanaryens / Base JLDApps sanctuarisée)
+   */
+  async handleDatabaseChange(dbId) {
+    if (dbId !== 'sanaryens' && dbId !== 'jldapps') {
+      dbId = 'sanaryens';
+    }
+
+    this.showToast("Bascule de base de données en cours...", "info");
+
+    try {
+      await StorageManager.setActiveDatabase(dbId);
+
+      // Si autoSync Supabase est configuré, tenter de rafraîchir en tâche de fond pour cette base
+      try {
+        const supaUrl = (document.getElementById('supabase-url')?.value || localStorage.getItem('sanary_supabase_url') || (window.APP_CONFIG && window.APP_CONFIG.supabaseUrl) || '').trim();
+        const supaKey = (document.getElementById('supabase-key')?.value || localStorage.getItem('sanary_supabase_key') || (window.APP_CONFIG && window.APP_CONFIG.supabaseKey) || '').trim();
+        const supaAutoSync = localStorage.getItem('sanary_supabase_autosync') !== 'false';
+        if (supaAutoSync && supaUrl && supaKey) {
+          await StorageManager.fetchFromSupabase(supaUrl, supaKey, dbId);
+        }
+      } catch (syncErr) {
+        console.warn("Sync background au changement de base :", syncErr);
+      }
+
+      this.allHikes = await StorageManager.getAllHikes();
+
+      // Désélectionner toute randonnée affichée
+      this.deselectHike();
+
+      // Nettoyer les marqueurs de la carte
+      if (window.MapManagerInstance) {
+        window.MapManagerInstance.clearMarkers();
+      }
+
+      // Réactualiser tous les affichages
+      this.applyFiltersAndRender();
+      this.renderManagementList();
+      this.updateDatabaseStatusUI();
+
+      if (dbId === 'sanaryens') {
+        this.showToast(`🌿 Base Randonneurs Sanaryens active (${this.allHikes.length} rando${this.allHikes.length > 1 ? 's' : ''})`, "success");
+      } else {
+        this.showToast(`🔒 Base JLDApps active (${this.allHikes.length} randonnées sanctuarisées en lecture seule)`, "info");
+      }
+    } catch (err) {
+      console.error("Erreur bascule base :", err);
+      this.showToast(`Erreur lors de la bascule : ${err.message}`, "error");
+    }
+  }
+
+  /**
+   * Mise à jour de l'ensemble des indicateurs de base de données dans l'interface
+   */
+  updateDatabaseStatusUI() {
+    const activeDbId = StorageManager.getActiveDatabaseId();
+    const isSanctuary = StorageManager.isCurrentDatabaseSanctuary();
+    const counts = StorageManager.getDatabaseCounts();
+
+    // 1. Synchroniser toutes les listes déroulantes de choix de base
+    ['header-db-selector', 'admin-db-selector', 'settings-db-selector'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = activeDbId;
+    });
+
+    // 2. Mettre à jour les badges de comptage dans le modal admin
+    const sanaryCountEl = document.getElementById('count-db-sanaryens');
+    if (sanaryCountEl) {
+      sanaryCountEl.textContent = `${counts.sanaryens} rando${counts.sanaryens > 1 ? 's' : ''}`;
+    }
+
+    const jldCountEl = document.getElementById('count-db-jldapps');
+    if (jldCountEl) {
+      jldCountEl.textContent = `${counts.jldapps} rando${counts.jldapps > 1 ? 's' : ''}`;
+    }
+
+    // 3. Mettre à jour les styles des cartes dans le modal admin
+    const cardSanary = document.getElementById('card-db-sanaryens');
+    const badgeSanary = document.getElementById('badge-status-sanaryens');
+    const cardJld = document.getElementById('card-db-jldapps');
+    const badgeJld = document.getElementById('badge-status-jldapps');
+
+    if (activeDbId === 'sanaryens') {
+      if (cardSanary) {
+        cardSanary.className = 'p-3.5 rounded-xl border-2 border-emerald-400 bg-emerald-950/60 shadow-md space-y-2 transition ring-2 ring-emerald-500/30';
+      }
+      if (badgeSanary) {
+        badgeSanary.textContent = 'Active 🌿';
+        badgeSanary.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500 text-slate-950';
+      }
+      if (cardJld) {
+        cardJld.className = 'p-3.5 rounded-xl border border-slate-700 bg-slate-900/50 space-y-2 opacity-80 hover:opacity-100 transition';
+      }
+      if (badgeJld) {
+        badgeJld.textContent = 'Sanctuarisée';
+        badgeJld.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40';
+      }
+    } else {
+      if (cardSanary) {
+        cardSanary.className = 'p-3.5 rounded-xl border border-slate-700 bg-slate-900/50 space-y-2 opacity-80 hover:opacity-100 transition';
+      }
+      if (badgeSanary) {
+        badgeSanary.textContent = 'En attente';
+        badgeSanary.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700 text-slate-300';
+      }
+      if (cardJld) {
+        cardJld.className = 'p-3.5 rounded-xl border-2 border-amber-400 bg-amber-950/40 shadow-md space-y-2 transition ring-2 ring-amber-500/30';
+      }
+      if (badgeJld) {
+        badgeJld.textContent = 'Active (Sanctuarisée) 🔒';
+        badgeJld.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-slate-950';
+      }
+    }
+
+    // 4. Bannières d'avertissement dans l'upload et la gestion
+    const uploadBanner = document.getElementById('sanctuary-upload-banner');
+    if (uploadBanner) {
+      if (isSanctuary) {
+        uploadBanner.classList.remove('hidden');
+      } else {
+        uploadBanner.classList.add('hidden');
+      }
+    }
+
+    const manageBanner = document.getElementById('sanctuary-manage-banner');
+    if (manageBanner) {
+      if (isSanctuary) {
+        manageBanner.classList.remove('hidden');
+      } else {
+        manageBanner.classList.add('hidden');
+      }
+    }
+
+    // 5. Description dans l'onglet options
+    const settingsDesc = document.getElementById('settings-db-description');
+    if (settingsDesc) {
+      if (activeDbId === 'sanaryens') {
+        settingsDesc.innerHTML = `<span class="font-bold text-emerald-700">🌿 Base active : Randonneurs Sanaryens</span> (${counts.sanaryens} randonnée${counts.sanaryens > 1 ? 's' : ''} enregistrée${counts.sanaryens > 1 ? 's' : ''}). Les ajouts de traces GPX et les modifications de parcours sont autorisés.`;
+      } else {
+        settingsDesc.innerHTML = `<span class="font-bold text-amber-700">🔒 Base active : Base JLDApps</span> (${counts.jldapps} randonnées). Cette base historique est protégée en lecture seule pour préserver les 139 circuits.`;
+      }
+    }
+
+    // 6. Actualiser le badge de stockage
+    this.updateStorageBadge();
+  }
+
   updateStorageBadge() {
     const badge = document.getElementById('storage-badge');
     if (!badge) return;
@@ -1414,6 +1566,10 @@ class AppController {
    * Handle Multi-file Upload (Instant Parse + Auto-Save + Auto-Radius Expansion)
    */
   async handleFilesUploaded(files) {
+    if (StorageManager.isCurrentDatabaseSanctuary()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule. Basculez sur la base Randonneurs Sanaryens pour charger des parcours.", "warning");
+      return;
+    }
     if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_upload')) {
       this.showToast("Accès restreint : Vous n'avez pas l'autorisation de charger des randonnées.", "error");
       return;
@@ -1503,6 +1659,10 @@ class AppController {
    * Handle Direct GPX Text Paste
    */
   async handlePasteGPX() {
+    if (StorageManager.isCurrentDatabaseSanctuary()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule. Basculez sur la base Randonneurs Sanaryens pour charger des parcours.", "warning");
+      return;
+    }
     if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_upload')) {
       this.showToast("Accès restreint : Vous n'avez pas l'autorisation de charger des randonnées.", "error");
       return;
@@ -1731,6 +1891,11 @@ class AppController {
   }
 
   async pushAllToSupabase() {
+    if (StorageManager.isCurrentDatabaseSanctuary()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule.", "warning");
+      return;
+    }
+
     const url = (document.getElementById('supabase-url')?.value || localStorage.getItem('sanary_supabase_url') || '').trim();
     const key = (document.getElementById('supabase-key')?.value || localStorage.getItem('sanary_supabase_key') || '').trim();
 
@@ -2195,6 +2360,7 @@ class AppController {
 
     this.renderUsersTable();
     this.updateSupabaseUsersStatusBadge();
+    this.updateDatabaseStatusUI();
 
     modal.classList.remove('hidden');
   }
