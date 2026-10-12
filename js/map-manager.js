@@ -22,6 +22,7 @@ class MapManager {
     this.currentHikesList = [];
     this.onHikeSelectCallback = null;
     this.onHikeHoverCallback = null;
+    this.onHikeHoverEndCallback = null;
     this.onSearchOriginChangeCallback = null;
     this.onMapBackgroundClickCallback = null;
 
@@ -260,17 +261,25 @@ class MapManager {
       // Hover displays clean GPX track and preview card
       marker.on('mouseover', () => {
         this.hoveredHike = hike;
-        this.displayTrack(hike, false);
-        if (this.onHikeHoverCallback) this.onHikeHoverCallback(hike);
+        if (this.onHikeHoverCallback) {
+          this.onHikeHoverCallback(hike);
+        } else {
+          this.displayTrack(hike, false);
+        }
       });
 
       marker.on('mouseout', () => {
-        if (this.selectedHike) {
-          this.displayTrack(this.selectedHike, true);
+        if (this.onHikeHoverEndCallback) {
+          this.onHikeHoverEndCallback(hike);
+        } else if (this.onHikeHoverCallback) {
+          this.onHikeHoverCallback(this.selectedHike || null);
         } else {
-          this.clearTrack();
+          if (this.selectedHike) {
+            this.displayTrack(this.selectedHike, true);
+          } else {
+            this.clearTrack();
+          }
         }
-        if (this.onHikeHoverCallback) this.onHikeHoverCallback(this.selectedHike || null);
       });
 
       marker.on('click', (e) => {
@@ -308,7 +317,8 @@ class MapManager {
       weight: isSelected ? 7.5 : 5.5,
       opacity: 0.95,
       lineCap: 'round',
-      lineJoin: 'round'
+      lineJoin: 'round',
+      interactive: false
     }).addTo(this.trackLayer);
 
     // 2. Main GPS trail polyline
@@ -317,7 +327,8 @@ class MapManager {
       weight: isSelected ? 4.5 : 3.5,
       opacity: 1,
       lineCap: 'round',
-      lineJoin: 'round'
+      lineJoin: 'round',
+      interactive: false
     }).addTo(this.trackLayer);
 
     // 3. Departure Marker (Green Dot with White Halo)
@@ -327,7 +338,8 @@ class MapManager {
       fillColor: '#10b981',
       color: '#ffffff',
       weight: 2.5,
-      fillOpacity: 1
+      fillOpacity: 1,
+      interactive: false
     }).addTo(this.trackLayer);
 
     // 4. Arrival Marker (Red Dot) if not a closed loop
@@ -338,7 +350,8 @@ class MapManager {
         fillColor: '#ef4444',
         color: '#ffffff',
         weight: 2.5,
-        fillOpacity: 1
+        fillOpacity: 1,
+        interactive: false
       }).addTo(this.trackLayer);
     }
 
