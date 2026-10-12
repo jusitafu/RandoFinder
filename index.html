@@ -735,6 +735,66 @@
   </div>
 
   <!-- ========================================================================= -->
+  <!-- MODAL : DOUBLON DÉTECTÉ / CARACTÉRISTIQUES IDENTIQUES -->
+  <!-- ========================================================================= -->
+  <div id="duplicate-hike-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- En-tête -->
+      <div class="p-6 pb-3 text-center space-y-2">
+        <div class="w-14 h-14 mx-auto bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-2xl shadow-inner">
+          ⚠️
+        </div>
+        <h3 class="text-base sm:text-lg font-bold text-slate-900">Randonnée similaire déjà existante</h3>
+        <p id="duplicate-modal-reason" class="text-xs text-slate-600 leading-relaxed px-2"></p>
+      </div>
+
+      <!-- Comparatif -->
+      <div class="px-6 py-2 space-y-2.5">
+        <!-- Rando déjà dans la base -->
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Randonnée existante dans la base</span>
+            <span id="duplicate-exist-author" class="text-[10px] font-medium text-slate-500"></span>
+          </div>
+          <h4 id="duplicate-exist-name" class="text-xs sm:text-sm font-bold text-slate-800"></h4>
+          <div class="flex items-center gap-3 text-xs text-slate-600">
+            <span>📏 Longueur : <strong id="duplicate-exist-dist" class="text-slate-800"></strong></span>
+            <span>⛰️ Dénivelé : <strong id="duplicate-exist-dplus" class="text-emerald-700"></strong></span>
+          </div>
+        </div>
+
+        <!-- Rando en cours d'upload -->
+        <div class="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Nouvelle trace que vous chargez</span>
+            <span id="duplicate-new-file" class="text-[10px] font-medium text-emerald-800 truncate max-w-[180px]"></span>
+          </div>
+          <h4 id="duplicate-new-name" class="text-xs sm:text-sm font-bold text-slate-800"></h4>
+          <div class="flex items-center gap-3 text-xs text-slate-600">
+            <span>📏 Longueur : <strong id="duplicate-new-dist" class="text-slate-800"></strong></span>
+            <span>⛰️ Dénivelé : <strong id="duplicate-new-dplus" class="text-emerald-700"></strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boutons d'action -->
+      <div class="bg-slate-50 border-t border-slate-200 p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+        <button id="btn-duplicate-skip" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 transition shadow-sm">
+          🚫 Ignorer (Ne pas ajouter)
+        </button>
+        <button id="btn-duplicate-replace" class="px-4 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition shadow-sm">
+          🔄 Remplacer l'existante
+        </button>
+        <button id="btn-duplicate-add" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-md">
+          ➕ Ajouter quand même
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
   <!-- MODAL : TÉLÉCHARGEMENT & FICHE RANDONNÉE -->
   <!-- ========================================================================= -->
   <div id="download-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1330,14 +1390,14 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=34"></script>
-  <script src="js/auth-manager.js?v=34"></script>
-  <script src="js/gpx-parser.js?v=34"></script>
-  <script src="js/sample-data.js?v=34"></script>
-  <script src="js/storage.js?v=34"></script>
-  <script src="js/elevation-profile.js?v=34"></script>
-  <script src="js/map-manager.js?v=34"></script>
-  <script src="js/pdf-exporter.js?v=34"></script>
-  <script src="js/app.js?v=34"></script>
+  <script src="js/config.js?v=35"></script>
+  <script src="js/auth-manager.js?v=35"></script>
+  <script src="js/gpx-parser.js?v=35"></script>
+  <script src="js/sample-data.js?v=35"></script>
+  <script src="js/storage.js?v=35"></script>
+  <script src="js/elevation-profile.js?v=35"></script>
+  <script src="js/map-manager.js?v=35"></script>
+  <script src="js/pdf-exporter.js?v=35"></script>
+  <script src="js/app.js?v=35"></script>
 </body>
 </html>
