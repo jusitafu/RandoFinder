@@ -47,7 +47,7 @@ window.APP_CONFIG = {
       storeName: 'randonnees',
       isSanctuary: true,
       allowSampleData: false,
-      description: 'Base historique sanctuarisée (139 randonnées protégées en lecture seule)'
+      description: 'Base historique sanctuarisée (139 randonnées protégées en lecture seule pour les membres, accès complet pour admin)'
     }
   }
 };
