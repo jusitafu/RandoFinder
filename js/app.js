@@ -92,6 +92,7 @@ class AppController {
         window.MapManagerInstance.init();
 
         window.MapManagerInstance.onHikeHoverCallback = (hike) => this.handleHikeHover(hike);
+        window.MapManagerInstance.onHikeHoverEndCallback = (hike) => this.handleHikeHoverEnd(hike);
         window.MapManagerInstance.onHikeSelectCallback = (hike) => this.handleHikeSelect(hike);
         window.MapManagerInstance.onSearchOriginChangeCallback = (origin) => this.handleOriginChange(origin);
         window.MapManagerInstance.onMapBackgroundClickCallback = () => this.deselectHike();
@@ -510,6 +511,23 @@ class AppController {
       closePreviewBtn.addEventListener('click', () => this.deselectHike());
     }
 
+    // Stabilisation du survol du panneau d'aperçu (Option A - anti-clignotement)
+    const previewPanelEl = document.getElementById('hike-preview-panel');
+    if (previewPanelEl) {
+      previewPanelEl.addEventListener('mouseenter', () => {
+        this.isMouseOverPreview = true;
+        this.cancelHoverClear();
+      });
+      previewPanelEl.addEventListener('mouseleave', () => {
+        this.isMouseOverPreview = false;
+        this.scheduleHoverClear(200);
+      });
+      previewPanelEl.addEventListener('mousemove', () => {
+        this.isMouseOverPreview = true;
+        this.cancelHoverClear();
+      });
+    }
+
     // Edit Modal: Save & Close
     const saveEditBtn = document.getElementById('btn-save-edit');
     if (saveEditBtn) {
@@ -553,7 +571,11 @@ class AppController {
 
   deselectHike() {
     this.selectedHike = null;
+    this.hoveredHike = null;
+    this.isMouseOverPreview = false;
+    this.cancelHoverClear();
     if (window.MapManagerInstance) {
+      window.MapManagerInstance.hoveredHike = null;
       window.MapManagerInstance.deselectHike();
     }
     this.hideHikePreviewPanel();
@@ -820,19 +842,12 @@ class AppController {
 
       tr.addEventListener('mouseenter', () => {
         if (!this.selectedHike || this.selectedHike.id !== hike.id) {
-          if (window.MapManagerInstance) window.MapManagerInstance.displayTrack(hike, false);
-          this.showHikePreviewPanel(hike);
+          this.handleHikeHover(hike);
         }
       });
 
       tr.addEventListener('mouseleave', () => {
-        if (this.selectedHike) {
-          if (window.MapManagerInstance) window.MapManagerInstance.displayTrack(this.selectedHike, true);
-          this.showHikePreviewPanel(this.selectedHike);
-        } else {
-          if (window.MapManagerInstance) window.MapManagerInstance.clearTrack();
-          this.hideHikePreviewPanel();
-        }
+        this.handleHikeHoverEnd();
       });
 
       tr.addEventListener('click', (e) => {
@@ -1154,17 +1169,62 @@ class AppController {
   // RESTITUTION & PREVIEWS
   // =========================================================================
   handleHikeHover(hike) {
+    this.cancelHoverClear();
     if (hike) {
+      this.hoveredHike = hike;
+      if (window.MapManagerInstance) {
+        window.MapManagerInstance.hoveredHike = hike;
+        window.MapManagerInstance.displayTrack(hike, false);
+      }
       this.showHikePreviewPanel(hike);
-    } else if (this.selectedHike) {
-      this.showHikePreviewPanel(this.selectedHike);
     } else {
-      this.hideHikePreviewPanel();
+      this.handleHikeHoverEnd();
+    }
+  }
+
+  handleHikeHoverEnd() {
+    this.scheduleHoverClear();
+  }
+
+  scheduleHoverClear(delayMs = 200) {
+    this.cancelHoverClear();
+    this.hoverClearTimer = setTimeout(() => {
+      const previewPanel = document.getElementById('hike-preview-panel');
+      const isOver = this.isMouseOverPreview || (previewPanel && previewPanel.matches && previewPanel.matches(':hover'));
+      if (isOver) {
+        // La souris est sur le panneau d'aperçu : on maintient l'affichage stable sans clignotement
+        return;
+      }
+
+      this.hoveredHike = null;
+      if (window.MapManagerInstance) {
+        window.MapManagerInstance.hoveredHike = null;
+      }
+
+      if (this.selectedHike) {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.displayTrack(this.selectedHike, true);
+        }
+        this.showHikePreviewPanel(this.selectedHike);
+      } else {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.clearTrack();
+        }
+        this.hideHikePreviewPanel();
+      }
+    }, delayMs);
+  }
+
+  cancelHoverClear() {
+    if (this.hoverClearTimer) {
+      clearTimeout(this.hoverClearTimer);
+      this.hoverClearTimer = null;
     }
   }
 
   handleHikeSelect(hike) {
     if (!hike) return;
+    this.cancelHoverClear();
     this.selectedHike = hike;
     if (window.MapManagerInstance) {
       window.MapManagerInstance.selectHike(hike, true, false);
@@ -1193,6 +1253,13 @@ class AppController {
     }
 
     previewPanel.classList.remove('hidden');
+
+    // Détection immédiate si la souris se trouve déjà sous la zone d'apparition du panneau
+    if (previewPanel.matches && previewPanel.matches(':hover')) {
+      this.isMouseOverPreview = true;
+      this.cancelHoverClear();
+    }
+
     document.getElementById('preview-title').textContent = hike.name;
     document.getElementById('preview-dist').textContent = `${hike.distanceKm} km`;
     document.getElementById('preview-dplus').textContent = `+${hike.elevationGain}m`;
@@ -1218,6 +1285,7 @@ class AppController {
     const previewPanel = document.getElementById('hike-preview-panel');
     if (previewPanel && !this.selectedHike) {
       previewPanel.classList.add('hidden');
+      this.isMouseOverPreview = false;
     }
   }
 
