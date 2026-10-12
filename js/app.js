@@ -802,7 +802,7 @@ class AppController {
         </td>
         <td class="p-3 text-right whitespace-nowrap">
           <div class="flex items-center justify-end gap-1">
-            ${(StorageManager.isCurrentDatabaseSanctuary() || (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit'))) ? '' : `
+            ${(StorageManager.isWriteProtected() || (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit'))) ? '' : `
               <button class="btn-table-edit p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Modifier le nom et les notes">
                 ✏️
               </button>
@@ -951,7 +951,9 @@ class AppController {
     }
 
     const isSanctuary = StorageManager.isCurrentDatabaseSanctuary();
-    const canEdit = !isSanctuary && (typeof AuthManager === 'undefined' || AuthManager.hasPermission('can_edit'));
+    const isWriteProtected = StorageManager.isWriteProtected();
+    const isAdmin = typeof AuthManager !== 'undefined' && AuthManager.isAdmin();
+    const canEdit = !isWriteProtected && (typeof AuthManager === 'undefined' || AuthManager.hasPermission('can_edit'));
 
     filtered.forEach((hike, idx) => {
       const card = document.createElement('div');
@@ -977,11 +979,16 @@ class AppController {
           <button class="btn-manage-view px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1" title="Voir sur la carte">
             <span>🗺️</span> <span>Voir</span>
           </button>
-          ${isSanctuary ? `
-            <span class="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold flex items-center gap-1 select-none" title="Base sanctuarisée en lecture seule">
+          ${(isSanctuary && isWriteProtected) ? `
+            <span class="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold flex items-center gap-1 select-none" title="Base sanctuarisée en lecture seule pour les membres">
               <span>🔒</span> <span>Sanctuarisée</span>
             </span>
           ` : (canEdit ? `
+            ${(isSanctuary && isAdmin) ? `
+              <span class="hidden sm:inline-flex px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] font-bold items-center gap-1" title="Mode Administrateur actif sur base JLDApps">
+                <span>👑</span> <span>Admin</span>
+              </span>
+            ` : ''}
             <button class="btn-manage-edit px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Modifier nom et notes">
               <span>✏️</span> <span>Modifier</span>
             </button>
@@ -1014,8 +1021,8 @@ class AppController {
   // EDIT MODAL (✏️ Crayon)
   // =========================================================================
   openEditModal(hike) {
-    if (StorageManager.isCurrentDatabaseSanctuary()) {
-      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule.", "warning");
+    if (StorageManager.isWriteProtected()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule. Seul l'administrateur peut modifier ces parcours.", "warning");
       return;
     }
     if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit')) {
@@ -1079,8 +1086,8 @@ class AppController {
   // DELETE MODAL (🗑️ Corbeille avec confirmation)
   // =========================================================================
   openDeleteModal(hike) {
-    if (StorageManager.isCurrentDatabaseSanctuary()) {
-      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule.", "warning");
+    if (StorageManager.isWriteProtected()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule. Seul l'administrateur peut supprimer des parcours de cette base.", "warning");
       return;
     }
     if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit')) {
@@ -1398,6 +1405,7 @@ class AppController {
       }
 
       // Réactualiser tous les affichages
+      this.applyPermissionGuards();
       this.applyFiltersAndRender();
       this.renderManagementList();
       this.updateDatabaseStatusUI();
@@ -1405,7 +1413,12 @@ class AppController {
       if (dbId === 'sanaryens') {
         this.showToast(`🌿 Base Randonneurs Sanaryens active (${this.allHikes.length} rando${this.allHikes.length > 1 ? 's' : ''})`, "success");
       } else {
-        this.showToast(`🔒 Base JLDApps active (${this.allHikes.length} randonnées sanctuarisées en lecture seule)`, "info");
+        const isAdmin = typeof AuthManager !== 'undefined' && AuthManager.isAdmin();
+        if (isAdmin) {
+          this.showToast(`👑 Base JLDApps active (${this.allHikes.length} randos) — Mode Admin : Pleins droits actifs`, "success");
+        } else {
+          this.showToast(`🔒 Base JLDApps active (${this.allHikes.length} randonnées sanctuarisées en lecture seule)`, "info");
+        }
       }
     } catch (err) {
       console.error("Erreur bascule base :", err);
@@ -1419,6 +1432,8 @@ class AppController {
   updateDatabaseStatusUI() {
     const activeDbId = StorageManager.getActiveDatabaseId();
     const isSanctuary = StorageManager.isCurrentDatabaseSanctuary();
+    const isWriteProtected = StorageManager.isWriteProtected();
+    const isAdmin = typeof AuthManager !== 'undefined' && AuthManager.isAdmin();
     const counts = StorageManager.getDatabaseCounts();
 
     // 1. Synchroniser toutes les listes déroulantes de choix de base
@@ -1456,7 +1471,7 @@ class AppController {
         cardJld.className = 'p-3.5 rounded-xl border border-slate-700 bg-slate-900/50 space-y-2 opacity-80 hover:opacity-100 transition';
       }
       if (badgeJld) {
-        badgeJld.textContent = 'Sanctuarisée';
+        badgeJld.textContent = isAdmin ? 'Sanctuarisée (Accès Admin) 👑' : 'Sanctuarisée 🔒';
         badgeJld.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40';
       }
     } else {
@@ -1468,11 +1483,15 @@ class AppController {
         badgeSanary.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700 text-slate-300';
       }
       if (cardJld) {
-        cardJld.className = 'p-3.5 rounded-xl border-2 border-amber-400 bg-amber-950/40 shadow-md space-y-2 transition ring-2 ring-amber-500/30';
+        cardJld.className = isAdmin
+          ? 'p-3.5 rounded-xl border-2 border-emerald-400 bg-emerald-950/40 shadow-md space-y-2 transition ring-2 ring-emerald-500/30'
+          : 'p-3.5 rounded-xl border-2 border-amber-400 bg-amber-950/40 shadow-md space-y-2 transition ring-2 ring-amber-500/30';
       }
       if (badgeJld) {
-        badgeJld.textContent = 'Active (Sanctuarisée) 🔒';
-        badgeJld.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-slate-950';
+        badgeJld.textContent = isAdmin ? 'Active (Admin : Pleins droits) 👑' : 'Active (Sanctuarisée) 🔒';
+        badgeJld.className = isAdmin
+          ? 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500 text-slate-950'
+          : 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-slate-950';
       }
     }
 
@@ -1481,6 +1500,35 @@ class AppController {
     if (uploadBanner) {
       if (isSanctuary) {
         uploadBanner.classList.remove('hidden');
+        if (isAdmin) {
+          uploadBanner.className = 'p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl text-emerald-950 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in';
+          uploadBanner.innerHTML = `
+            <div class="flex items-start sm:items-center gap-3">
+              <span class="text-2xl flex-shrink-0">👑</span>
+              <div>
+                <div class="font-bold text-xs sm:text-sm text-emerald-900">Base JLDApps — Mode Administrateur (Droits d'écriture complets)</div>
+                <div class="text-[11px] sm:text-xs text-emerald-800 mt-0.5">Vous êtes connecté en tant qu'administrateur : vous pouvez importer de nouveaux parcours GPX sur la base JLDApps.</div>
+              </div>
+            </div>
+            <button type="button" onclick="App.handleDatabaseChange('sanaryens')" class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex-shrink-0 shadow-sm">
+              🌿 Basculer sur Sanaryens
+            </button>
+          `;
+        } else {
+          uploadBanner.className = 'p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-900 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in';
+          uploadBanner.innerHTML = `
+            <div class="flex items-start sm:items-center gap-3">
+              <span class="text-2xl flex-shrink-0">🔒</span>
+              <div>
+                <div class="font-bold text-xs sm:text-sm">Base JLDApps sanctuarisée (Lecture seule)</div>
+                <div class="text-[11px] sm:text-xs text-amber-800 mt-0.5">L'importation de nouveaux fichiers GPX est verrouillée pour protéger l'historique des 139 randonnées. Seul l'administrateur peut y apporter des modifications.</div>
+              </div>
+            </div>
+            <button type="button" onclick="App.handleDatabaseChange('sanaryens')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex-shrink-0 shadow-sm">
+              🌿 Basculer sur Randonneurs Sanaryens
+            </button>
+          `;
+        }
       } else {
         uploadBanner.classList.add('hidden');
       }
@@ -1490,6 +1538,25 @@ class AppController {
     if (manageBanner) {
       if (isSanctuary) {
         manageBanner.classList.remove('hidden');
+        if (isAdmin) {
+          manageBanner.className = 'p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl text-emerald-950 shadow-sm flex items-start sm:items-center gap-3 animate-in fade-in';
+          manageBanner.innerHTML = `
+            <span class="text-2xl flex-shrink-0">👑</span>
+            <div>
+              <div class="font-bold text-xs sm:text-sm text-emerald-900">Base JLDApps — Mode Administrateur (Droits de gestion complets)</div>
+              <div class="text-[11px] sm:text-xs text-emerald-800 mt-0.5">En tant qu'administrateur, vous avez accès à tous les droits d'édition (nom, notes) et de suppression sur la base JLDApps.</div>
+            </div>
+          `;
+        } else {
+          manageBanner.className = 'p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-900 shadow-sm flex items-start sm:items-center gap-3 animate-in fade-in';
+          manageBanner.innerHTML = `
+            <span class="text-2xl flex-shrink-0">🔒</span>
+            <div>
+              <div class="font-bold text-xs sm:text-sm">Base JLDApps sanctuarisée (Consultation seule)</div>
+              <div class="text-[11px] sm:text-xs text-amber-800 mt-0.5">La modification et la suppression de parcours sont réservées à l'administrateur pour protéger l'intégrité de l'historique des 139 randonnées.</div>
+            </div>
+          `;
+        }
       } else {
         manageBanner.classList.add('hidden');
       }
@@ -1501,7 +1568,11 @@ class AppController {
       if (activeDbId === 'sanaryens') {
         settingsDesc.innerHTML = `<span class="font-bold text-emerald-700">🌿 Base active : Randonneurs Sanaryens</span> (${counts.sanaryens} randonnée${counts.sanaryens > 1 ? 's' : ''} enregistrée${counts.sanaryens > 1 ? 's' : ''}). Les ajouts de traces GPX et les modifications de parcours sont autorisés.`;
       } else {
-        settingsDesc.innerHTML = `<span class="font-bold text-amber-700">🔒 Base active : Base JLDApps</span> (${counts.jldapps} randonnées). Cette base historique est protégée en lecture seule pour préserver les 139 circuits.`;
+        if (isAdmin) {
+          settingsDesc.innerHTML = `<span class="font-bold text-amber-700">🔒 Base active : Base JLDApps</span> (${counts.jldapps} randonnées). <span class="text-emerald-700 font-semibold">Mode Administrateur actif : vous disposez de tous les droits d'écriture et de gestion.</span>`;
+        } else {
+          settingsDesc.innerHTML = `<span class="font-bold text-amber-700">🔒 Base active : Base JLDApps</span> (${counts.jldapps} randonnées). Cette base historique est protégée en lecture seule pour préserver les 139 circuits. Seul l'administrateur peut y apporter des modifications.`;
+        }
       }
     }
 
@@ -1574,8 +1645,8 @@ class AppController {
    * Handle Multi-file Upload (Instant Parse + Auto-Save + Auto-Radius Expansion)
    */
   async handleFilesUploaded(files) {
-    if (StorageManager.isCurrentDatabaseSanctuary()) {
-      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule. Basculez sur la base Randonneurs Sanaryens pour charger des parcours.", "warning");
+    if (StorageManager.isWriteProtected()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule pour les membres. Seul l'administrateur peut y charger des parcours.", "warning");
       return;
     }
     if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_upload')) {
@@ -1667,8 +1738,8 @@ class AppController {
    * Handle Direct GPX Text Paste
    */
   async handlePasteGPX() {
-    if (StorageManager.isCurrentDatabaseSanctuary()) {
-      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule. Basculez sur la base Randonneurs Sanaryens pour charger des parcours.", "warning");
+    if (StorageManager.isWriteProtected()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule pour les membres. Seul l'administrateur peut y coller des parcours.", "warning");
       return;
     }
     if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_upload')) {
@@ -1899,8 +1970,8 @@ class AppController {
   }
 
   async pushAllToSupabase() {
-    if (StorageManager.isCurrentDatabaseSanctuary()) {
-      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule.", "warning");
+    if (StorageManager.isWriteProtected()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule pour les membres.", "warning");
       return;
     }
 
@@ -2023,6 +2094,9 @@ class AppController {
       if (authContainer) authContainer.classList.remove('opacity-0', 'pointer-events-none');
       this.updateAuthHeaderUI();
       this.applyPermissionGuards();
+      this.updateDatabaseStatusUI();
+      this.renderManagementList();
+      this.applyFiltersAndRender();
       return true;
     }
   }
@@ -2061,13 +2135,14 @@ class AppController {
   applyPermissionGuards() {
     const canUpload = typeof AuthManager !== 'undefined' && AuthManager.hasPermission('can_upload');
     const isAdmin = typeof AuthManager !== 'undefined' && AuthManager.isAdmin();
+    const isWriteProtected = StorageManager.isWriteProtected();
 
     // 1. Onglet Charger
     const uploadTabBtn = document.querySelector('[data-tab="upload"]');
     if (uploadTabBtn) {
-      if (!canUpload) {
+      if (!canUpload || isWriteProtected) {
         uploadTabBtn.classList.add('opacity-40', 'cursor-not-allowed');
-        uploadTabBtn.title = "Chargement désactivé (Permissions restreintes)";
+        uploadTabBtn.title = isWriteProtected ? "Base JLDApps sanctuarisée (Lecture seule)" : "Chargement désactivé (Permissions restreintes)";
       } else {
         uploadTabBtn.classList.remove('opacity-40', 'cursor-not-allowed');
         uploadTabBtn.title = "";
@@ -2087,7 +2162,7 @@ class AppController {
     // 3. Dropzone
     const dropzone = document.getElementById('upload-dropzone');
     if (dropzone) {
-      if (!canUpload) {
+      if (!canUpload || isWriteProtected) {
         dropzone.classList.add('pointer-events-none', 'opacity-50');
       } else {
         dropzone.classList.remove('pointer-events-none', 'opacity-50');
