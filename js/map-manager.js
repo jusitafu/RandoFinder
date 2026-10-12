@@ -52,6 +52,11 @@ class MapManager {
       attribution: '&copy; OpenTopoMap'
     });
 
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: '&copy; Esri World Imagery (Monde 🌍 & France)'
+    });
+
     const ignSat = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image%2Fjpeg', {
       maxZoom: 19,
       attribution: '&copy; IGN France (Orthophoto HD)'
@@ -61,7 +66,8 @@ class MapManager {
       "IGN Plan / Topo (Officiel)": ignPlan,
       "OpenStreetMap France": osmFr,
       "OpenTopoMap (Relief)": openTopo,
-      "Satellite (Photo Aérienne HD)": ignSat
+      "Satellite Mondial (Esri 🌍)": esriSat,
+      "Satellite France (IGN Ortho)": ignSat
     };
 
     // 2. Init Map centered on Sanary-sur-Mer with official IGN Plan Topo layer
