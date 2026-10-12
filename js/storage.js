@@ -43,7 +43,7 @@ class StorageManager {
       storeName: 'randonnees',
       isSanctuary: true,
       allowSampleData: false,
-      description: 'Base historique sanctuarisée (139 randonnées protégées en lecture seule)'
+      description: 'Base historique sanctuarisée (139 randonnées protégées en lecture seule pour les membres, accès complet pour admin)'
     }
   };
 
@@ -98,6 +98,23 @@ class StorageManager {
 
   static isCurrentDatabaseSanctuary() {
     return this.getActiveDatabase().isSanctuary === true;
+  }
+
+  /**
+   * Indique si l'écriture/modification est interdite sur la base active.
+   * La base JLDApps est sanctuarisée (lecture seule pour les membres),
+   * mais l'administrateur dispose de tous les droits d'écriture et de gestion.
+   */
+  static isWriteProtected() {
+    if (!this.isCurrentDatabaseSanctuary()) return false;
+    if (typeof AuthManager !== 'undefined' && AuthManager.isAdmin()) {
+      return false; // L'administrateur a tous les droits sur la base sanctuarisée
+    }
+    return true; // Protégé en lecture seule pour tous les autres utilisateurs
+  }
+
+  static canModifyDatabase() {
+    return !this.isWriteProtected();
   }
 
   static async setActiveDatabase(dbId) {
@@ -261,8 +278,8 @@ class StorageManager {
   }
 
   static async saveHike(hike, gpxContent = null) {
-    if (this.isCurrentDatabaseSanctuary()) {
-      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule). Basculez sur la base Randonneurs Sanaryens pour enregistrer des parcours.");
+    if (this.isWriteProtected()) {
+      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule pour les membres). Seul l'administrateur peut y enregistrer des parcours.");
     }
 
     if (!hike.id) {
@@ -309,8 +326,8 @@ class StorageManager {
   }
 
   static async deleteHike(id, filename = null) {
-    if (this.isCurrentDatabaseSanctuary()) {
-      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule). La suppression de randonnées y est interdite.");
+    if (this.isWriteProtected()) {
+      throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule pour les membres). Seul l'administrateur peut y supprimer des randonnées.");
     }
 
     // 1. Remove from memory
@@ -419,7 +436,7 @@ class StorageManager {
    * Synchronize with Remote Server (Web Server, Cloud Folder, API, GitHub)
    */
   static async syncWithRemoteServer(url) {
-    if (this.isCurrentDatabaseSanctuary()) {
+    if (this.isWriteProtected()) {
       throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule).");
     }
 
@@ -547,7 +564,7 @@ class StorageManager {
   }
 
   static async importBackupJSON(jsonString) {
-    if (this.isCurrentDatabaseSanctuary()) {
+    if (this.isWriteProtected()) {
       throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule).");
     }
     const data = JSON.parse(jsonString);
@@ -665,7 +682,7 @@ class StorageManager {
    * Push a single hike and its GPX file to Supabase (Bucket + Table)
    */
   static async pushHikeToSupabase(hike, supabaseUrl, anonKey) {
-    if (this.isCurrentDatabaseSanctuary()) {
+    if (this.isWriteProtected()) {
       throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule).");
     }
 
@@ -742,7 +759,7 @@ class StorageManager {
    * Push all current local hikes to Supabase Cloud
    */
   static async pushAllLocalHikesToSupabase(supabaseUrl, anonKey, progressCallback = null) {
-    if (this.isCurrentDatabaseSanctuary()) {
+    if (this.isWriteProtected()) {
       throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule).");
     }
 
@@ -767,7 +784,7 @@ class StorageManager {
    * Delete a hike from Supabase Cloud DB & Storage
    */
   static async deleteFromSupabase(hikeId, supabaseUrl, anonKey) {
-    if (this.isCurrentDatabaseSanctuary()) {
+    if (this.isWriteProtected()) {
       return false;
     }
 
