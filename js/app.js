@@ -1710,6 +1710,161 @@ class AppController {
   }
 
   /**
+   * Détection de doublon / randonnée aux caractéristiques similaires
+   */
+  findSimilarHike(newHike, candidateList = null) {
+    if (!newHike) return null;
+    const candidates = candidateList || this.allHikes || [];
+    if (candidates.length === 0) return null;
+
+    const norm = (s) => (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, ' ')
+      .trim();
+
+    const nameNew = norm(newHike.name);
+
+    for (const existing of candidates) {
+      if (existing.id === newHike.id) continue;
+
+      const nameExist = norm(existing.name);
+      const isExactName = (nameNew && nameExist && nameNew === nameExist);
+
+      let distStartKm = Infinity;
+      if (newHike.startPoint && existing.startPoint) {
+        distStartKm = GPXParser.haversineDistance(
+          newHike.startPoint.lat, newHike.startPoint.lon,
+          existing.startPoint.lat, existing.startPoint.lon
+        );
+      }
+
+      const d1 = newHike.distanceKm || 0;
+      const d2 = existing.distanceKm || 0;
+      const diffDistKm = Math.abs(d1 - d2);
+      const maxDist = Math.max(d1, d2, 1);
+      const distPct = diffDistKm / maxDist;
+
+      const ele1 = newHike.elevationGain || 0;
+      const ele2 = existing.elevationGain || 0;
+      const diffDPlus = Math.abs(ele1 - ele2);
+      const maxEle = Math.max(ele1, ele2, 1);
+      const dplusPct = diffDPlus / maxEle;
+
+      // 1. Même lieu de départ (< 400 m) ET distance quasi identique (< 0.5 km ou < 6%) ET D+ quasi identique (< 40 m ou < 10%)
+      const sameGeoAndMetrics = (distStartKm <= 0.4) && (diffDistKm <= 0.5 || distPct <= 0.06) && (diffDPlus <= 40 || dplusPct <= 0.10);
+
+      // 2. Même nom exact ET (départ proche < 2 km OU distance proche < 1 km)
+      const sameNameAndContext = isExactName && (distStartKm <= 2.0 || diffDistKm <= 1.0);
+
+      // 3. Départ et Arrivée quasi identiques (< 250 m) avec distance identique (< 400 m)
+      let distEndKm = Infinity;
+      if (newHike.endPoint && existing.endPoint) {
+        distEndKm = GPXParser.haversineDistance(
+          newHike.endPoint.lat, newHike.endPoint.lon,
+          existing.endPoint.lat, existing.endPoint.lon
+        );
+      }
+      const sameTrackEnds = (distStartKm <= 0.25) && (distEndKm <= 0.25) && (diffDistKm <= 0.4);
+
+      if (sameGeoAndMetrics || sameNameAndContext || sameTrackEnds) {
+        let reason = "";
+        if (sameGeoAndMetrics) {
+          reason = `Même lieu de départ (à ${Math.round(distStartKm * 1000)} m), distance quasi identique (${d2} km vs ${d1} km) et dénivelé équivalent (+${ele2}m vs +${ele1}m).`;
+        } else if (sameNameAndContext) {
+          reason = `Nom identique (« ${existing.name} ») et caractéristiques géographiques très proches.`;
+        } else {
+          reason = `Mêmes points de départ/arrivée et longueur équivalente (${d2} km vs ${d1} km).`;
+        }
+
+        return {
+          hike: existing,
+          reason: reason,
+          distStartMeters: Math.round(distStartKm * 1000),
+          diffDistKm: Math.round(diffDistKm * 10) / 10,
+          diffDPlus: diffDPlus
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Affiche la fenêtre modale de détection de doublon et attend le choix de l'utilisateur
+   */
+  askDuplicateDecision(newHike, existingHike, reason, fileName) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('duplicate-hike-modal');
+      if (!modal) {
+        const proceed = confirm(
+          `⚠️ Une randonnée aux mêmes caractéristiques existe déjà dans la base :\n\n` +
+          `• Randonnée existante : « ${existingHike.name} » (${existingHike.distanceKm} km, D+ ${existingHike.elevationGain}m)\n` +
+          `• Nouvelle trace : « ${newHike.name} » (${newHike.distanceKm} km, D+ ${newHike.elevationGain}m)\n\n` +
+          `${reason}\n\n` +
+          `Souhaitez-vous quand même l'ajouter ?\n` +
+          `• [OK] = Ajouter quand même\n• [Annuler] = Ignorer le doublon`
+        );
+        resolve(proceed ? 'add' : 'skip');
+        return;
+      }
+
+      const reasonEl = document.getElementById('duplicate-modal-reason');
+      if (reasonEl) reasonEl.textContent = reason;
+
+      // Infos rando existante
+      const existNameEl = document.getElementById('duplicate-exist-name');
+      if (existNameEl) existNameEl.textContent = existingHike.name;
+
+      const existDistEl = document.getElementById('duplicate-exist-dist');
+      if (existDistEl) existDistEl.textContent = `${existingHike.distanceKm} km`;
+
+      const existDplusEl = document.getElementById('duplicate-exist-dplus');
+      if (existDplusEl) existDplusEl.textContent = `+${existingHike.elevationGain}m`;
+
+      const existAuthorEl = document.getElementById('duplicate-exist-author');
+      if (existAuthorEl) existAuthorEl.textContent = existingHike.ajoutee_par ? `Par ${existingHike.ajoutee_par}` : '';
+
+      // Infos nouvelle trace
+      const newNameEl = document.getElementById('duplicate-new-name');
+      if (newNameEl) newNameEl.textContent = newHike.name;
+
+      const newDistEl = document.getElementById('duplicate-new-dist');
+      if (newDistEl) newDistEl.textContent = `${newHike.distanceKm} km`;
+
+      const newDplusEl = document.getElementById('duplicate-new-dplus');
+      if (newDplusEl) newDplusEl.textContent = `+${newHike.elevationGain}m`;
+
+      const newFileEl = document.getElementById('duplicate-new-file');
+      if (newFileEl) newFileEl.textContent = fileName || '';
+
+      const btnSkip = document.getElementById('btn-duplicate-skip');
+      const btnReplace = document.getElementById('btn-duplicate-replace');
+      const btnAdd = document.getElementById('btn-duplicate-add');
+
+      const cleanup = (choice) => {
+        modal.classList.add('hidden');
+        if (btnSkip) btnSkip.onclick = null;
+        if (btnReplace) btnReplace.onclick = null;
+        if (btnAdd) btnAdd.onclick = null;
+        modal.onclick = null;
+        resolve(choice);
+      };
+
+      if (btnSkip) btnSkip.onclick = () => cleanup('skip');
+      if (btnReplace) btnReplace.onclick = () => cleanup('replace');
+      if (btnAdd) btnAdd.onclick = () => cleanup('add');
+
+      modal.onclick = (e) => {
+        if (e.target === modal) cleanup('skip');
+      };
+
+      modal.classList.remove('hidden');
+    });
+  }
+
+  /**
    * Handle Multi-file Upload (Instant Parse + Auto-Save + Auto-Radius Expansion)
    */
   async handleFilesUploaded(files) {
@@ -1734,6 +1889,7 @@ class AppController {
     let maxDistFound = 0;
     const newHikes = [];
     const errors = [];
+    let skippedCount = 0;
 
     for (const file of fileList) {
       try {
@@ -1743,6 +1899,32 @@ class AppController {
         hike.name = proposedName;
         hike.proposedName = proposedName;
         hike.ajoutee_par = (typeof AuthManager !== 'undefined' && AuthManager.getCurrentUser()) ? AuthManager.getCurrentUser().username : 'admin';
+
+        // Détection de randonnée ayant les mêmes caractéristiques
+        const duplicateMatch = this.findSimilarHike(hike);
+        if (duplicateMatch) {
+          const decision = await this.askDuplicateDecision(
+            hike, 
+            duplicateMatch.hike, 
+            duplicateMatch.reason, 
+            file.name
+          );
+
+          if (decision === 'skip') {
+            skippedCount++;
+            this.showToast(`Doublon ignoré : « ${file.name} »`, "info");
+            continue;
+          } else if (decision === 'replace') {
+            hike.id = duplicateMatch.hike.id;
+            if (!hike.name || hike.name === proposedName) {
+              hike.name = duplicateMatch.hike.name;
+            }
+          } else if (decision === 'add') {
+            if (hike.name === duplicateMatch.hike.name) {
+              hike.name = `${hike.name} (Bis)`;
+            }
+          }
+        }
 
         // Auto-save immediately to persistent storage
         await StorageManager.saveHike(hike, text);
@@ -1778,8 +1960,12 @@ class AppController {
     }
 
     if (newHikes.length === 0) {
-      const errorDetail = errors.length > 0 ? errors.join("\n") : "Format de fichier non reconnu.";
-      this.showToast(`Échec du chargement : ${errorDetail}`, "error");
+      if (skippedCount > 0) {
+        this.showToast(`Opération terminée : ${skippedCount} doublon(s) ignoré(s).`, "info");
+      } else {
+        const errorDetail = errors.length > 0 ? errors.join("\n") : "Format de fichier non reconnu.";
+        this.showToast(`Échec du chargement : ${errorDetail}`, "error");
+      }
       return;
     }
 
@@ -1799,7 +1985,11 @@ class AppController {
       this.handleHikeSelect(newHikes[0]);
     }
 
-    this.showToast(`🎉 ${newHikes.length} randonnée(s) ajoutée(s) avec succès !`, "success");
+    let toastMsg = `🎉 ${newHikes.length} randonnée(s) ajoutée(s) avec succès !`;
+    if (skippedCount > 0) {
+      toastMsg += ` (${skippedCount} doublon(s) ignoré(s))`;
+    }
+    this.showToast(toastMsg, "success");
   }
 
   /**
@@ -1840,7 +2030,42 @@ class AppController {
 
       hike.ajoutee_par = (typeof AuthManager !== 'undefined' && AuthManager.getCurrentUser()) ? AuthManager.getCurrentUser().username : 'admin';
 
+      // Détection de randonnée ayant les mêmes caractéristiques
+      const duplicateMatch = this.findSimilarHike(hike);
+      if (duplicateMatch) {
+        const decision = await this.askDuplicateDecision(
+          hike, 
+          duplicateMatch.hike, 
+          duplicateMatch.reason, 
+          'Trace GPX collée'
+        );
+
+        if (decision === 'skip') {
+          this.showToast("Importation annulée : doublon ignoré.", "info");
+          return;
+        } else if (decision === 'replace') {
+          hike.id = duplicateMatch.hike.id;
+          if (!customName) {
+            hike.name = duplicateMatch.hike.name;
+          }
+        } else if (decision === 'add') {
+          if (hike.name === duplicateMatch.hike.name) {
+            hike.name = `${hike.name} (Bis)`;
+          }
+        }
+      }
+
       await StorageManager.saveHike(hike, rawText);
+
+      // Auto-push to Supabase Cloud in background if configured
+      try {
+        const cfg = (typeof window.APP_CONFIG !== 'undefined') ? window.APP_CONFIG : {};
+        const supaUrl = localStorage.getItem('sanary_supabase_url') || cfg.supabaseUrl;
+        const supaKey = localStorage.getItem('sanary_supabase_key') || cfg.supabaseKey;
+        if (supaUrl && supaKey) {
+          StorageManager.pushHikeToSupabase(hike, supaUrl, supaKey).catch(e => console.warn("Supabase auto-upload error:", e));
+        }
+      } catch (e) {}
 
       const existingIdx = this.allHikes.findIndex(h => h.id === hike.id || (h.name && h.name === hike.name));
       if (existingIdx >= 0) {
