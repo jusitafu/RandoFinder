@@ -762,8 +762,31 @@ class StorageManager {
     if (this.isWriteProtected()) {
       throw new Error("Opération impossible : La base JLDApps est sanctuarisée (lecture seule).");
     }
+    if (!supabaseUrl || !anonKey) throw new Error("Paramètres Supabase manquants.");
 
-    const hikes = await this.getAllHikes();
+    const allHikes = await this.getAllHikes();
+    const tableName = this.getActiveDatabase().tableName || 'randonnees';
+    const cleanUrl = supabaseUrl.replace(/\/+$/, '');
+    const key = anonKey.trim();
+
+    // Récupérer uniquement id + nom des randonnées déjà présentes sur le cloud
+    const existingIds = new Set();
+    const existingNames = new Set();
+    const listRes = await fetch(`${cleanUrl}/rest/v1/${tableName}?select=id,name`, {
+      headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+    });
+    if (listRes.ok) {
+      const rows = await listRes.json();
+      for (const r of rows) {
+        existingIds.add(r.id);
+        if (r.name) existingNames.add(r.name);
+      }
+    } else if (listRes.status !== 404) {
+      throw new Error(`Erreur Supabase (${listRes.status}) lors de la lecture des randonnées existantes.`);
+    }
+
+    const hikes = allHikes.filter(h => !existingIds.has(h.id) && !existingNames.has(h.name));
+    const skipped = allHikes.length - hikes.length;
     let successCount = 0;
 
     for (let i = 0; i < hikes.length; i++) {
@@ -777,7 +800,7 @@ class StorageManager {
       }
     }
 
-    return { total: hikes.length, success: successCount };
+    return { total: hikes.length, success: successCount, skipped };
   }
 
   /**
