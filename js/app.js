@@ -1290,19 +1290,42 @@ class AppController {
   }
 
   async fetchPlacesList(query) {
-    // 1. Photon Komoot API (mondial, ultra-rapide, reconnaît les parcs, sommets, volcans et villes)
+    // 0. Base Adresse Nationale (adresses françaises précises, avec numéro de rue)
+    let banResults = [];
+    try {
+      const bUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`;
+      const bRes = await fetch(bUrl);
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        banResults = (bData.features || [])
+          .filter(f => f.properties && f.properties.score > 0.5)
+          .map(f => ({
+            lat: f.geometry.coordinates[1],
+            lon: f.geometry.coordinates[0],
+            shortName: f.properties.label,
+            displayName: f.properties.label
+          }));
+      }
+    } catch (e) {}
+
+    // 1. Photon Komoot API (mondial : adresses, parcs, sommets, villes)
     try {
       const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8`;
       const pRes = await fetch(pUrl);
       if (pRes.ok) {
         const pData = await pRes.json();
         if (pData && pData.features && pData.features.length > 0) {
-          return pData.features.map(f => {
+          const photon = pData.features.map(f => {
             const props = f.properties || {};
             const coords = f.geometry ? f.geometry.coordinates : [0, 0];
-            const name = props.name || props.city || '';
-            const details = [props.state, props.country].filter(Boolean).join(', ');
-            const fullName = details ? `${name} (${details})` : name;
+            const street = props.street ? [props.housenumber, props.street].filter(Boolean).join(' ') : '';
+            const name = props.name || street || props.city || '';
+            const parts = [];
+            if (props.name && street) parts.push(street);
+            if (props.postcode || props.city) parts.push([props.postcode, props.city].filter(Boolean).join(' '));
+            if (props.state) parts.push(props.state);
+            if (props.country) parts.push(props.country);
+            const fullName = parts.length ? `${name} (${parts.join(', ')})` : name;
             return {
               lat: coords[1],
               lon: coords[0],
@@ -1310,9 +1333,12 @@ class AppController {
               displayName: fullName
             };
           }).filter(p => p.lat && p.lon);
+          const all = banResults.concat(photon);
+          if (all.length > 0) return all;
         }
       }
     } catch (e) {}
+    if (banResults.length > 0) return banResults;
 
     // 2. Nominatim fallback
     try {
@@ -1370,6 +1396,14 @@ class AppController {
       window.MapManagerInstance.setSearchOrigin(lat, lon, label);
     }
     this.applyFiltersAndRender();
+    // Zoom sur le lieu : niveau rue pour une adresse (numéro), niveau ville sinon
+    const zoom = /\d/.test(label || '') ? 16 : 13;
+    const zoomToPlace = () => {
+      const m = window.MapManagerInstance && window.MapManagerInstance.map;
+      if (m) m.setView([lat, lon], zoom);
+    };
+    zoomToPlace();
+    setTimeout(zoomToPlace, 150);
   }
 
   async searchAndSelectFirstPlace(query) {
@@ -2288,7 +2322,11 @@ class AppController {
         this.showToast(`Transfert vers Supabase : ${current}/${total} (${name})...`, "info");
       });
 
-      this.showToast(`🚀 ${result.success}/${result.total} randonnée(s) sauvegardée(s) sur Supabase Cloud !`, "success");
+      if (result.total === 0) {
+        this.showToast(`✅ Rien à envoyer : les ${result.skipped} randonnée(s) sont déjà sur Supabase.`, "success");
+      } else {
+        this.showToast(`🚀 ${result.success}/${result.total} nouvelle(s) randonnée(s) envoyée(s) (${result.skipped} déjà présente(s)).`, "success");
+      }
       this.updateSupabaseBadge();
     } catch (err) {
       console.error("Erreur push Supabase:", err);
