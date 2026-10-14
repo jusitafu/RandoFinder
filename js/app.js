@@ -26,6 +26,7 @@ class AppController {
     this.manageSearchQuery = '';
 
     this.pendingUploads = [];
+    this.activeDuplicateGroups = [];
   }
 
   escapeHtml(str) {
@@ -345,6 +346,27 @@ class AppController {
         this.manageSearchQuery = e.target.value.trim().toLowerCase();
         this.renderManagementList();
       });
+    }
+
+    // Bouton et modale de recherche des doublons dans la bibliothèque
+    const btnSearchDuplicates = document.getElementById('btn-search-duplicates');
+    if (btnSearchDuplicates) {
+      btnSearchDuplicates.addEventListener('click', () => this.handleSearchDuplicatesClick());
+    }
+
+    const btnCloseDuplicatesModal = document.getElementById('btn-close-duplicates-modal');
+    if (btnCloseDuplicatesModal) {
+      btnCloseDuplicatesModal.addEventListener('click', () => this.closeDuplicatesModal());
+    }
+
+    const btnCancelDuplicatesModal = document.getElementById('btn-cancel-duplicates-modal');
+    if (btnCancelDuplicatesModal) {
+      btnCancelDuplicatesModal.addEventListener('click', () => this.closeDuplicatesModal());
+    }
+
+    const btnApplyDuplicatesClean = document.getElementById('btn-apply-duplicates-clean');
+    if (btnApplyDuplicatesClean) {
+      btnApplyDuplicatesClean.addEventListener('click', () => this.executeApplyDuplicatesClean());
     }
 
     // Pick Local Folder (Chrome / Edge PC)
@@ -1172,6 +1194,472 @@ class AppController {
       this.closeDeleteModal();
       this.applyFiltersAndRender();
       this.renderManagementList();
+    }
+  }
+
+  // =========================================================================
+  // GESTION DES DOUBLONS DANS LA BIBLIOTHÈQUE
+  // (Même trace, même kilométrage, même dénivelé)
+  // =========================================================================
+
+  handleSearchDuplicatesClick() {
+    if (StorageManager.isWriteProtected()) {
+      this.showToast("Opération impossible : La base JLDApps est sanctuarisée en lecture seule. Basculez sur la base Randonneurs Sanaryens pour gérer les doublons.", "warning");
+      return;
+    }
+
+    if (typeof AuthManager !== 'undefined' && !AuthManager.hasPermission('can_edit') && !AuthManager.isAdmin()) {
+      this.showToast("Accès restreint : Vous n'avez pas l'autorisation de modifier ou supprimer des randonnées.", "error");
+      return;
+    }
+
+    if (!this.allHikes || this.allHikes.length < 2) {
+      this.showToast("Votre bibliothèque ne contient pas assez de randonnées pour rechercher des doublons.", "info");
+      return;
+    }
+
+    const groups = this.findAllDuplicateGroups();
+    if (!groups || groups.length === 0) {
+      this.showToast("✅ Aucun doublon détecté ! Toutes vos randonnées ont des caractéristiques ou tracés distincts.", "success");
+      return;
+    }
+
+    this.activeDuplicateGroups = groups;
+    this.renderDuplicatesModal();
+    const modal = document.getElementById('duplicates-manager-modal');
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  closeDuplicatesModal() {
+    const modal = document.getElementById('duplicates-manager-modal');
+    if (modal) modal.classList.add('hidden');
+    this.activeDuplicateGroups = [];
+  }
+
+  areHikesDuplicates(h1, h2) {
+    if (!h1 || !h2 || h1.id === h2.id) return false;
+
+    // 1. Kilométrage similaire (< 0.4 km ou < 5%)
+    const d1 = Number(h1.distanceKm || 0);
+    const d2 = Number(h2.distanceKm || 0);
+    const diffDistKm = Math.abs(d1 - d2);
+    const maxDist = Math.max(d1, d2, 1);
+    const distPct = diffDistKm / maxDist;
+    const isSameDist = (diffDistKm <= 0.4) || (distPct <= 0.05);
+    if (!isSameDist) return false;
+
+    // 2. Dénivelé similaire (< 35 m ou < 8%)
+    const ele1 = Number(h1.elevationGain || 0);
+    const ele2 = Number(h2.elevationGain || 0);
+    const diffEle = Math.abs(ele1 - ele2);
+    const maxEle = Math.max(ele1, ele2, 1);
+    const elePct = diffEle / maxEle;
+    const isSameEle = (diffEle <= 35) || (elePct <= 0.08);
+    if (!isSameEle) return false;
+
+    // 3. Départ géographique
+    let distStartMeters = Infinity;
+    if (h1.startPoint && h2.startPoint) {
+      distStartMeters = GPXParser.haversineDistance(
+        h1.startPoint.lat, h1.startPoint.lon,
+        h2.startPoint.lat, h2.startPoint.lon
+      ) * 1000;
+    }
+
+    // 4. Arrivée géographique (si disponible)
+    let distEndMeters = Infinity;
+    const p1 = h1.points || [];
+    const p2 = h2.points || [];
+    const end1 = h1.endPoint || (p1.length > 0 ? p1[p1.length - 1] : null);
+    const end2 = h2.endPoint || (p2.length > 0 ? p2[p2.length - 1] : null);
+    if (end1 && end2) {
+      distEndMeters = GPXParser.haversineDistance(end1.lat, end1.lon, end2.lat, end2.lon) * 1000;
+    }
+
+    const startMatches = distStartMeters <= 450;
+    const endMatches = (distEndMeters === Infinity) || (distEndMeters <= 450);
+
+    // 5. Comparaison des coordonnées du tracé (si points disponibles)
+    let trackMatches = true;
+    if (p1.length >= 10 && p2.length >= 10) {
+      const sampleFractions = [0.2, 0.4, 0.6, 0.8];
+      let totalMinDist = 0;
+      for (const frac of sampleFractions) {
+        const pt1 = p1[Math.floor((p1.length - 1) * frac)];
+        let minD = Infinity;
+        const step = Math.max(1, Math.floor(p2.length / 30));
+        for (let k = 0; k < p2.length; k += step) {
+          const pt2 = p2[k];
+          const d = GPXParser.haversineDistance(pt1.lat, pt1.lon, pt2.lat, pt2.lon) * 1000;
+          if (d < minD) minD = d;
+        }
+        totalMinDist += minD;
+      }
+      const avgDist = totalMinDist / sampleFractions.length;
+      trackMatches = avgDist <= 450;
+    }
+
+    if (startMatches && endMatches && trackMatches) {
+      const dStartStr = distStartMeters !== Infinity ? ` (départ à ${Math.round(distStartMeters)} m)` : '';
+      return {
+        isDuplicate: true,
+        reason: `Même tracé${dStartStr}, longueur équivalente (${d1} km vs ${d2} km) et dénivelé identique (+${ele1}m vs +${ele2}m).`
+      };
+    }
+
+    // Cas de secours : Même nom exact et départ à moins de 1 km
+    const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').trim();
+    if (norm(h1.name) && norm(h1.name) === norm(h2.name) && distStartMeters <= 1000) {
+      return {
+        isDuplicate: true,
+        reason: `Nom identique (« ${h1.name} »), départ proche (${Math.round(distStartMeters)} m) et métriques équivalentes.`
+      };
+    }
+
+    return false;
+  }
+
+  findAllDuplicateGroups() {
+    const hikes = this.allHikes || [];
+    if (hikes.length < 2) return [];
+
+    const adj = new Map();
+    hikes.forEach(h => adj.set(h.id, []));
+    const edgeReasons = new Map();
+
+    for (let i = 0; i < hikes.length; i++) {
+      for (let j = i + 1; j < hikes.length; j++) {
+        const h1 = hikes[i];
+        const h2 = hikes[j];
+        const match = this.areHikesDuplicates(h1, h2);
+        if (match) {
+          adj.get(h1.id).push(h2.id);
+          adj.get(h2.id).push(h1.id);
+          const key = [h1.id, h2.id].sort().join('__');
+          edgeReasons.set(key, match.reason);
+        }
+      }
+    }
+
+    const visited = new Set();
+    const groups = [];
+
+    for (const h of hikes) {
+      if (visited.has(h.id)) continue;
+      const neighbors = adj.get(h.id) || [];
+      if (neighbors.length === 0) continue;
+
+      const groupIds = [];
+      const queue = [h.id];
+      visited.add(h.id);
+
+      while (queue.length > 0) {
+        const currId = queue.shift();
+        groupIds.push(currId);
+        for (const nxt of (adj.get(currId) || [])) {
+          if (!visited.has(nxt)) {
+            visited.add(nxt);
+            queue.push(nxt);
+          }
+        }
+      }
+
+      if (groupIds.length > 1) {
+        const groupHikes = groupIds.map(id => hikes.find(x => x.id === id)).filter(Boolean);
+
+        // Algorithme de pré-sélection de la randonnée la plus complète à conserver :
+        const scoreHike = (hk) => {
+          let score = 0;
+          if (hk.notes && hk.notes.trim().length > 5) score += 50;
+          if (hk.points && hk.points.length > 0) score += Math.min(30, hk.points.length / 50);
+          if (hk.ajoutee_par) score += 10;
+          if (/\b(bis|copie|copy|\(\d+\))\b/i.test(hk.name)) score -= 40;
+          if (hk.created_at || hk.date_ajout) score += 5;
+          return score;
+        };
+
+        groupHikes.sort((a, b) => scoreHike(b) - scoreHike(a));
+
+        const first = groupHikes[0];
+        const second = groupHikes[1];
+        const key = [first.id, second.id].sort().join('__');
+        const reason = edgeReasons.get(key) || 
+          `Tracé et caractéristiques identiques (${first.distanceKm} km, +${first.elevationGain}m).`;
+
+        groups.push({
+          id: `group_${groups.length + 1}`,
+          hikes: groupHikes,
+          keepId: groupHikes[0].id,
+          reason: reason
+        });
+      }
+    }
+
+    return groups;
+  }
+
+  renderDuplicatesModal() {
+    const modalBody = document.getElementById('duplicates-modal-body');
+    const modalSubtitle = document.getElementById('duplicates-modal-subtitle');
+    const modalSummary = document.getElementById('duplicates-modal-summary');
+    const applyBtn = document.getElementById('btn-apply-duplicates-clean');
+    const applyBtnText = document.getElementById('btn-apply-duplicates-text');
+
+    if (!modalBody) return;
+    modalBody.innerHTML = '';
+
+    const groups = this.activeDuplicateGroups || [];
+    let totalDuplicatesToDelete = 0;
+    groups.forEach(g => {
+      totalDuplicatesToDelete += (g.hikes.length - 1);
+    });
+
+    if (modalSubtitle) {
+      modalSubtitle.textContent = `${groups.length} groupe${groups.length > 1 ? 's' : ''} de doublons détecté${groups.length > 1 ? 's' : ''} (${totalDuplicatesToDelete} randonnée${totalDuplicatesToDelete > 1 ? 's' : ''} en trop).`;
+    }
+
+    if (modalSummary) {
+      modalSummary.innerHTML = `
+        <span class="font-bold text-slate-800">${groups.length}</span> groupe(s) • 
+        <span class="font-bold text-rose-600">${totalDuplicatesToDelete}</span> doublon(s) à supprimer • 
+        <span class="font-bold text-emerald-700">${groups.length}</span> randonnée(s) conservée(s)
+      `;
+    }
+
+    if (applyBtn) {
+      applyBtn.disabled = totalDuplicatesToDelete === 0;
+    }
+    if (applyBtnText) {
+      applyBtnText.textContent = `Supprimer les ${totalDuplicatesToDelete} doublon(s) sélectionnés`;
+    }
+
+    if (groups.length === 0) {
+      modalBody.innerHTML = `
+        <div class="p-8 text-center bg-white border border-slate-200 rounded-2xl text-slate-500">
+          <div class="text-3xl mb-2">🎉</div>
+          <div class="font-bold text-slate-800 text-base">Aucun doublon restant</div>
+          <div class="text-xs text-slate-500 mt-1">Toutes vos randonnées sont uniques et conservées.</div>
+        </div>
+      `;
+      return;
+    }
+
+    groups.forEach((group, gIdx) => {
+      const groupEl = document.createElement('div');
+      groupEl.className = 'bg-white border-2 border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4';
+      groupEl.dataset.groupId = group.id;
+
+      const hikesHtml = group.hikes.map(hike => {
+        const isKept = (hike.id === group.keepId);
+        const cardBorder = isKept 
+          ? 'border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500/50' 
+          : 'border-slate-200 bg-slate-50/60 opacity-85 hover:border-slate-300';
+        
+        return `
+          <div class="duplicate-hike-card p-3 sm:p-4 rounded-xl border-2 transition cursor-pointer ${cardBorder}" data-hike-id="${hike.id}">
+            <div class="flex items-start sm:items-center justify-between gap-3">
+              <label class="flex items-start sm:items-center gap-3 cursor-pointer flex-1 min-w-0">
+                <input type="radio" name="keep_${group.id}" value="${hike.id}" ${isKept ? 'checked' : ''} class="mt-0.5 sm:mt-0 w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-bold text-sm sm:text-base text-slate-900 truncate">${this.escapeHtml(hike.name)}</span>
+                    ${isKept ? `
+                      <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-[10px] font-extrabold flex items-center gap-1 select-none">
+                        <span>✅</span> <span>À CONSERVER</span>
+                      </span>
+                    ` : `
+                      <span class="px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-[10px] font-bold flex items-center gap-1 select-none">
+                        <span>🗑️</span> <span>SERA SUPPRIMÉE</span>
+                      </span>
+                    `}
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 mt-1">
+                    <span class="font-bold text-emerald-700">📏 ${hike.distanceKm} km</span>
+                    <span class="font-bold text-emerald-700">↗️ +${hike.elevationGain}m</span>
+                    <span>⛰️ ${hike.minElevation || 0}m - ${hike.maxElevation || 0}m</span>
+                    <span>⏱️ ${hike.estimatedDuration || '3h30'}</span>
+                    ${hike.points ? `<span>📍 ${hike.points.length} points</span>` : ''}
+                    ${hike.ajoutee_par ? `<span class="font-medium text-slate-500">👤 Par : <strong class="text-slate-700">${this.escapeHtml(hike.ajoutee_par)}</strong></span>` : ''}
+                  </div>
+                  ${hike.notes ? `<div class="text-[11px] text-slate-600 line-clamp-2 mt-1.5 bg-white/80 p-1.5 rounded border border-slate-200/60 italic">« ${this.escapeHtml(hike.notes)} »</div>` : ''}
+                </div>
+              </label>
+
+              <button type="button" class="btn-preview-dup px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1 flex-shrink-0 cursor-pointer" title="Aperçu sur la carte">
+                <span>🗺️</span> <span class="hidden sm:inline">Voir</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      groupEl.innerHTML = `
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold">Groupe #${gIdx + 1}</span>
+              <span class="text-xs sm:text-sm font-bold text-slate-800">${group.hikes.length} randonnées en doublon</span>
+            </div>
+            <div class="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+              <span>📌</span> <span>${this.escapeHtml(group.reason)}</span>
+            </div>
+          </div>
+          <button type="button" class="btn-clean-single-group text-xs text-rose-600 hover:text-rose-800 font-bold hover:underline flex items-center gap-1 self-end sm:self-auto cursor-pointer" title="Supprimer immédiatement les doublons de ce groupe uniquement">
+            <span>🗑️</span> <span>Nettoyer ce groupe</span>
+          </button>
+        </div>
+
+        <div class="space-y-2.5">
+          ${hikesHtml}
+        </div>
+      `;
+
+      // Event listener on radio & cards
+      groupEl.querySelectorAll('.duplicate-hike-card').forEach(card => {
+        const hikeId = card.dataset.hikeId;
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.btn-preview-dup')) return;
+          this.setGroupKeepHike(group.id, hikeId);
+        });
+
+        const previewBtn = card.querySelector('.btn-preview-dup');
+        if (previewBtn) {
+          previewBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const h = group.hikes.find(x => x.id === hikeId);
+            if (h) {
+              this.closeDuplicatesModal();
+              this.showHikeOnMap(h);
+              this.showToast(`Affichage du tracé de « ${h.name} » sur la carte`, "info");
+            }
+          });
+        }
+      });
+
+      // Single group cleanup button
+      const cleanGroupBtn = groupEl.querySelector('.btn-clean-single-group');
+      if (cleanGroupBtn) {
+        cleanGroupBtn.addEventListener('click', () => {
+          this.cleanSingleDuplicateGroup(group.id);
+        });
+      }
+
+      modalBody.appendChild(groupEl);
+    });
+  }
+
+  setGroupKeepHike(groupId, hikeId) {
+    const grp = (this.activeDuplicateGroups || []).find(g => g.id === groupId);
+    if (!grp) return;
+    grp.keepId = hikeId;
+    this.renderDuplicatesModal();
+  }
+
+  async cleanSingleDuplicateGroup(groupId) {
+    const grp = (this.activeDuplicateGroups || []).find(g => g.id === groupId);
+    if (!grp) return;
+
+    const toDelete = grp.hikes.filter(h => h.id !== grp.keepId);
+    if (toDelete.length === 0) return;
+
+    const keptHike = grp.hikes.find(h => h.id === grp.keepId);
+    const confirmMsg = `Confirmez-vous la suppression de ${toDelete.length} randonnée(s) en doublon dans ce groupe ?\n\n` +
+      `Randonnée conservée : « ${keptHike ? keptHike.name : ''} »\n` +
+      `Randonnées supprimées : ${toDelete.map(h => '« ' + h.name + ' »').join(', ')}`;
+
+    if (!confirm(confirmMsg)) return;
+
+    for (const h of toDelete) {
+      try {
+        await StorageManager.deleteHike(h.id, h.filename);
+        this.allHikes = this.allHikes.filter(x => x.id !== h.id);
+        
+        // Auto-delete Supabase Cloud in background
+        try {
+          const cfg = (typeof window.APP_CONFIG !== 'undefined') ? window.APP_CONFIG : {};
+          const supaUrl = localStorage.getItem('sanary_supabase_url') || cfg.supabaseUrl;
+          const supaKey = localStorage.getItem('sanary_supabase_key') || cfg.supabaseKey;
+          if (supaUrl && supaKey) {
+            StorageManager.deleteFromSupabase(h.id, supaUrl, supaKey).catch(e => console.warn(e));
+          }
+        } catch (e) {}
+      } catch (err) {
+        console.warn("Erreur suppression doublon :", err);
+      }
+    }
+
+    this.activeDuplicateGroups = this.activeDuplicateGroups.filter(g => g.id !== groupId);
+    this.applyFiltersAndRender();
+    this.renderManagementList();
+    this.renderDuplicatesModal();
+
+    this.showToast(`Groupe nettoyé : ${toDelete.length} doublon(s) supprimé(s).`, "success");
+
+    if (this.activeDuplicateGroups.length === 0) {
+      setTimeout(() => this.closeDuplicatesModal(), 1200);
+    }
+  }
+
+  async executeApplyDuplicatesClean() {
+    const groups = this.activeDuplicateGroups || [];
+    if (groups.length === 0) return;
+
+    const allToDelete = [];
+    groups.forEach(g => {
+      g.hikes.forEach(h => {
+        if (h.id !== g.keepId) {
+          allToDelete.push(h);
+        }
+      });
+    });
+
+    if (allToDelete.length === 0) {
+      this.showToast("Aucun doublon à supprimer.", "info");
+      return;
+    }
+
+    const confirmMsg = `Confirmez-vous la suppression définitive de ${allToDelete.length} randonnée(s) en doublon ?\n\n` +
+      `Les ${groups.length} randonnées choisies seront conservées.\nCette action est irréversible.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    let deletedCount = 0;
+    const deleteBtn = document.getElementById('btn-apply-duplicates-clean');
+    if (deleteBtn) {
+      deleteBtn.disabled = true;
+      deleteBtn.innerHTML = `<span>⏳</span> Suppression en cours...`;
+    }
+
+    try {
+      for (const h of allToDelete) {
+        try {
+          await StorageManager.deleteHike(h.id, h.filename);
+          this.allHikes = this.allHikes.filter(x => x.id !== h.id);
+          deletedCount++;
+
+          // Auto-delete Supabase
+          try {
+            const cfg = (typeof window.APP_CONFIG !== 'undefined') ? window.APP_CONFIG : {};
+            const supaUrl = localStorage.getItem('sanary_supabase_url') || cfg.supabaseUrl;
+            const supaKey = localStorage.getItem('sanary_supabase_key') || cfg.supabaseKey;
+            if (supaUrl && supaKey) {
+              StorageManager.deleteFromSupabase(h.id, supaUrl, supaKey).catch(e => console.warn(e));
+            }
+          } catch (e) {}
+        } catch (err) {
+          console.warn("Erreur suppression doublon :", err);
+        }
+      }
+
+      this.closeDuplicatesModal();
+      this.applyFiltersAndRender();
+      this.renderManagementList();
+      this.showToast(`✅ Nettoyage terminé : ${deletedCount} doublon(s) supprimé(s) avec succès !`, "success");
+    } finally {
+      if (deleteBtn) {
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = `<span>🗑️</span> <span id="btn-apply-duplicates-text">Supprimer les doublons sélectionnés</span>`;
+      }
     }
   }
 
