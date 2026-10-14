@@ -47,13 +47,15 @@ class MapManager {
     });
 
     const openTopo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      maxZoom: 17,
+      maxZoom: 19,
+      maxNativeZoom: 17,
       subdomains: 'abc',
       attribution: '&copy; OpenTopoMap'
     });
 
     const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
+      maxNativeZoom: 18,
       attribution: '&copy; Esri World Imagery (Monde 🌍 & France)'
     });
 
@@ -74,6 +76,7 @@ class MapManager {
     this.map = L.map(this.containerId, {
       center: [this.searchOrigin.lat, this.searchOrigin.lon],
       zoom: 11,
+      maxZoom: 19,
       layers: [ignPlan],
       zoomControl: true
     });
@@ -120,11 +123,23 @@ class MapManager {
     }
   }
 
-  setSearchOrigin(lat, lon, name = 'Lieu sélectionné') {
+  setSearchOrigin(lat, lon, name = 'Lieu sélectionné', autoZoom = false) {
     this.searchOrigin = { lat, lon, name };
-    this.updateSearchRadiusVisuals(true);
+    this.updateSearchRadiusVisuals(autoZoom);
     if (this.onSearchOriginChangeCallback) {
       this.onSearchOriginChangeCallback(this.searchOrigin);
+    }
+  }
+
+  zoomToLocation(lat, lon, zoom = null) {
+    if (!this.map) return;
+    this.map.invalidateSize();
+    const targetZoom = (zoom !== null) 
+      ? zoom 
+      : ((this.map.getMaxZoom && this.map.getMaxZoom() !== Infinity) ? this.map.getMaxZoom() : 19);
+    this.map.setView([lat, lon], targetZoom, { animate: true });
+    if (this.searchOriginMarker) {
+      this.searchOriginMarker.openTooltip();
     }
   }
 
