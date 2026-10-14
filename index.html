@@ -39,7 +39,7 @@
   <!-- ========================================================================= -->
   <!-- HEADER -->
   <!-- ========================================================================= -->
-  <header class="bg-slate-900 text-white shadow-lg border-b border-slate-800 relative z-[45] flex-shrink-0">
+  <header class="bg-slate-900 text-white shadow-lg border-b border-slate-800 relative z-[1060] flex-shrink-0">
     <!-- BANDEAU OFFICIEL SUPÉRIEUR : ÉLARGI AU MAXIMUM DE LA FENÊTRE -->
     <div class="w-full bg-white border-b border-slate-200/90 py-1.5 sm:py-2.5 px-3 sm:px-6 shadow-sm flex items-center justify-between relative overflow-hidden">
       <!-- Accent gauche -->
@@ -184,18 +184,18 @@
       </div>
 
       <!-- Top Filter & Search Bar -->
-      <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 shadow-sm relative z-40 flex-shrink-0">
+      <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 shadow-sm relative z-[1050] flex-shrink-0">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           
           <!-- Location search & Distance slider -->
           <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4 flex-1">
             
             <!-- Place Picker input -->
-            <div class="relative flex-1 min-w-[200px] max-w-sm">
+            <div class="relative flex-1 min-w-[220px] max-w-md">
               <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 text-xs">
                 📍
               </div>
-              <input type="text" id="location-input" value="Sanary-sur-Mer" placeholder="Lieu de référence..." class="w-full pl-8 pr-16 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              <input type="text" id="location-input" value="Sanary-sur-Mer" placeholder="Adresse, ville ou lieu (ex: 6 Joubert street)..." class="w-full pl-8 pr-16 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
               
               <!-- Action buttons inside input -->
               <div class="absolute inset-y-0 right-1 flex items-center gap-0.5">
@@ -208,7 +208,7 @@
               </div>
 
               <!-- Autocomplete dropdown -->
-              <div id="location-autocomplete-results" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50"></div>
+              <div id="location-autocomplete-results" class="hidden absolute top-full left-0 mt-1.5 bg-white border border-slate-200/90 rounded-2xl shadow-2xl max-h-80 overflow-y-auto z-[1100] w-full sm:min-w-[420px] md:min-w-[480px] divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-150"></div>
             </div>
 
             <!-- Radius Slider (10 to 20 000 km with mouse wheel support) -->
@@ -669,7 +669,7 @@
   <!-- ========================================================================= -->
   <!-- MODAL : MODIFIER LA RANDONNÉE (✏️ Crayon) -->
   <!-- ========================================================================= -->
-  <div id="edit-hike-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div id="edit-hike-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
       
       <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
@@ -707,7 +707,7 @@
   <!-- ========================================================================= -->
   <!-- MODAL : CONFIRMATION SUPPRESSION (🗑️ Corbeille) -->
   <!-- ========================================================================= -->
-  <div id="delete-hike-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div id="delete-hike-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
       
       <div class="p-6 text-center space-y-3">
@@ -737,7 +737,7 @@
   <!-- ========================================================================= -->
   <!-- MODAL : DOUBLON DÉTECTÉ / CARACTÉRISTIQUES IDENTIQUES -->
   <!-- ========================================================================= -->
-  <div id="duplicate-hike-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div id="duplicate-hike-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
       
       <!-- En-tête -->
@@ -797,7 +797,7 @@
   <!-- ========================================================================= -->
   <!-- MODAL : TÉLÉCHARGEMENT & FICHE RANDONNÉE -->
   <!-- ========================================================================= -->
-  <div id="download-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div id="download-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
       
       <div class="bg-slate-900 text-white p-5 flex items-start justify-between">
@@ -865,7 +865,7 @@
   <!-- ========================================================================= -->
   <!-- MODAL : ÉCRAN DE VERROUILLAGE / AUTHENTIFICATION (MODE B2 - ACCÈS PRIVÉ) -->
   <!-- ========================================================================= -->
-  <div id="login-lock-modal" class="fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="login-lock-modal" class="fixed inset-0 z-[10000] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl shadow-2xl max-w-md sm:max-w-lg w-full overflow-hidden border border-slate-700 animate-in fade-in zoom-in-95 duration-200">
       
       <!-- Top banner with wide logo -->
@@ -930,7 +930,7 @@
   <!-- ========================================================================= -->
   <!-- MODAL : ACCÈS POST-CONNEXION (CHOIX DE DIRECTION) -->
   <!-- ========================================================================= -->
-  <div id="post-login-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="post-login-modal" class="hidden fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
       
       <div class="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
@@ -1010,7 +1010,7 @@
   <!-- ========================================================================= -->
   <!-- MODAL : CHANGEMENT DE MOT DE PASSE -->
   <!-- ========================================================================= -->
-  <div id="change-password-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="change-password-modal" class="hidden fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
       
       <div class="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
@@ -1113,7 +1113,7 @@
   <!-- ========================================================================= -->
   <!-- MODAL : GESTION DES COMPTES UTILISATEURS (ADMINISTRATEUR) -->
   <!-- ========================================================================= -->
-  <div id="user-management-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+  <div id="user-management-modal" class="hidden fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
     <div class="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
       
       <!-- Header -->
@@ -1387,17 +1387,17 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   </div>
 
   <!-- Toast Notifications -->
-  <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
+  <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=36"></script>
-  <script src="js/auth-manager.js?v=36"></script>
-  <script src="js/gpx-parser.js?v=36"></script>
-  <script src="js/sample-data.js?v=36"></script>
-  <script src="js/storage.js?v=36"></script>
-  <script src="js/elevation-profile.js?v=36"></script>
-  <script src="js/map-manager.js?v=36"></script>
-  <script src="js/pdf-exporter.js?v=36"></script>
-  <script src="js/app.js?v=36"></script>
+  <script src="js/config.js?v=38"></script>
+  <script src="js/auth-manager.js?v=38"></script>
+  <script src="js/gpx-parser.js?v=38"></script>
+  <script src="js/sample-data.js?v=38"></script>
+  <script src="js/storage.js?v=38"></script>
+  <script src="js/elevation-profile.js?v=38"></script>
+  <script src="js/map-manager.js?v=38"></script>
+  <script src="js/pdf-exporter.js?v=38"></script>
+  <script src="js/app.js?v=38"></script>
 </body>
 </html>
