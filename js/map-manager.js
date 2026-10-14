@@ -361,16 +361,6 @@ class MapManager {
       }).addTo(this.trackLayer);
     }
 
-    // Centrage automatique du tracé si la rando est sélectionnée
-    if (isSelected) {
-      let b = hike.bounds;
-      if (!b && hike.points && hike.points.length > 0) {
-        b = L.latLngBounds(latLngs);
-      }
-      if (b && typeof b.isValid === 'function' && b.isValid()) {
-        this.map.fitBounds(b, { padding: [50, 50], maxZoom: 15, animate: true, duration: 0.3 });
-      }
-    }
   }
 
   clearTrack() {
