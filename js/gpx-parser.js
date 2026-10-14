@@ -357,28 +357,156 @@ class GPXParser {
   }
 
   /**
-   * Fast reverse geocoding to identify starting municipality (1s timeout)
+   * Standardise le nom d'un pays en convention française propre (ex: USA, Nouvelle-Zélande, Royaume-Uni, etc.)
    */
+  static standardizeCountryName(raw) {
+    if (!raw) return '';
+    const c = String(raw).trim();
+    const lc = c.toLowerCase();
+
+    if (lc.includes('united states') || lc.includes('états-unis') || lc.includes('etats-unis') || lc === 'usa' || lc === 'us') {
+      return 'USA';
+    }
+    if (lc.includes('new zealand') || lc.includes('nouvelle-zélande') || lc.includes('nouvelle-zelande')) {
+      return 'Nouvelle-Zélande';
+    }
+    if (lc.includes('united kingdom') || lc.includes('royaume-uni') || lc.includes('great britain') || lc.includes('scotland') || lc.includes('écosse') || lc.includes('england') || lc.includes('wales')) {
+      return 'Royaume-Uni';
+    }
+    if (lc.includes('canada')) return 'Canada';
+    if (lc.includes('italy') || lc.includes('italie')) return 'Italie';
+    if (lc.includes('spain') || lc.includes('espagne')) return 'Espagne';
+    if (lc.includes('switzerland') || lc.includes('suisse')) return 'Suisse';
+    if (lc.includes('china') || lc.includes('chine')) return 'Chine';
+    if (lc.includes('singapore') || lc.includes('singapour')) return 'Singapour';
+    if (lc.includes('australia') || lc.includes('australie')) return 'Australie';
+    if (lc.includes('japan') || lc.includes('japon')) return 'Japon';
+    if (lc.includes('norway') || lc.includes('norvège') || lc.includes('norvege')) return 'Norvège';
+    if (lc.includes('germany') || lc.includes('allemagne')) return 'Allemagne';
+    if (lc.includes('belgium') || lc.includes('belgique')) return 'Belgique';
+    if (lc.includes('portugal')) return 'Portugal';
+    if (lc.includes('austria') || lc.includes('autriche')) return 'Autriche';
+    if (lc.includes('greece') || lc.includes('grèce') || lc.includes('grece')) return 'Grèce';
+    if (lc.includes('morocco') || lc.includes('maroc')) return 'Maroc';
+    if (lc.includes('south africa') || lc.includes('afrique du sud')) return 'Afrique du Sud';
+    if (lc.includes('iceland') || lc.includes('islande')) return 'Islande';
+    if (lc.includes('ireland') || lc.includes('irlande')) return 'Irlande';
+    if (lc.includes('france')) return 'France';
+    if (lc.includes('monaco')) return 'Monaco';
+
+    return c;
+  }
+
   /**
-   * Fast worldwide reverse geocoding (Photon Komoot API + Nominatim fallback)
+   * Détection géographique instantanée du pays d'après les coordonnées GPS (sans dépendance réseau)
+   */
+  static detectCountryFromCoords(lat, lon) {
+    if (typeof lat !== 'number' || typeof lon !== 'number' || isNaN(lat) || isNaN(lon)) return null;
+
+    // France métropolitaine & Corse
+    const inFranceMainland = (lat >= 42.33 && lat <= 51.1 && lon >= -4.8 && lon <= 8.25);
+    const inCorsica = (lat >= 41.3 && lat <= 43.1 && lon >= 8.5 && lon <= 9.6);
+
+    // Nouvelle-Zélande (-47.5 à -34.0, 166.0 à 179.0)
+    if (lat >= -47.5 && lat <= -34.0 && lon >= 166.0 && lon <= 179.0) return 'Nouvelle-Zélande';
+    // Canada (48.0 à 70.0, -141.0 à -52.0)
+    if (lat >= 48.0 && lat <= 70.0 && lon >= -141.0 && lon <= -52.0) return 'Canada';
+    // USA (continental + Alaska + Hawaii)
+    if ((lat >= 24.5 && lat <= 49.4 && lon >= -125.0 && lon <= -66.9) ||
+        (lat >= 51.0 && lat <= 71.5 && lon >= -179.0 && lon <= -129.0) ||
+        (lat >= 18.9 && lat <= 22.3 && lon >= -160.3 && lon <= -154.8)) {
+      return 'USA';
+    }
+    // Chine (18.0 à 53.6, 73.5 à 135.0)
+    if (lat >= 18.0 && lat <= 53.6 && lon >= 73.5 && lon <= 135.0) return 'Chine';
+    // Singapour (1.15 à 1.48, 103.6 à 104.05)
+    if (lat >= 1.15 && lat <= 1.48 && lon >= 103.6 && lon <= 104.05) return 'Singapour';
+    // Australie (-44.0 à -10.0, 113.0 à 154.0)
+    if (lat >= -44.0 && lat <= -10.0 && lon >= 113.0 && lon <= 154.0) return 'Australie';
+    // Japon (30.0 à 45.6, 129.0 à 146.0)
+    if (lat >= 30.0 && lat <= 45.6 && lon >= 129.0 && lon <= 146.0) return 'Japon';
+    // Royaume-Uni (49.85 à 60.9, -8.7 à 1.8) en excluant la Côte d'Opale française
+    if (lat >= 49.85 && lat <= 60.9 && lon >= -8.7 && lon <= 1.8) {
+      if (lat >= 50.8 && lon >= 1.55) return 'France'; // Sangatte / Calais
+      return 'Royaume-Uni';
+    }
+    // Italie (Dolomites / Alpes et péninsule)
+    if ((lat >= 46.0 && lat <= 47.1 && lon >= 10.5 && lon <= 13.7) ||
+        (lat >= 36.6 && lat <= 46.5 && lon >= 6.7 && lon <= 18.6 && !(inFranceMainland || inCorsica))) {
+      return 'Italie';
+    }
+    // Espagne
+    if (lat >= 35.9 && lat <= 43.8 && lon >= -9.3 && lon <= 3.4 && !inFranceMainland) return 'Espagne';
+    // Suisse
+    if (lat >= 45.8 && lat <= 47.8 && lon >= 5.95 && lon <= 10.5 && !inFranceMainland) return 'Suisse';
+    // Norvège
+    if (lat >= 57.9 && lat <= 71.2 && lon >= 4.5 && lon <= 31.1) return 'Norvège';
+
+    if (inFranceMainland || inCorsica) return 'France';
+    return null;
+  }
+
+  /**
+   * Garantit que le nom de la randonnée commence systématiquement par le nom du pays si c'est un pays étranger
+   */
+  static ensureForeignCountryPrefix(name, country = null, lat = null, lon = null) {
+    if (!name) return name;
+
+    let resolvedCountry = country;
+    if (!resolvedCountry && lat !== null && lon !== null) {
+      resolvedCountry = this.detectCountryFromCoords(Number(lat), Number(lon));
+    }
+    resolvedCountry = this.standardizeCountryName(resolvedCountry);
+
+    // Si pas de pays étranger ou France/Monaco, ne rien changer
+    if (!resolvedCountry || resolvedCountry === 'France' || resolvedCountry === 'Monaco') {
+      return name;
+    }
+
+    // Nettoyer les préfixes existants éventuels pour éviter les doublons ("Canada - Canada - ...")
+    let cleaned = name.trim();
+    const knownPrefixes = [
+      'Canada', 'Nouvelle-Zélande', 'Nouvelle-Zelande', 'USA', 'États-Unis', 'Etats-Unis',
+      'Chine', 'Italie', 'Espagne', 'Suisse', 'Royaume-Uni', 'Singapour', 'Norvège', 'Japon',
+      'Australie', 'Allemagne', 'Belgique', 'Portugal', 'Islande', 'Irlande'
+    ];
+
+    for (const kp of knownPrefixes) {
+      const pRegex = new RegExp(`^${kp}(\\s*\\([^)]*\\))?\\s*-\\s*`, 'i');
+      if (pRegex.test(cleaned)) {
+        cleaned = cleaned.replace(pRegex, '').trim();
+        break;
+      }
+    }
+
+    // Préfixer systématiquement avec le pays étranger standardisé
+    return `${resolvedCountry} - ${cleaned}`;
+  }
+
+  /**
+   * Géocodage inverse mondial (Photon Komoot API + Nominatim fallback + détection coordonnées)
    */
   static async reverseGeocode(lat, lon) {
+    const latNum = Number(lat);
+    const lonNum = Number(lon);
+
     // 1. Try Photon (fast, worldwide, recognises trails, peaks, nature parks)
     try {
       const pController = new AbortController();
-      const pTimeout = setTimeout(() => pController.abort(), 1800);
-      const pRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}`, { signal: pController.signal });
+      const pTimeout = setTimeout(() => pController.abort(), 2000);
+      const pRes = await fetch(`https://photon.komoot.io/reverse?lat=${latNum}&lon=${lonNum}`, { signal: pController.signal });
       clearTimeout(pTimeout);
       if (pRes.ok) {
         const pData = await pRes.json();
         if (pData && pData.features && pData.features.length > 0) {
           const props = pData.features[0].properties || {};
           const trailOrPlace = props.name || props.city || props.town || props.village || props.county || '';
-          const country = props.country || '';
-          const isFrance = /france/i.test(country);
+          const rawCountry = props.country || '';
+          const stdCountry = this.standardizeCountryName(rawCountry) || this.detectCountryFromCoords(latNum, lonNum) || '';
+          const isFrance = (stdCountry === 'France' || stdCountry === 'Monaco');
           if (trailOrPlace) {
-            if (!isFrance && country) {
-              return `${country} - ${trailOrPlace}`;
+            if (!isFrance && stdCountry) {
+              return `${stdCountry} - ${trailOrPlace}`;
             }
             return trailOrPlace;
           }
@@ -388,10 +516,10 @@ class GPXParser {
 
     // 2. Nominatim fallback
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1500);
+    const timeout = setTimeout(() => controller.abort(), 2000);
 
     try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`;
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latNum}&lon=${lonNum}&zoom=14&addressdetails=1`;
       const response = await fetch(url, { 
         headers: { 'Accept-Language': 'fr' },
         signal: controller.signal
@@ -404,11 +532,12 @@ class GPXParser {
           const addr = data.address;
           const place = addr.village || addr.town || addr.city || addr.municipality || 
                         addr.hamlet || addr.suburb || addr.county || '';
-          const country = addr.country || '';
-          const isFrance = /france/i.test(country);
+          const rawCountry = addr.country || '';
+          const stdCountry = this.standardizeCountryName(rawCountry) || this.detectCountryFromCoords(latNum, lonNum) || '';
+          const isFrance = (stdCountry === 'France' || stdCountry === 'Monaco');
           if (place) {
-            if (!isFrance && country) {
-              return `${country} - ${place}`;
+            if (!isFrance && stdCountry) {
+              return `${stdCountry} - ${place}`;
             }
             return place;
           }
@@ -417,19 +546,41 @@ class GPXParser {
     } catch (e) {
       clearTimeout(timeout);
     }
+
+    // 3. Fallback immédiat d'après les coordonnées
+    const offlineCountry = this.detectCountryFromCoords(latNum, lonNum);
+    if (offlineCountry && offlineCountry !== 'France' && offlineCountry !== 'Monaco') {
+      return offlineCountry;
+    }
+
     return '';
   }
 
   /**
-   * Generate standardized hike name: "Lieu - XX.X km - D+ XXXm"
+   * Génération d'un nom standardisé : "[Pays (si étranger)] - Lieu - XX.X km - D+ XXXm"
    */
   static async generateProposedName(hike) {
     let placeName = '';
-    try {
-      if (hike.startPoint) {
-        placeName = await this.reverseGeocode(hike.startPoint.lat, hike.startPoint.lon);
-      }
-    } catch (e) {}
+    let detectedCountry = '';
+
+    if (hike.startPoint) {
+      const lat = Number(hike.startPoint.lat);
+      const lon = Number(hike.startPoint.lon);
+      detectedCountry = this.detectCountryFromCoords(lat, lon);
+
+      try {
+        const geoInfo = await this.reverseGeocode(lat, lon);
+        if (geoInfo) {
+          placeName = geoInfo;
+          if (geoInfo.includes(' - ')) {
+            const cStr = geoInfo.split(' - ')[0];
+            detectedCountry = this.standardizeCountryName(cStr) || detectedCountry;
+          }
+        }
+      } catch (e) {}
+    }
+
+    detectedCountry = this.standardizeCountryName(detectedCountry);
 
     const cleanOriginal = (hike.originalName || hike.filename || '')
       .replace(/\.(gpx|xml|kml|json|geojson|tcx|fit)$/i, '')
@@ -443,17 +594,16 @@ class GPXParser {
     let baseName = '';
     if (!isGeneric(cleanOriginal)) {
       baseName = cleanOriginal;
-      if (placeName && placeName.includes(' - ')) {
-        const country = placeName.split(' - ')[0];
-        if (!baseName.toLowerCase().includes(country.toLowerCase())) {
-          baseName = `${country} - ${baseName}`;
-        }
-      }
     } else {
       baseName = placeName || 'Randonnée';
     }
 
-    const cleanBase = baseName.replace(/[\\/:*?"<>|]/g, ' ').trim();
+    // Si pays étranger, s'assurer que le nom commence obligatoirement par le nom du pays
+    if (detectedCountry && detectedCountry !== 'France' && detectedCountry !== 'Monaco') {
+      baseName = this.ensureForeignCountryPrefix(baseName, detectedCountry);
+    }
+
+    const cleanBase = baseName.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
     return `${cleanBase} - ${hike.distanceKm} km - D+ ${hike.elevationGain}m`;
   }
 
