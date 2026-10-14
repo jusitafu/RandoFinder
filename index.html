@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Randonneurs Sanaryens - RandoFinder</title>
   
+  <!-- Favicons : Randonneur vert Sanaryens -->
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=41">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png?v=41">
+  <link rel="shortcut icon" href="favicon.ico?v=41">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=41">
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -225,7 +231,10 @@
 
             <!-- Filter Text search -->
             <div class="relative w-36 sm:w-52">
-              <input type="text" id="hike-search-input" placeholder="Filtrer (ex: Canada, Chine)..." class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                <img src="favicon-32x32.png?v=41" alt="Randonneur" class="w-3.5 h-3.5 object-contain">
+              </div>
+              <input type="text" id="hike-search-input" placeholder="Filtrer (ex: Canada, Chine)..." class="w-full pl-7 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
             </div>
 
           </div>
@@ -1445,14 +1454,14 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=40"></script>
-  <script src="js/auth-manager.js?v=40"></script>
-  <script src="js/gpx-parser.js?v=40"></script>
-  <script src="js/sample-data.js?v=40"></script>
-  <script src="js/storage.js?v=40"></script>
-  <script src="js/elevation-profile.js?v=40"></script>
-  <script src="js/map-manager.js?v=40"></script>
-  <script src="js/pdf-exporter.js?v=40"></script>
-  <script src="js/app.js?v=40"></script>
+  <script src="js/config.js?v=41"></script>
+  <script src="js/auth-manager.js?v=41"></script>
+  <script src="js/gpx-parser.js?v=41"></script>
+  <script src="js/sample-data.js?v=41"></script>
+  <script src="js/storage.js?v=41"></script>
+  <script src="js/elevation-profile.js?v=41"></script>
+  <script src="js/map-manager.js?v=41"></script>
+  <script src="js/pdf-exporter.js?v=41"></script>
+  <script src="js/app.js?v=41"></script>
 </body>
 </html>
