@@ -457,15 +457,24 @@
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h2 class="text-xl sm:text-2xl font-bold text-slate-900">Gestion de la bibliothèque</h2>
-            <p class="text-xs text-slate-500">Modifiez le nom et les notes de vos randonnées ou supprimez celles dont vous n'avez plus besoin.</p>
+            <p class="text-xs text-slate-500">Modifiez le nom et les notes de vos randonnées, recherchez les doublons ou supprimez les parcours obsolètes.</p>
           </div>
           
-          <!-- Search in manage -->
-          <div class="w-full sm:w-80 relative">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
-              🔍
+          <!-- Actions & Search in manage -->
+          <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
+            <!-- Bouton Recherche des doublons -->
+            <button id="btn-search-duplicates" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold transition shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer" title="Détecter les randonnées avec même tracé, même kilométrage et même dénivelé">
+              <span>👯</span>
+              <span>Recherche des doublons</span>
+            </button>
+
+            <!-- Search in manage -->
+            <div class="w-full sm:w-72 relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                🔍
+              </div>
+              <input type="text" id="manage-search-input" placeholder="Rechercher (Tongariro, nom, pays, notes)..." class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
             </div>
-            <input type="text" id="manage-search-input" placeholder="Rechercher (Tongariro, nom, pays, notes)..." class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
           </div>
         </div>
 
@@ -789,6 +798,52 @@
         <button id="btn-duplicate-add" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-md">
           ➕ Ajouter quand même
         </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL : RECHERCHE & GESTION DES DOUBLONS DE LA BIBLIOTHÈQUE -->
+  <!-- ========================================================================= -->
+  <div id="duplicates-manager-modal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- En-tête -->
+      <div class="px-6 py-4 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white flex items-center justify-between flex-shrink-0 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl shadow-xs">
+            👯
+          </div>
+          <div>
+            <h3 class="font-bold text-base sm:text-lg leading-tight">Recherche & Nettoyage des doublons</h3>
+            <p id="duplicates-modal-subtitle" class="text-xs text-amber-100">Détection des randonnées avec même tracé, même kilométrage et même dénivelé.</p>
+          </div>
+        </div>
+        <button id="btn-close-duplicates-modal" class="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-xl transition text-lg leading-none cursor-pointer" title="Fermer">
+          ✕
+        </button>
+      </div>
+
+      <!-- Corps défilant -->
+      <div id="duplicates-modal-body" class="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50/60">
+        <!-- Rempli dynamiquement -->
+      </div>
+
+      <!-- Pied de page avec actions -->
+      <div class="px-6 py-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
+        <div id="duplicates-modal-summary" class="text-xs sm:text-sm font-medium text-slate-600 text-center sm:text-left">
+          <!-- Ex: 3 doublons seront supprimés, 3 randonnées conservées -->
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <button id="btn-cancel-duplicates-modal" class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer">
+            Annuler
+          </button>
+          <button id="btn-apply-duplicates-clean" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:pointer-events-none">
+            <span>🗑️</span>
+            <span id="btn-apply-duplicates-text">Supprimer les doublons sélectionnés</span>
+          </button>
+        </div>
       </div>
 
     </div>
@@ -1390,14 +1445,14 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=38"></script>
-  <script src="js/auth-manager.js?v=38"></script>
-  <script src="js/gpx-parser.js?v=38"></script>
-  <script src="js/sample-data.js?v=38"></script>
-  <script src="js/storage.js?v=38"></script>
-  <script src="js/elevation-profile.js?v=38"></script>
-  <script src="js/map-manager.js?v=38"></script>
-  <script src="js/pdf-exporter.js?v=38"></script>
-  <script src="js/app.js?v=38"></script>
+  <script src="js/config.js?v=39"></script>
+  <script src="js/auth-manager.js?v=39"></script>
+  <script src="js/gpx-parser.js?v=39"></script>
+  <script src="js/sample-data.js?v=39"></script>
+  <script src="js/storage.js?v=39"></script>
+  <script src="js/elevation-profile.js?v=39"></script>
+  <script src="js/map-manager.js?v=39"></script>
+  <script src="js/pdf-exporter.js?v=39"></script>
+  <script src="js/app.js?v=39"></script>
 </body>
 </html>
