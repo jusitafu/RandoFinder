@@ -52,24 +52,17 @@
   <!-- HEADER -->
   <!-- ========================================================================= -->
   <header class="bg-slate-900 text-white shadow-lg border-b border-slate-800 relative z-[1060] flex-shrink-0">
-    <!-- BANDEAU OFFICIEL SUPÉRIEUR : ÉLARGI AU MAXIMUM DE LA FENÊTRE -->
-    <div class="w-full bg-white border-b border-slate-200/90 py-1.5 sm:py-2.5 px-3 sm:px-6 shadow-sm flex items-center justify-between relative overflow-hidden">
-      <!-- Accent gauche -->
-      <div class="hidden md:flex items-center gap-2 text-slate-700 text-xs font-semibold select-none min-w-[140px]">
-        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-slate-800 font-bold">Sanary-sur-Mer</span>
-        <span class="text-slate-400">•</span>
-        <span class="text-slate-500 text-[11px]">Var (83)</span>
-      </div>
-
-      <!-- LOGO CENTRAL ÉLARGI AVEC ANIMATION DE MARCHE -->
-      <div class="flex-1 flex items-center justify-center min-w-0 px-2">
-        <div id="logo-frame" class="relative overflow-hidden cursor-pointer select-none rounded-xl hover:scale-[1.01] active:scale-[0.99] transition-transform duration-200 inline-flex items-center justify-center" title="Les Randonneurs Sanaryens (Cliquez pour faire marcher les randonneurs)">
-          <!-- Logo officiel grand format -->
-          <img id="app-logo" src="logo.png" alt="Les Randonneurs Sanaryens" class="h-12 sm:h-16 md:h-20 lg:h-22 w-auto max-w-[92vw] block object-contain transition-opacity duration-300" style="opacity: 1;">
+    <!-- BANDEAU OFFICIEL SUPÉRIEUR : DISPOSITION HARMONIEUSE (GAUCHE : LOGO CLUB | CENTRE : RANDOFINDER | DROITE : JLDAPPS 2026) -->
+    <div class="w-full bg-white border-b border-slate-200/90 py-1.5 sm:py-2.5 px-3 sm:px-6 shadow-sm flex items-center justify-between relative overflow-hidden gap-2 sm:gap-4">
+      
+      <!-- GAUCHE : Logo officiel Les Randonneurs Sanaryens avec animation de marche -->
+      <div class="flex-1 flex items-center justify-start min-w-0">
+        <div id="logo-frame" class="relative overflow-hidden cursor-pointer select-none rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200 inline-flex items-center" title="Les Randonneurs Sanaryens (Cliquez pour faire marcher les randonneurs)">
+          <!-- Logo officiel grand format adapté -->
+          <img id="app-logo" src="logo.png" alt="Les Randonneurs Sanaryens" class="h-10 sm:h-12 md:h-14 lg:h-16 w-auto max-w-full block object-contain transition-opacity duration-300" style="opacity: 1;">
           
           <!-- Calque d'animation de marche à l'ouverture -->
-          <div id="logo-anim-overlay" class="absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-300 flex items-center justify-center" style="opacity: 0;">
+          <div id="logo-anim-overlay" class="absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-300 flex items-center" style="opacity: 0;">
             <img src="logo_text.png" class="absolute top-0 bottom-0 right-0 h-full w-[64.583%] object-contain" alt="">
             <div id="logo-hikers-wrapper" class="absolute top-0 bottom-0 left-0 h-full w-[35.417%]">
               <img id="logo-hikers-img" src="logo_hikers.png" class="w-full h-full object-contain" alt="">
@@ -78,17 +71,30 @@
         </div>
       </div>
 
-      <!-- Badge RandoFinder à droite -->
-      <div class="hidden md:flex items-center justify-end min-w-[140px] select-none">
-        <div class="flex flex-col items-end">
-          <span class="inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white tracking-wide uppercase shadow-sm">
-            RandoFinder
-          </span>
-          <span class="text-[10px] font-medium text-slate-500 tracking-wider mt-0.5">
-            JLD Apps - 2026
+      <!-- CENTRE : Rando Finder en plus grand et harmonieux -->
+      <div class="flex-1 flex flex-col items-center justify-center text-center min-w-0 px-2 select-none">
+        <span class="inline-flex items-center justify-center text-sm sm:text-base md:text-lg lg:text-xl font-extrabold px-4 sm:px-5 py-1 sm:py-1.5 rounded-full bg-emerald-600 text-white tracking-wider uppercase shadow-sm whitespace-nowrap hover:bg-emerald-700 transition">
+          Rando Finder
+        </span>
+      </div>
+
+      <!-- DROITE : JLDApps 2026 -->
+      <div class="flex-1 flex items-center justify-end min-w-0 select-none">
+        <div class="flex flex-col items-end text-right">
+          <div class="flex items-center gap-1.5 whitespace-nowrap">
+            <span class="text-xs sm:text-sm md:text-base font-bold text-slate-800 tracking-tight">
+              JLDApps
+            </span>
+            <span class="px-2 py-0.5 bg-slate-100 border border-slate-300 text-slate-700 text-[10px] sm:text-xs font-extrabold rounded-md shadow-2xs">
+              2026
+            </span>
+          </div>
+          <span class="text-[10px] sm:text-[11px] text-slate-400 font-medium tracking-wide mt-0.5 hidden sm:inline-block">
+            Sanary-sur-Mer &bull; Var (83)
           </span>
         </div>
       </div>
+
     </div>
 
     <!-- BARRE DE NAVIGATION ET CONTRÔLES PLEINE LARGEUR -->
@@ -1612,14 +1618,14 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=43"></script>
-  <script src="js/auth-manager.js?v=43"></script>
-  <script src="js/gpx-parser.js?v=43"></script>
-  <script src="js/sample-data.js?v=43"></script>
-  <script src="js/storage.js?v=43"></script>
-  <script src="js/elevation-profile.js?v=43"></script>
-  <script src="js/map-manager.js?v=43"></script>
-  <script src="js/pdf-exporter.js?v=43"></script>
-  <script src="js/app.js?v=43"></script>
+  <script src="js/config.js?v=44"></script>
+  <script src="js/auth-manager.js?v=44"></script>
+  <script src="js/gpx-parser.js?v=44"></script>
+  <script src="js/sample-data.js?v=44"></script>
+  <script src="js/storage.js?v=44"></script>
+  <script src="js/elevation-profile.js?v=44"></script>
+  <script src="js/map-manager.js?v=44"></script>
+  <script src="js/pdf-exporter.js?v=44"></script>
+  <script src="js/app.js?v=44"></script>
 </body>
 </html>
