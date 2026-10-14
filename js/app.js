@@ -2014,7 +2014,7 @@ class AppController {
     if (locationInput) locationInput.value = label;
     if (resultsContainer) resultsContainer.classList.add('hidden');
     if (window.MapManagerInstance) {
-      window.MapManagerInstance.setSearchOrigin(lat, lon, label);
+      window.MapManagerInstance.setSearchOrigin(lat, lon, label, false);
     }
     this.applyFiltersAndRender(false);
     
@@ -2051,15 +2051,40 @@ class AppController {
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
         const placeName = await GPXParser.reverseGeocode(lat, lon);
-        document.getElementById('location-input').value = placeName || 'Ma position';
-        if (window.MapManagerInstance) {
-          window.MapManagerInstance.setSearchOrigin(lat, lon, placeName || 'Ma position');
+        const locInput = document.getElementById('location-input');
+        if (locInput) locInput.value = placeName || 'Ma position';
+
+        // Si le rayon était en mode "Monde entier" (>= 2500 km), rétablir le rayon local par défaut (100 km)
+        if (window.MapManagerInstance && window.MapManagerInstance.searchRadiusKm >= 2500) {
+          this.setRadiusStep(this.getStepIndexForKm(100), false);
         }
-        this.applyFiltersAndRender();
+
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.setSearchOrigin(lat, lon, placeName || 'Ma position', false);
+        }
+
+        this.applyFiltersAndRender(false);
+
+        // Afficher immédiatement le lieu où on se trouve avec le zoom maximal
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.zoomToLocation(lat, lon);
+          setTimeout(() => {
+            if (window.MapManagerInstance) {
+              window.MapManagerInstance.zoomToLocation(lat, lon);
+            }
+          }, 150);
+        }
+
         this.showToast(`Position trouvée : ${placeName || 'Ma position'}`, "success");
       },
-      () => {
+      (err) => {
+        console.warn("Erreur géolocalisation GPS :", err);
         this.showToast("Impossible d'accéder à votre position GPS.", "error");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
       }
     );
   }
