@@ -599,6 +599,16 @@ class AppController {
         }
       });
     }
+
+    // Escape key closes CGU Modal
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const cguModal = document.getElementById('cgu-modal');
+        if (cguModal && !cguModal.classList.contains('hidden')) {
+          this.closeCguModal();
+        }
+      }
+    });
   }
 
   deselectHike() {
@@ -3655,6 +3665,22 @@ class AppController {
     } else {
       badge.textContent = '💾 Stockage Local Actif';
       badge.className = 'px-2 py-0.5 rounded-full font-bold text-[10px] bg-slate-200 text-slate-700';
+    }
+  }
+
+  openCguModal() {
+    const modal = document.getElementById('cgu-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+  }
+
+  closeCguModal() {
+    const modal = document.getElementById('cgu-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
     }
   }
 }
