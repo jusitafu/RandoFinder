@@ -28,6 +28,16 @@ class AppController {
     this.pendingUploads = [];
   }
 
+  escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   getRadiusLabel(km) {
     if (km >= 20000) return 'Monde entier 🌍';
     if (km >= 10000) return `${km.toLocaleString('fr-FR')} km (Monde)`;
@@ -315,7 +325,7 @@ class AppController {
         if (val) btnClearTableFilter.classList.remove('hidden');
         else btnClearTableFilter.classList.add('hidden');
       }
-      this.applyFiltersAndRender();
+      this.applyFiltersAndRender(true);
     };
 
     if (hikeSearchInput) {
@@ -663,7 +673,7 @@ class AppController {
     }, 150);
   }
 
-  applyFiltersAndRender() {
+  applyFiltersAndRender(autoZoomSearchResults = false) {
     const origin = (window.MapManagerInstance && window.MapManagerInstance.searchOrigin) 
       ? window.MapManagerInstance.searchOrigin 
       : { lat: 43.1189, lon: 5.8033 };
@@ -703,8 +713,8 @@ class AppController {
     if (window.MapManagerInstance) {
       window.MapManagerInstance.renderHikeMarkers(this.filteredHikes);
 
-      // Si recherche par mot-clé et résultats trouvés, centrer la carte sur les résultats
-      if (this.searchQuery && this.filteredHikes.length > 0) {
+      // Si recherche active par mot-clé et demandé explicitement, centrer la carte sur les résultats
+      if (autoZoomSearchResults && this.searchQuery && this.filteredHikes.length > 0) {
         const validHikes = this.filteredHikes.filter(h => h.startPoint);
         if (validHikes.length > 0) {
           try {
@@ -1290,74 +1300,172 @@ class AppController {
   }
 
   async fetchPlacesList(query) {
-    // 0. Base Adresse Nationale (adresses françaises précises, avec numéro de rue)
-    let banResults = [];
+    const cleanQuery = (query || '').trim();
+    if (cleanQuery.length < 2) return [];
+
+    const hasDigits = /\d/.test(cleanQuery);
+    let results = [];
+
+    // 0. Base Adresse Nationale (BAN) - Précision maximale pour la France (adresses avec numéros de rue)
     try {
-      const bUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`;
+      const bUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(cleanQuery)}&limit=6`;
       const bRes = await fetch(bUrl);
       if (bRes.ok) {
         const bData = await bRes.json();
-        banResults = (bData.features || [])
-          .filter(f => f.properties && f.properties.score > 0.5)
-          .map(f => ({
-            lat: f.geometry.coordinates[1],
-            lon: f.geometry.coordinates[0],
-            shortName: f.properties.label,
-            displayName: f.properties.label
-          }));
-      }
-    } catch (e) {}
+        const banItems = (bData.features || [])
+          .filter(f => f.properties && (f.properties.score > 0.45 || (hasDigits && f.properties.type === 'housenumber')))
+          .map(f => {
+            const props = f.properties || {};
+            const type = props.type || 'locality';
+            let icon = '📍';
+            let typeLabel = 'Lieu';
+            if (type === 'housenumber') {
+              icon = '🏠';
+              typeLabel = 'Adresse';
+            } else if (type === 'street') {
+              icon = '🛣️';
+              typeLabel = 'Rue';
+            } else if (type === 'municipality') {
+              icon = '🏙️';
+              typeLabel = 'Ville';
+            }
 
-    // 1. Photon Komoot API (mondial : adresses, parcs, sommets, villes)
+            const title = props.name || props.label;
+            const subtitle = [props.postcode, props.city, props.context].filter(Boolean).join(', ');
+
+            return {
+              lat: f.geometry.coordinates[1],
+              lon: f.geometry.coordinates[0],
+              title: title,
+              subtitle: subtitle,
+              shortName: props.label || title,
+              displayName: subtitle ? `${title} (${subtitle})` : title,
+              icon: icon,
+              typeLabel: typeLabel,
+              isAddress: type === 'housenumber'
+            };
+          });
+        results.push(...banItems);
+      }
+    } catch (e) {
+      console.warn("Erreur BAN :", e);
+    }
+
+    // 1. Photon Komoot API (Mondial : adresses, rues, parcs, sommets, villes dans le monde entier)
     try {
-      const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8`;
+      const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanQuery)}&limit=8`;
       const pRes = await fetch(pUrl);
       if (pRes.ok) {
         const pData = await pRes.json();
         if (pData && pData.features && pData.features.length > 0) {
-          const photon = pData.features.map(f => {
+          const photonItems = pData.features.map(f => {
             const props = f.properties || {};
             const coords = f.geometry ? f.geometry.coordinates : [0, 0];
-            const street = props.street ? [props.housenumber, props.street].filter(Boolean).join(' ') : '';
-            const name = props.name || street || props.city || '';
-            const parts = [];
-            if (props.name && street) parts.push(street);
-            if (props.postcode || props.city) parts.push([props.postcode, props.city].filter(Boolean).join(' '));
-            if (props.state) parts.push(props.state);
-            if (props.country) parts.push(props.country);
-            const fullName = parts.length ? `${name} (${parts.join(', ')})` : name;
+            const hasNum = Boolean(props.housenumber);
+            const streetWithNum = props.street 
+              ? (hasNum ? `${props.housenumber} ${props.street}` : props.street)
+              : '';
+            
+            let title = props.name || streetWithNum || props.city || cleanQuery;
+            if (props.name && streetWithNum && props.name !== streetWithNum) {
+              title = `${props.name} (${streetWithNum})`;
+            }
+
+            const subParts = [];
+            if (props.postcode || props.city) subParts.push([props.postcode, props.city].filter(Boolean).join(' '));
+            if (props.state && props.state !== props.city) subParts.push(props.state);
+            if (props.country) subParts.push(props.country);
+            const subtitle = subParts.join(', ');
+
+            let icon = '📍';
+            let typeLabel = 'Lieu';
+            const pType = (props.type || '').toLowerCase();
+            const osmKey = (props.osm_key || '').toLowerCase();
+            const osmVal = (props.osm_value || '').toLowerCase();
+
+            if (pType === 'house' || hasNum) {
+              icon = '🏠';
+              typeLabel = 'Adresse';
+            } else if (pType === 'street' || osmKey === 'highway') {
+              icon = '🛣️';
+              typeLabel = 'Rue';
+            } else if (pType === 'city' || osmKey === 'place') {
+              icon = '🏙️';
+              typeLabel = 'Ville';
+            } else if (osmKey === 'natural' || osmVal === 'peak') {
+              icon = '⛰️';
+              typeLabel = 'Nature';
+            }
+
             return {
               lat: coords[1],
               lon: coords[0],
-              shortName: name || fullName,
-              displayName: fullName
+              title: title,
+              subtitle: subtitle,
+              shortName: title,
+              displayName: subtitle ? `${title} (${subtitle})` : title,
+              icon: icon,
+              typeLabel: typeLabel,
+              isAddress: pType === 'house' || hasNum
             };
           }).filter(p => p.lat && p.lon);
-          const all = banResults.concat(photon);
-          if (all.length > 0) return all;
+
+          // Déduplication avec les résultats BAN existants (par proximité < 100m)
+          photonItems.forEach(pi => {
+            const exists = results.some(r => 
+              Math.abs(r.lat - pi.lat) < 0.001 && Math.abs(r.lon - pi.lon) < 0.001
+            );
+            if (!exists) {
+              results.push(pi);
+            }
+          });
         }
       }
-    } catch (e) {}
-    if (banResults.length > 0) return banResults;
+    } catch (e) {
+      console.warn("Erreur Photon :", e);
+    }
 
-    // 2. Nominatim fallback
-    try {
-      const nUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8`;
-      const nRes = await fetch(nUrl, { headers: { 'Accept-Language': 'fr' } });
-      if (nRes.ok) {
-        const nData = await nRes.json();
-        if (nData && nData.length > 0) {
-          return nData.map(p => ({
-            lat: parseFloat(p.lat),
-            lon: parseFloat(p.lon),
-            shortName: (p.display_name || '').split(',')[0],
-            displayName: p.display_name
-          }));
+    // 2. Nominatim fallback (si aucun résultat trouvé)
+    if (results.length === 0) {
+      try {
+        const nUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(cleanQuery)}&limit=6`;
+        const nRes = await fetch(nUrl, { headers: { 'Accept-Language': 'fr' } });
+        if (nRes.ok) {
+          const nData = await nRes.json();
+          if (nData && nData.length > 0) {
+            results = nData.map(p => {
+              const addr = p.address || {};
+              const hasNum = Boolean(addr.house_number);
+              const street = addr.road ? (hasNum ? `${addr.house_number} ${addr.road}` : addr.road) : '';
+              const title = street || (p.display_name || '').split(',')[0];
+              const subParts = [addr.city || addr.town || addr.village, addr.state, addr.country].filter(Boolean);
+              const subtitle = subParts.join(', ') || p.display_name;
+
+              return {
+                lat: parseFloat(p.lat),
+                lon: parseFloat(p.lon),
+                title: title,
+                subtitle: subtitle,
+                shortName: title,
+                displayName: subtitle ? `${title} (${subtitle})` : title,
+                icon: hasNum ? '🏠' : '📍',
+                typeLabel: hasNum ? 'Adresse' : 'Lieu',
+                isAddress: hasNum
+              };
+            });
+          }
         }
+      } catch (e) {
+        console.warn("Erreur Nominatim :", e);
       }
-    } catch (e) {}
+    }
 
-    return [];
+    // Si la recherche contient des chiffres (ex: "6 Joubert street"), prioriser les adresses exactes
+    if (hasDigits) {
+      results.sort((a, b) => (b.isAddress ? 1 : 0) - (a.isAddress ? 1 : 0));
+    }
+
+    return results;
   }
 
   async searchPlaces(query) {
@@ -1368,17 +1476,42 @@ class AppController {
       const places = await this.fetchPlacesList(query);
       resultsContainer.innerHTML = '';
       if (!places || places.length === 0) {
-        resultsContainer.classList.add('hidden');
+        resultsContainer.innerHTML = `
+          <div class="p-3 text-xs text-slate-500 text-center flex items-center justify-center gap-1.5">
+            <span>🔍</span> Aucun lieu ou adresse trouvé pour "<b>${this.escapeHtml(query)}</b>"
+          </div>`;
+        resultsContainer.classList.remove('hidden');
         return;
       }
 
       resultsContainer.classList.remove('hidden');
       places.forEach(place => {
         const item = document.createElement('div');
-        item.className = 'p-2.5 hover:bg-emerald-50 cursor-pointer border-b border-slate-100 text-xs text-slate-700 flex items-center gap-2';
-        item.innerHTML = `<span>📍</span> <span class="font-medium text-slate-800">${place.displayName}</span>`;
+        item.className = 'px-3.5 py-2.5 hover:bg-emerald-50 cursor-pointer transition border-b border-slate-100 last:border-b-0 flex items-start gap-3 text-left group';
+        
+        const badgeColor = place.isAddress 
+          ? 'bg-amber-100 text-amber-800 border-amber-200'
+          : place.typeLabel === 'Ville'
+          ? 'bg-sky-100 text-sky-800 border-sky-200'
+          : place.typeLabel === 'Rue'
+          ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
+          : place.typeLabel === 'Nature'
+          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+          : 'bg-slate-100 text-slate-700 border-slate-200';
+
+        item.innerHTML = `
+          <span class="text-base select-none mt-0.5 group-hover:scale-110 transition-transform">${place.icon || '📍'}</span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-xs sm:text-sm text-slate-800 truncate group-hover:text-emerald-700">${this.escapeHtml(place.title)}</span>
+              <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${badgeColor} select-none whitespace-nowrap">${place.typeLabel || 'Lieu'}</span>
+            </div>
+            ${place.subtitle ? `<div class="text-[11px] text-slate-500 truncate mt-0.5">${this.escapeHtml(place.subtitle)}</div>` : ''}
+          </div>
+        `;
+        
         item.addEventListener('click', () => {
-          this.applySelectedPlace(place.lat, place.lon, place.shortName);
+          this.applySelectedPlace(place.lat, place.lon, place.title, place.isAddress);
         });
         resultsContainer.appendChild(item);
       });
@@ -1387,7 +1520,7 @@ class AppController {
     }
   }
 
-  applySelectedPlace(lat, lon, label) {
+  applySelectedPlace(lat, lon, label, isAddress = false) {
     const locationInput = document.getElementById('location-input');
     const resultsContainer = document.getElementById('location-autocomplete-results');
     if (locationInput) locationInput.value = label;
@@ -1395,9 +1528,10 @@ class AppController {
     if (window.MapManagerInstance) {
       window.MapManagerInstance.setSearchOrigin(lat, lon, label);
     }
-    this.applyFiltersAndRender();
-    // Zoom sur le lieu : niveau rue pour une adresse (numéro), niveau ville sinon
-    const zoom = /\d/.test(label || '') ? 16 : 13;
+    this.applyFiltersAndRender(false);
+    
+    // Zoom sur le lieu : niveau rue pour une adresse (16), niveau ville sinon (13)
+    const zoom = (isAddress || /\d/.test(label || '')) ? 16 : 13;
     const zoomToPlace = () => {
       const m = window.MapManagerInstance && window.MapManagerInstance.map;
       if (m) m.setView([lat, lon], zoom);
@@ -1409,8 +1543,9 @@ class AppController {
   async searchAndSelectFirstPlace(query) {
     const places = await this.fetchPlacesList(query);
     if (places && places.length > 0) {
-      this.applySelectedPlace(places[0].lat, places[0].lon, places[0].shortName);
-      this.showToast(`Point de référence défini : ${places[0].displayName}`, "success");
+      const p = places[0];
+      this.applySelectedPlace(p.lat, p.lon, p.title, p.isAddress);
+      this.showToast(`Point de référence défini : ${p.displayName}`, "success");
     } else {
       this.showToast(`Aucun lieu mondial trouvé pour "${query}"`, "error");
     }
