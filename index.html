@@ -5,11 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Randonneurs Sanaryens - RandoFinder</title>
   
-  <!-- Favicons : Randonneur vert Sanaryens -->
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=41">
-  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png?v=41">
-  <link rel="shortcut icon" href="favicon.ico?v=41">
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=41">
+  <!-- Favicons : Randonneur vert Sanaryens (Multi-niveaux : Data-URI embarqué + PNG + ICO + Apple Touch + Manifest) -->
+  <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,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">
+  <link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACY0lEQVR4nH1SX0iTURT/nW/f/bYxU7eisEzqoZqVRdQI6kEqAh/KCPqmZbRepJeKCIKi8NvooV4H0YMU9hLVdITRUJAepAchqcj8VyBSKZIWQ3Fr7c934n6xOZb2g8u5957fOed3z7nACogwbMyg+g44ml+h8cRzVFoOBhXzlNJAGSSXn5AjIva4bfe0MnQLGx5JvxH8TwJmEBFYrskpsYeZhVPNpYXD8q2VnFAQvGwCNqDIwM8fnNULM2pfjSvTc+dF3a3I2JnxuenKIGdw2pJfomBJtgFlaAjuuUl1ODGjxH3h42/Q1mpS+CLj2uWwRTTqVZRAyVsKwRRk373Gnd1xrvfg8ODMhm1C/TXPqQxcnm/VkrR3/SIt20Qi5KSKj2O/X/d/8vhjUzWbFXuyL6s57EjwxOGtPbVNMVx9e+FdBjJFEdT8hjp1Bf7OHK60pFC+0A0bV6DM6cR8+npVeWo6nlM69JfmuiRwNzaIechmEnhpCiOzljThju8HcxeYtlAqzdCSWvtRDIwMeHeBMSrS8CAEs1AYS5B7xs3zG6EmvoNdD2F3nYXIQEkkWs3Q4wd5SjGotKvWBQHHuhztEz9q60ZnfasgzFosJrz1R55M9s/pbD21ZAoFnIpYXxiaSDXu2/T+C8arDhA4DqHd6D+EbP6py0KPwCbtySh2+nvBDU/LffKstLUEEAxMwzD+KVh8Qdt1sB5BmSLwzEzjdm/zwqAcr0kVUTD/hPZ1tcUs+guFBHoESohg5uxoYhPRrka0SUUWM3R/EcA40lnnivKLEmnSGkYh+d9qRsCLSw32Uv4fBv3tnolYOQEAAAAASUVORK5CYII=">
+  <link rel="icon" type="image/png" sizes="48x48" href="./favicon-48x48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
+  <link rel="icon" type="image/x-icon" href="./favicon.ico">
+  <link rel="shortcut icon" href="./favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+  <link rel="manifest" href="./site.webmanifest">
+  <meta name="theme-color" content="#2e7d32">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
