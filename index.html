@@ -157,6 +157,9 @@
             <button id="btn-menu-admin-users" onclick="App.openUserManagementModal(); App.closeUserDropdown();" class="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 flex items-center gap-2 text-slate-700">
               <span>👥</span> <span>Gestion des comptes</span>
             </button>
+            <button id="btn-menu-cgu" onclick="App.openCguModal(); App.closeUserDropdown();" class="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 flex items-center gap-2 text-slate-700">
+              <span>📜</span> <span>Mentions Légales &amp; CGU</span>
+            </button>
             <div class="border-t border-slate-100 my-1"></div>
             <button id="btn-menu-logout" onclick="App.handleLogout(); App.closeUserDropdown();" class="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-rose-50 text-rose-600 flex items-center gap-2">
               <span>🚪</span> <span>Se déconnecter</span>
@@ -676,12 +679,17 @@
 
         <!-- Club Info Card -->
         <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-3">
-          <div class="flex items-center gap-3">
-            <img src="logo.png" alt="Les Randonneurs Sanaryens" class="h-8 w-auto">
-            <div>
-              <h4 class="text-sm font-bold text-slate-800">Les Randonneurs Sanaryens &bull; RandoFinder</h4>
-              <p class="text-xs text-slate-500">Application de gestion GPX & Cartographie Topographique &bull; JLD Apps - 2026</p>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <img src="logo.png" alt="Les Randonneurs Sanaryens" class="h-8 w-auto">
+              <div>
+                <h4 class="text-sm font-bold text-slate-800">Les Randonneurs Sanaryens &bull; RandoFinder</h4>
+                <p class="text-xs text-slate-500">Application de gestion GPX & Cartographie Topographique &bull; JLDApps - 2026</p>
+              </div>
             </div>
+            <button id="btn-open-cgu" onclick="App.openCguModal()" class="px-4 py-2 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm self-start sm:self-auto">
+              <span>📜</span> Mentions Légales &amp; CGU
+            </button>
           </div>
         </div>
 
@@ -1456,18 +1464,162 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
     </div>
   </div>
 
+  <!-- ========================================================================= -->
+  <!-- MODAL : MENTIONS LÉGALES & CONDITIONS GÉNÉRALES D'UTILISATION (CGU) -->
+  <!-- ========================================================================= -->
+  <div id="cgu-modal" onclick="if (event.target === this) App.closeCguModal()" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- En-tête -->
+      <div class="bg-slate-900 text-white p-4 sm:p-5 flex items-center justify-between flex-shrink-0 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xl flex-shrink-0">
+            📜
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white">Mentions Légales &amp; Conditions d'Utilisation (CGU)</h3>
+            <p class="text-[11px] sm:text-xs text-slate-400">RandoFinder &bull; Les Randonneurs Sanaryens &bull; Édition 2026</p>
+          </div>
+        </div>
+        <button onclick="App.closeCguModal()" class="text-slate-400 hover:text-white p-2 rounded-xl transition text-lg cursor-pointer" title="Fermer (Échap)">✕</button>
+      </div>
+
+      <!-- Corps défilable -->
+      <div class="p-4 sm:p-6 overflow-y-auto space-y-6 text-xs sm:text-sm text-slate-700 leading-relaxed">
+        
+        <!-- Avertissement de sécurité bien visible -->
+        <div class="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-xl text-amber-900 text-xs sm:text-sm space-y-1.5 shadow-sm">
+          <div class="font-bold flex items-center gap-2 text-amber-950">
+            <span>⚠️</span> <span>Avertissement Essentiel &ndash; Sécurité en Montagne et Pleine Nature</span>
+          </div>
+          <p>
+            La randonnée pédestre en milieu naturel (forêt, littoral, moyenne et haute montagne) comporte des risques inhérents (conditions météo changeantes, passages escarpés, glissades, crues, battues de chasse, restrictions d'accès préfectorales). 
+            <strong>Les traces, profils altimétriques et informations fournis sur cette application sont indicatifs. Chaque utilisateur est l'unique responsable de sa sécurité, de son équipement, de sa condition physique et de son évaluation du terrain.</strong>
+          </p>
+        </div>
+
+        <!-- Article 1 -->
+        <div class="space-y-2">
+          <h4 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-1.5">
+            <span class="text-emerald-600 font-extrabold">Article 1</span>
+            <span>&bull; Informations Légales &amp; Hébergement</span>
+          </h4>
+          <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-2 text-xs text-slate-700">
+            <p>
+              <strong>Éditeur de l'application :</strong> L'application web <strong>RandoFinder</strong> est conçue et développée à titre bénévole par <strong>JLDApps</strong> pour le compte et au bénéfice de l'association <strong>Les Randonneurs Sanaryens</strong> (Sanary-sur-Mer &ndash; 83110, Var, France).
+            </p>
+            <p>
+              <strong>Hébergement :</strong> L'application est hébergée sur l'infrastructure <strong>GitHub Pages</strong>, opérée par <strong>GitHub Inc.</strong> (88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis).
+            </p>
+            <p>
+              <strong>Fonds Cartographiques tiers :</strong> 
+              Les cartes et données géographiques affichées exploitent les services de l'<strong>IGN Géoplateforme</strong> (Institut National de l'Information Géographique et Forestière), les données collaboratives <strong>OpenStreetMap</strong> (&copy; Contributeurs OpenStreetMap &ndash; Licence ODbL) et les imageries satellites <strong>Esri World Imagery</strong> (&copy; Esri, Maxar, Earthstar Geographics).
+            </p>
+          </div>
+        </div>
+
+        <!-- Article 2 -->
+        <div class="space-y-2">
+          <h4 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-1.5">
+            <span class="text-emerald-600 font-extrabold">Article 2</span>
+            <span>&bull; Vocation &amp; Esprit de Partage Associatif</span>
+          </h4>
+          <p>
+            RandoFinder est un outil associatif, bénévole et entièrement gratuit. Il a pour vocation de faciliter la découverte, la préparation, la visualisation interactive et le partage des itinéraires de randonnée pédestre auprès des adhérents de l'association <em>Les Randonneurs Sanaryens</em> ainsi que de l'ensemble des passionnés de marche et de nature.
+          </p>
+        </div>
+
+        <!-- Article 3 -->
+        <div class="space-y-2">
+          <h4 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-1.5">
+            <span class="text-emerald-600 font-extrabold">Article 3</span>
+            <span>&bull; Liberté Totale d'Usage des Traces GPX &amp; Fiches PDF</span>
+          </h4>
+          <p>
+            Les sentiers pédestres et les itinéraires de randonnée constituent un patrimoine commun et un espace de liberté :
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 pl-2 text-xs sm:text-sm text-slate-700">
+            <li><strong>Usage personnel et associatif libre et gratuit :</strong> Tout utilisateur est expressément autorisé à consulter, télécharger les fichiers GPX, imprimer les fiches techniques PDF ou les exporter vers son récepteur GPS / application mobile de randonnée pour ses sorties personnelles, familiales ou associatives.</li>
+            <li><strong>Origine des tracés :</strong> Les tracés proposés proviennent de reconnaissances terrain bénévoles, d'enregistrements GPS réalisés par des randonneurs ou d'itinéraires issus de bases de partage publiques.</li>
+            <li><strong>Non-monétisation :</strong> L'accès aux traces GPX est libre. Toute revente commerciale directe des fichiers GPX ou des fiches PDF téléchargés depuis cette plateforme est strictement prohibée.</li>
+          </ul>
+        </div>
+
+        <!-- Article 4 -->
+        <div class="space-y-2">
+          <h4 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-1.5">
+            <span class="text-emerald-600 font-extrabold">Article 4</span>
+            <span>&bull; Décharge Complète de Responsabilité &amp; Aléas du Terrain</span>
+          </h4>
+          <div class="space-y-2 text-xs sm:text-sm text-slate-700">
+            <p>
+              Les données topographiques, tracés, distances, altitudes, calculs de dénivelés (positifs/négatifs), temps de marche estimés et niveaux de difficulté (selon la cotation FFRandonnée / IBP Index) sont <strong>fournis à titre purement indicatif</strong>.
+            </p>
+            <p>
+              L'état des sentiers évolue constamment sous l'action des intempéries, d'éboulements, de travaux forestiers, de végétation envahissante ou de modifications de balisage. Par conséquent :
+            </p>
+            <ul class="list-disc list-inside space-y-1.5 pl-2">
+              <li><strong>Évaluation du pratiquant :</strong> Chaque randonneur, animateur ou responsable de groupe doit vérifier préalablement la praticabilité des sentiers, les prévisions météorologiques, les arrêtés municipaux ou préfectoraux (vigilance incendie en été) et adapter sa sortie aux capacités physiques réelles des participants.</li>
+              <li><strong>Exclusion de responsabilité :</strong> L'éditeur <strong>JLDApps</strong>, l'association <strong>Les Randonneurs Sanaryens</strong>, leurs dirigeants et animateurs bénévoles <strong>déclinent expressément toute responsabilité</strong> en cas d'accident, blessure, égarement, retard, détérioration matérielle ou quelconque préjudice direct ou indirect résultant de l'utilisation des traces, des cartes ou des fonctionnalités de RandoFinder.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Article 5 -->
+        <div class="space-y-2">
+          <h4 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-1.5">
+            <span class="text-emerald-600 font-extrabold">Article 5</span>
+            <span>&bull; Propriété Intellectuelle de la Plateforme RandoFinder</span>
+          </h4>
+          <p>
+            La structure logicielle de RandoFinder, son interface utilisateur, ses algorithmes de lissage et d'analyse altimétrique, ses composants d'exportation PDF personnalisés, sa charte graphique et la marque / logo <em>JLDApps</em> sont protégés par le droit d'auteur et les dispositions du Code de la Propriété Intellectuelle.
+          </p>
+          <p class="text-xs text-slate-600">
+            Toute reproduction ou diffusion commerciale non autorisée du code logiciel, ainsi que toute extraction massive ou aspiration automatisée (scraping intensif) de la plateforme sans accord préalable sont interdites.
+          </p>
+        </div>
+
+        <!-- Article 6 -->
+        <div class="space-y-2">
+          <h4 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-1.5">
+            <span class="text-emerald-600 font-extrabold">Article 6</span>
+            <span>&bull; Protection des Données Personnelles (RGPD) &amp; Confidentialité</span>
+          </h4>
+          <p>
+            RandoFinder respecte scrupuleusement la vie privée de ses utilisateurs :
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 pl-2 text-xs sm:text-sm text-slate-700">
+            <li><strong>Aucune exploitation publicitaire :</strong> L'application ne collecte, ne vend et ne cède aucune donnée personnelle ou comportementale à des régies publicitaires ou des tiers commerciaux.</li>
+            <li><strong>Stockage local :</strong> Vos préférences d'affichage, vos filtres de recherche et vos imports de fichiers GPX personnels sont conservés localement sur votre propre navigateur (IndexedDB / LocalStorage).</li>
+            <li><strong>Géolocalisation GPS :</strong> La fonction &laquo; Ma position &raquo; n'est utilisée que ponctuellement et localement sur votre appareil pour centrer la carte et calculer les distances vers les points de départ ; vos coordonnées GPS ne sont jamais enregistrées ni transmises sur un serveur externe.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Pied de modal -->
+      <div class="bg-slate-50 border-t border-slate-200 p-4 flex items-center justify-between flex-shrink-0">
+        <span class="text-[11px] text-slate-500 hidden sm:inline">RandoFinder &bull; Mentions Légales &bull; Document contractuel d'information</span>
+        <button onclick="App.closeCguModal()" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer shadow-sm ml-auto">
+          J'ai compris &amp; Fermer
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Toast Notifications -->
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=42"></script>
-  <script src="js/auth-manager.js?v=42"></script>
-  <script src="js/gpx-parser.js?v=42"></script>
-  <script src="js/sample-data.js?v=42"></script>
-  <script src="js/storage.js?v=42"></script>
-  <script src="js/elevation-profile.js?v=42"></script>
-  <script src="js/map-manager.js?v=42"></script>
-  <script src="js/pdf-exporter.js?v=42"></script>
-  <script src="js/app.js?v=42"></script>
+  <script src="js/config.js?v=43"></script>
+  <script src="js/auth-manager.js?v=43"></script>
+  <script src="js/gpx-parser.js?v=43"></script>
+  <script src="js/sample-data.js?v=43"></script>
+  <script src="js/storage.js?v=43"></script>
+  <script src="js/elevation-profile.js?v=43"></script>
+  <script src="js/map-manager.js?v=43"></script>
+  <script src="js/pdf-exporter.js?v=43"></script>
+  <script src="js/app.js?v=43"></script>
 </body>
 </html>
