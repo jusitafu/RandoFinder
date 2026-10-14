@@ -2678,7 +2678,12 @@ class AppController {
       this.showToast("Analyse de la trace collée...", "info");
       const hike = GPXParser.parse(rawText, customName ? customName + '.gpx' : 'Randonnee_Collee.gpx');
       if (customName) {
-        hike.name = customName;
+        hike.name = GPXParser.ensureForeignCountryPrefix(
+          customName,
+          null,
+          hike.startPoint ? hike.startPoint.lat : null,
+          hike.startPoint ? hike.startPoint.lon : null
+        );
       } else {
         const proposedName = await GPXParser.generateProposedName(hike);
         hike.name = proposedName;
