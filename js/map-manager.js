@@ -511,6 +511,10 @@ class MapManager {
 
       marker.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
+        if (this.areaSelectionActive) {
+          this.handleAreaSelectionClick(e.latlng);
+          return;
+        }
         this.selectHike(hike, true, true);
       });
 
