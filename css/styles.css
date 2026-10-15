@@ -173,3 +173,11 @@ html, body {
 .pwd-eye-btn:active {
   transform: scale(0.92);
 }
+
+/* Curseur réticule pour la sélection de zone à imprimer en 2 clics */
+.area-selection-cursor,
+.area-selection-cursor .leaflet-container,
+.area-selection-cursor .leaflet-grab,
+.area-selection-cursor .leaflet-interactive {
+  cursor: crosshair !important;
+}
