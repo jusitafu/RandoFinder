@@ -2825,10 +2825,21 @@ class AppController {
     const dlGpx = document.getElementById('opt-download-gpx').checked;
     const dlPdf = document.getElementById('opt-download-pdf').checked;
     const incMap = document.getElementById('opt-pdf-map').checked;
+    const mapLayerEl = document.getElementById('opt-pdf-map-layer');
+    const mapLayer = mapLayerEl ? mapLayerEl.value : 'ign';
     const incProfile = document.getElementById('opt-pdf-profile').checked;
     const incNotes = document.getElementById('opt-pdf-notes').checked;
 
     this.closeDownloadModal();
+
+    // S'assurer que les points et le tracé de la rando sélectionnée sont complètement chargés
+    if (typeof StorageManager !== 'undefined') {
+      try {
+        await StorageManager.ensureHikeTrackLoaded(this.selectedHike);
+      } catch (e) {
+        console.warn("ensureHikeTrackLoaded:", e);
+      }
+    }
 
     if (dlGpx) {
       const gpxContent = GPXParser.exportToGpxString(this.selectedHike);
@@ -2845,10 +2856,11 @@ class AppController {
     }
 
     if (dlPdf) {
-      this.showToast("Génération de la Fiche Randonnée PDF...", "info");
+      this.showToast("Génération de la Fiche Randonnée avec fond de carte...", "info");
       try {
         await PDFExporter.exportFichePDF(this.selectedHike, {
           includeMap: incMap,
+          mapLayer: mapLayer,
           includeProfile: incProfile,
           includeNotes: incNotes
         });
