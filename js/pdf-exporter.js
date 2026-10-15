@@ -51,7 +51,7 @@ class PDFExporter {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(203, 213, 225); // Slate 300
-    doc.text("Les Randonneurs Sanaryens &bull; JLD Apps - 2026", pageWidth - margin - 6, currentY + 17, { align: 'right' });
+    doc.text("RandoFinder - JLDApps 2026", pageWidth - margin - 6, currentY + 17, { align: 'right' });
 
     currentY += 28;
 
@@ -103,17 +103,26 @@ class PDFExporter {
     doc.text(startCoord, margin, currentY);
     currentY += 6;
 
-    // 5. Option 1: Map Snapshot with Route (IGN / OpenTopoMap)
+    // 5. Option 1: Map Snapshot with Route (IGN / OpenTopoMap / OSM)
     if (options.includeMap) {
+      const mapLayer = options.mapLayer || 'ign';
+      const layerLabels = {
+        'ign': "FOND OFFICIEL IGN TOP 25 / GÉOPLATEFORME",
+        'opentopo': "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+        'osmfr': "FOND OPENSTREETMAP FRANCE (SENTIERS)",
+        'satellite': "FOND SATELLITE HAUTE DÉFINITION (IGN / ESRI)"
+      };
+      const layerLabel = layerLabels[mapLayer] || "FOND TOPOGRAPHIQUE";
+
       doc.setFillColor(241, 245, 249);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(15, 23, 42);
-      doc.text("1. CARTE DE L'ITINÉRAIRE (FOND IGN TOP 25 / OPENTOPOMAP)", margin, currentY);
+      doc.text(`1. CARTE DE L'ITINÉRAIRE (${layerLabel})`, margin, currentY);
       currentY += 4;
 
       try {
-        const mapImgData = await this.renderStaticMap(hike, 720, 420);
+        const mapImgData = await this.renderStaticMap(hike, 720, 420, mapLayer);
         if (mapImgData) {
           const mapH = 75; // mm
           doc.addImage(mapImgData, 'JPEG', margin, currentY, contentWidth, mapH);
@@ -189,7 +198,7 @@ class PDFExporter {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(148, 163, 184); // Slate 400
-      doc.text(`Les Randonneurs Sanaryens - ${hike.name} | Page ${p}/${totalPages}`, margin, pageHeight - 8);
+      doc.text(`RandoFinder - ${hike.name} | Page ${p}/${totalPages}`, margin, pageHeight - 8);
       doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
     }
 
@@ -199,51 +208,82 @@ class PDFExporter {
   }
 
   /**
-   * Render a static raster map with OpenTopoMap / IGN tiles and GPX track vector
+   * Render a static raster map with IGN Top 25 / OpenTopoMap / OSM tiles and GPX track vector
    */
-  static async renderStaticMap(hike, imgWidth = 720, imgHeight = 420) {
+  static async renderStaticMap(hike, imgWidth = 720, imgHeight = 420, mapLayer = 'ign') {
     const canvas = document.createElement('canvas');
     canvas.width = imgWidth;
     canvas.height = imgHeight;
     const ctx = canvas.getContext('2d');
 
-    const bounds = hike.bounds;
+    // 1. Fond immédiat avant tout chargement
+    ctx.fillStyle = '#e2e8f0'; // Fond neutre terre/mer
+    ctx.fillRect(0, 0, imgWidth, imgHeight);
+
+    if (!hike) return null;
+
+    // 2. Assurer que les points de trace existent
+    if ((!hike.points || hike.points.length === 0) && hike.rawGpx && typeof GPXParser !== 'undefined') {
+      try {
+        const parsed = GPXParser.parse(hike.rawGpx, hike.filename || 'trace.gpx');
+        if (parsed.points && parsed.points.length > 0) {
+          hike.points = parsed.points;
+          hike.bounds = parsed.bounds;
+        }
+      } catch (e) {}
+    }
+
+    // 3. Calculer ou sécuriser les bounds
+    let bounds = hike.bounds;
+    if ((!bounds || !bounds[0] || !bounds[1]) && hike.points && hike.points.length > 0) {
+      let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+      for (const p of hike.points) {
+        if (p.lat < minLat) minLat = p.lat;
+        if (p.lat > maxLat) maxLat = p.lat;
+        if (p.lon < minLon) minLon = p.lon;
+        if (p.lon > maxLon) maxLon = p.lon;
+      }
+      bounds = [[minLat, minLon], [maxLat, maxLon]];
+      hike.bounds = bounds;
+    }
+
+    if (!bounds || !bounds[0] || !bounds[1]) {
+      const sp = hike.startPoint || { lat: 43.1189, lon: 5.8033 };
+      bounds = [[sp.lat - 0.015, sp.lon - 0.015], [sp.lat + 0.015, sp.lon + 0.015]];
+    }
+
     const minLat = bounds[0][0];
     const minLon = bounds[0][1];
     const maxLat = bounds[1][0];
     const maxLon = bounds[1][1];
 
-    // Compute appropriate zoom level
     const centerLat = (minLat + maxLat) / 2;
     const centerLon = (minLon + maxLon) / 2;
 
-    const latDiff = Math.max(0.005, maxLat - minLat);
-    const lonDiff = Math.max(0.005, maxLon - minLon);
+    // Calcul précis du zoom optimal pour cadrer la trace avec une marge esthétique
+    const lonDiff = Math.max(0.002, maxLon - minLon);
+    const latToY = (lat) => {
+      const s = Math.sin((lat * Math.PI) / 180);
+      return Math.log((1 + s) / (1 - s)) / 2;
+    };
+    const yDiff = Math.max(0.001, Math.abs(latToY(maxLat) - latToY(minLat)));
+    const padding = 0.80; // 20% de marge autour du tracé
+    const zoomX = Math.log2((imgWidth * padding * 360) / (lonDiff * 256));
+    const zoomY = Math.log2((imgHeight * padding * 2 * Math.PI) / (yDiff * 256));
+    let zoom = Math.floor(Math.min(zoomX, zoomY));
+    zoom = Math.max(8, Math.min(16, zoom));
 
-    let zoom = 14;
-    const maxSpan = Math.max(latDiff * 1.3, lonDiff * 1.3);
-    if (maxSpan > 0.6) zoom = 9;
-    else if (maxSpan > 0.3) zoom = 10;
-    else if (maxSpan > 0.15) zoom = 11;
-    else if (maxSpan > 0.08) zoom = 12;
-    else if (maxSpan > 0.04) zoom = 13;
-    else if (maxSpan > 0.02) zoom = 14;
-    else zoom = 15;
-
-    // Convert lat/lon to tile coords
+    // Convertisseurs lat/lon vers coordonnées de tuiles
     const lon2tile = (lon, z) => ((lon + 180) / 360) * Math.pow(2, z);
     const lat2tile = (lat, z) =>
       ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) *
       Math.pow(2, z);
 
-    const tile2lon = (x, z) => (x / Math.pow(2, z)) * 360 - 180;
-    const tile2lat = (y, z) => {
-      const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
-      return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
-    };
-
     const centerTileX = lon2tile(centerLon, zoom);
     const centerTileY = lat2tile(centerLat, zoom);
+
+    const centerPixelX = imgWidth / 2;
+    const centerPixelY = imgHeight / 2;
 
     const tilesAcross = Math.ceil(imgWidth / 256) + 2;
     const tilesDown = Math.ceil(imgHeight / 256) + 2;
@@ -251,61 +291,109 @@ class PDFExporter {
     const startTileX = Math.floor(centerTileX - tilesAcross / 2);
     const startTileY = Math.floor(centerTileY - tilesDown / 2);
 
-    // Pixel offset from canvas center
-    const centerPixelX = imgWidth / 2;
-    const centerPixelY = imgHeight / 2;
+    // Détection si la randonnée est en France (IGN dessert la France métropolitaine + DOM)
+    const isInsideFrance = (centerLat >= 41.0 && centerLat <= 51.5 && centerLon >= -5.5 && centerLon <= 10.0);
 
-    // Tile server template (OpenTopoMap with fallback to OSM)
-    const tileUrl = (x, y, z) => `https://a.tile.opentopomap.org/${z}/${x}/${y}.png`;
-    const fallbackUrl = (x, y, z) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    // URLs des serveurs de tuiles cartographiques
+    const ignPlanUrl = (x, y, z) => `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}&FORMAT=image%2Fpng`;
+    
+    const openTopoUrl = (x, y, z) => {
+      const sub = ['a', 'b', 'c'][Math.abs(x + y) % 3];
+      return `https://${sub}.tile.opentopomap.org/${z}/${x}/${y}.png`;
+    };
+    
+    const osmFrUrl = (x, y, z) => {
+      const sub = ['a', 'b', 'c'][Math.abs(x + y) % 3];
+      return `https://${sub}.tile.openstreetmap.fr/osmfr/${z}/${x}/${y}.png`;
+    };
+    
+    const osmStdUrl = (x, y, z) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
 
-    const tilePromises = [];
+    const esriSatUrl = (x, y, z) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
 
-    for (let tx = 0; tx < tilesAcross; tx++) {
-      for (let ty = 0; ty < tilesDown; ty++) {
-        const tileX = startTileX + tx;
-        const tileY = startTileY + ty;
+    // Établir la cascade de fournisseurs selon le choix demandé
+    let primaryUrlFn, fallbackUrlFn1, fallbackUrlFn2;
+    let attributionText = '© IGN France / OpenStreetMap';
 
-        const p = new Promise((resolve) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
-            const px = centerPixelX + (tileX - centerTileX) * 256;
-            const py = centerPixelY + (tileY - centerTileY) * 256;
-            ctx.drawImage(img, px, py, 256, 256);
-            resolve();
-          };
-          img.onerror = () => {
-            // Try fallback OSM tile
-            const fImg = new Image();
-            fImg.crossOrigin = 'anonymous';
-            fImg.onload = () => {
-              const px = centerPixelX + (tileX - centerTileX) * 256;
-              const py = centerPixelY + (tileY - centerTileY) * 256;
-              ctx.drawImage(fImg, px, py, 256, 256);
-              resolve();
-            };
-            fImg.onerror = () => resolve(); // continue even if tile missing
-            fImg.src = fallbackUrl(tileX, tileY, zoom);
-          };
-          img.src = tileUrl(tileX, tileY, zoom);
-        });
-
-        tilePromises.push(p);
+    if (mapLayer === 'opentopo') {
+      primaryUrlFn = openTopoUrl;
+      fallbackUrlFn1 = isInsideFrance ? ignPlanUrl : osmFrUrl;
+      fallbackUrlFn2 = osmStdUrl;
+      attributionText = '© OpenTopoMap / OpenStreetMap';
+    } else if (mapLayer === 'osmfr') {
+      primaryUrlFn = osmFrUrl;
+      fallbackUrlFn1 = isInsideFrance ? ignPlanUrl : openTopoUrl;
+      fallbackUrlFn2 = osmStdUrl;
+      attributionText = '© OpenStreetMap France';
+    } else if (mapLayer === 'satellite') {
+      primaryUrlFn = esriSatUrl;
+      fallbackUrlFn1 = isInsideFrance ? ignPlanUrl : osmStdUrl;
+      fallbackUrlFn2 = osmStdUrl;
+      attributionText = '© Esri World Imagery / IGN';
+    } else {
+      // 'ign' par défaut : Plan IGN v2 officiel pour la France, OpenTopo/OSM pour l'étranger
+      if (isInsideFrance) {
+        primaryUrlFn = ignPlanUrl;
+        fallbackUrlFn1 = osmFrUrl;   // Très utile pour la mer en bord de côte où IGN retourne 404
+        fallbackUrlFn2 = openTopoUrl;
+        attributionText = '© IGN France - Géoplateforme (Top 25)';
+      } else {
+        primaryUrlFn = openTopoUrl;
+        fallbackUrlFn1 = osmFrUrl;
+        fallbackUrlFn2 = osmStdUrl;
+        attributionText = '© OpenTopoMap / OpenStreetMap';
       }
     }
 
-    // Fill white background first
-    ctx.fillStyle = '#f1f5f9';
-    ctx.fillRect(0, 0, imgWidth, imgHeight);
+    // Fonction de chargement résiliente pour chaque tuile
+    const loadTile = (tileX, tileY) => {
+      return new Promise((resolve) => {
+        const px = centerPixelX + (tileX - centerTileX) * 256;
+        const py = centerPixelY + (tileY - centerTileY) * 256;
 
-    // Wait max 3.5 seconds for tiles to load
+        const tryImg = (urlFn, nextFallback) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            try {
+              ctx.drawImage(img, px, py, 256, 256);
+            } catch (e) {}
+            resolve();
+          };
+          img.onerror = () => {
+            if (nextFallback) {
+              nextFallback();
+            } else {
+              resolve(); // Ne jamais bloquer les autres tuiles
+            }
+          };
+          img.src = urlFn(tileX, tileY, zoom);
+        };
+
+        // Cascade : Primaire -> Repli 1 -> Repli 2
+        tryImg(primaryUrlFn, () => {
+          tryImg(fallbackUrlFn1, () => {
+            tryImg(fallbackUrlFn2, () => resolve());
+          });
+        });
+      });
+    };
+
+    // Lancer tous les téléchargements de tuiles en parallèle
+    const tilePromises = [];
+    for (let tx = 0; tx < tilesAcross; tx++) {
+      for (let ty = 0; ty < tilesDown; ty++) {
+        tilePromises.push(loadTile(startTileX + tx, startTileY + ty));
+      }
+    }
+
+    // Attendre jusqu'à 6 secondes max
     await Promise.race([
       Promise.all(tilePromises),
-      new Promise(r => setTimeout(r, 3500))
+      new Promise(r => setTimeout(r, 6000))
     ]);
 
-    // Helper: convert (lat, lon) to canvas (x, y)
+    // Helper: conversion (lat, lon) vers pixels canvas
     const latLonToPixel = (lat, lon) => {
       const tx = lon2tile(lon, zoom);
       const ty = lat2tile(lat, zoom);
@@ -315,9 +403,9 @@ class PDFExporter {
       };
     };
 
-    // Draw GPX track with high contrast
+    // Dessiner le tracé GPX avec contraste élevé
     if (hike.points && hike.points.length > 0) {
-      // 1. White border casing
+      // 1. Bordure blanche extérieure pour détacher la trace de tout fond cartographique
       ctx.beginPath();
       let first = latLonToPixel(hike.points[0].lat, hike.points[0].lon);
       ctx.moveTo(first.x, first.y);
@@ -326,38 +414,40 @@ class PDFExporter {
         ctx.lineTo(pt.x, pt.y);
       }
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 7;
+      ctx.lineWidth = 6;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.stroke();
 
-      // 2. Red track line
+      // 2. Trait rouge vif (rose-red) haute visibilité
       ctx.beginPath();
       ctx.moveTo(first.x, first.y);
       for (let i = 1; i < hike.points.length; i++) {
         const pt = latLonToPixel(hike.points[i].lat, hike.points[i].lon);
         ctx.lineTo(pt.x, pt.y);
       }
-      ctx.strokeStyle = '#e11d48'; // Rose red for high visibility
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#e11d48'; // Rose red
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       ctx.stroke();
 
-      // 3. Start Point Marker (Green Flag)
+      // 3. Marqueur de départ (vert émeraude avec halo blanc)
       const startPix = latLonToPixel(hike.startPoint.lat, hike.startPoint.lon);
       ctx.beginPath();
       ctx.arc(startPix.x, startPix.y, 8, 0, Math.PI * 2);
-      ctx.fillStyle = '#10b981'; // Emerald
+      ctx.fillStyle = '#10b981';
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      // 4. End Point Marker (if not loop)
+      // 4. Marqueur d'arrivée (si hors boucle)
       if (!hike.isLoop && hike.endPoint) {
         const endPix = latLonToPixel(hike.endPoint.lat, hike.endPoint.lon);
         ctx.beginPath();
         ctx.arc(endPix.x, endPix.y, 8, 0, Math.PI * 2);
-        ctx.fillStyle = '#ef4444'; // Red
+        ctx.fillStyle = '#ef4444';
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2.5;
@@ -365,16 +455,61 @@ class PDFExporter {
       }
     }
 
-    // Add map legend badge
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-    ctx.roundRect 
-      ? ctx.roundRect(12, imgHeight - 32, 210, 22, 4)
-      : ctx.rect(12, imgHeight - 32, 210, 22);
+    // 5. Légende élégante en bas à gauche
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    if (ctx.roundRect) {
+      ctx.roundRect(10, imgHeight - 30, 255, 22, 5);
+    } else {
+      ctx.rect(10, imgHeight - 30, 255, 22);
+    }
     ctx.fill();
 
+    // Pastille verte Départ
+    ctx.beginPath();
+    ctx.arc(22, imgHeight - 19, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#10b981';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Pastille rouge Arrivée
+    ctx.beginPath();
+    ctx.arc(92, imgHeight - 19, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Trait rose Tracé GPS
+    ctx.beginPath();
+    ctx.moveTo(162, imgHeight - 19);
+    ctx.lineTo(180, imgHeight - 19);
+    ctx.strokeStyle = '#e11d48';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
     ctx.fillStyle = '#ffffff';
-    ctx.font = '10px Inter, sans-serif';
-    ctx.fillText("🟢 Départ   🔴 Arrivée   — Itinéraire", 20, imgHeight - 18);
+    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText("Départ", 32, imgHeight - 16);
+    ctx.fillText("Arrivée", 102, imgHeight - 16);
+    ctx.fillText("Tracé GPS", 188, imgHeight - 16);
+
+    // 6. Mention de copyright en bas à droite
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+    const textWidth = ctx.measureText(attributionText).width;
+    if (ctx.roundRect) {
+      ctx.roundRect(imgWidth - textWidth - 22, imgHeight - 22, textWidth + 16, 16, 3);
+    } else {
+      ctx.rect(imgWidth - textWidth - 22, imgHeight - 22, textWidth + 16, 16);
+    }
+    ctx.fill();
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(attributionText, imgWidth - textWidth - 14, imgHeight - 10);
 
     return canvas.toDataURL('image/jpeg', 0.92);
   }
