@@ -910,13 +910,32 @@
           <div class="flex items-start gap-3">
             <input type="checkbox" id="opt-download-pdf" checked class="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
             <label for="opt-download-pdf" class="cursor-pointer">
-              <span class="block text-sm font-bold text-emerald-950">Fiche Randonnée (PDF Imprimable A4)</span>
-              <span class="block text-xs text-emerald-700">Document haute définition comprenant les options ci-dessous :</span>
+              <span class="block text-sm font-bold text-emerald-950">Fiche Randonnée (PDF Imprimable)</span>
+              <span class="block text-xs text-emerald-700">Document cartographique haute définition personnalisé :</span>
             </label>
           </div>
 
           <!-- Sub-options for PDF -->
-          <div class="ml-7 space-y-2.5 pt-2 border-t border-emerald-200/60 text-xs text-slate-700">
+          <div class="ml-7 space-y-3 pt-2.5 border-t border-emerald-200/60 text-xs text-slate-700">
+            <!-- Format et Orientation de la page -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-white/80 p-2.5 rounded-lg border border-emerald-200/50">
+              <div>
+                <label for="opt-pdf-format" class="block text-[11px] font-bold text-slate-700 mb-1">Format de page :</label>
+                <select id="opt-pdf-format" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer shadow-2xs">
+                  <option value="a4" selected>📄 A4 (21 × 29,7 cm - Standard)</option>
+                  <option value="a3">📑 A3 (29,7 × 42 cm - Grand format)</option>
+                </select>
+              </div>
+              <div>
+                <label for="opt-pdf-orientation" class="block text-[11px] font-bold text-slate-700 mb-1">Orientation :</label>
+                <select id="opt-pdf-orientation" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer shadow-2xs">
+                  <option value="portrait" selected>⬆️ Portrait (Vertical)</option>
+                  <option value="landscape">➡️ Paysage (Horizontal - Vue large)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Option Carte & Fond -->
             <div class="space-y-1.5">
               <label class="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" id="opt-pdf-map" checked class="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500">
@@ -924,7 +943,7 @@
               </label>
               <div class="ml-5 flex items-center gap-2">
                 <label for="opt-pdf-map-layer" class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">Fond de carte :</label>
-                <select id="opt-pdf-map-layer" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer shadow-2xs">
+                <select id="opt-pdf-map-layer" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer shadow-2xs">
                   <option value="ign" selected>🗺️ IGN Top 25 / Plan v2 (Officiel France - Recommandé)</option>
                   <option value="opentopo">⛰️ OpenTopoMap (Relief mondial)</option>
                   <option value="osmfr">📍 OpenStreetMap France (Sentiers)</option>
@@ -932,6 +951,7 @@
                 </select>
               </div>
             </div>
+
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" id="opt-pdf-profile" checked class="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500">
               <span class="font-medium">2. Profil altimétrique (dénivelé, altitude min/max)</span>
@@ -1629,14 +1649,14 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=47"></script>
-  <script src="js/auth-manager.js?v=47"></script>
-  <script src="js/gpx-parser.js?v=47"></script>
-  <script src="js/sample-data.js?v=47"></script>
-  <script src="js/storage.js?v=47"></script>
-  <script src="js/elevation-profile.js?v=47"></script>
-  <script src="js/map-manager.js?v=47"></script>
-  <script src="js/pdf-exporter.js?v=47"></script>
-  <script src="js/app.js?v=47"></script>
+  <script src="js/config.js?v=48"></script>
+  <script src="js/auth-manager.js?v=48"></script>
+  <script src="js/gpx-parser.js?v=48"></script>
+  <script src="js/sample-data.js?v=48"></script>
+  <script src="js/storage.js?v=48"></script>
+  <script src="js/elevation-profile.js?v=48"></script>
+  <script src="js/map-manager.js?v=48"></script>
+  <script src="js/pdf-exporter.js?v=48"></script>
+  <script src="js/app.js?v=48"></script>
 </body>
 </html>
