@@ -601,7 +601,8 @@ class AppController {
         if (window.MapManagerInstance.areaSelectionActive) {
           window.MapManagerInstance.cancelAreaSelection();
         } else {
-          this.deselectHike(); // Fermer toute prévisualisation en cours
+          // Conserver la randonnée affichée : son tracé GPX pourra être imprimé sur l'extrait
+          this.areaPrintHike = this.selectedHike || window.MapManagerInstance.selectedHike || null;
           window.MapManagerInstance.startAreaSelection(
             (bounds) => this.openMapAreaModal(bounds),
             () => {}
@@ -3008,7 +3009,23 @@ class AppController {
     // Default title
     const titleEl = document.getElementById('map-area-title');
     if (titleEl) {
-      titleEl.value = `Extrait Cartographique (${dKmWidth.toFixed(1)} × ${dKmHeight.toFixed(1)} km)`;
+      titleEl.value = this.areaPrintHike
+        ? `${this.areaPrintHike.name} - Extrait de carte`
+        : `Extrait Cartographique (${dKmWidth.toFixed(1)} × ${dKmHeight.toFixed(1)} km)`;
+    }
+
+    // Option "tracé GPX" visible uniquement si une randonnée est affichée sur la carte
+    const trackRow = document.getElementById('map-area-opt-track-row');
+    const trackName = document.getElementById('map-area-opt-track-name');
+    const trackChk = document.getElementById('map-area-opt-track');
+    if (trackRow) {
+      if (this.areaPrintHike) {
+        trackRow.classList.remove('hidden');
+        if (trackName) trackName.textContent = this.areaPrintHike.name;
+        if (trackChk) trackChk.checked = true;
+      } else {
+        trackRow.classList.add('hidden');
+      }
     }
 
     // Default layer matching currently active map layer
@@ -3041,17 +3058,25 @@ class AppController {
     const title = titleEl && titleEl.value.trim() ? titleEl.value.trim() : 'EXTRAIT DE CARTE TOPOGRAPHIQUE';
     const showCoordsEl = document.getElementById('map-area-opt-coords');
     const showCoords = showCoordsEl ? showCoordsEl.checked : true;
+    const trackChk = document.getElementById('map-area-opt-track');
+    const includeTrack = !!(this.areaPrintHike && trackChk && trackChk.checked);
+    const hikeForTrack = includeTrack ? this.areaPrintHike : null;
 
     this.closeMapAreaModal();
 
     this.showToast("Génération de l'extrait de carte en haute définition...", "info");
     try {
+      // S'assurer que les points du tracé sont chargés
+      if (hikeForTrack && typeof StorageManager !== 'undefined') {
+        try { await StorageManager.ensureHikeTrackLoaded(hikeForTrack); } catch (e) {}
+      }
       await PDFExporter.exportMapAreaPDF(this.selectedAreaBounds, {
         title: title,
         format: format,
         orientation: orientation,
         mapLayer: mapLayer,
-        showCoords: showCoords
+        showCoords: showCoords,
+        hike: hikeForTrack
       });
       this.showToast(`Extrait de carte (${format.toUpperCase()} ${orientation === 'landscape' ? 'Paysage' : 'Portrait'}) téléchargé !`, "success");
     } catch (err) {
