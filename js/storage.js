@@ -404,6 +404,7 @@ class StorageManager {
         if (parsed.points && parsed.points.length >= 5) {
           hike.points = parsed.points;
           if (!hike.startPoint) hike.startPoint = parsed.startPoint;
+          if (parsed.bounds) hike.bounds = parsed.bounds;
           return hike;
         }
       } catch (e) {}
@@ -419,6 +420,7 @@ class StorageManager {
             hike.points = parsed.points;
             hike.rawGpx = text;
             if (!hike.startPoint) hike.startPoint = parsed.startPoint;
+            if (parsed.bounds) hike.bounds = parsed.bounds;
             if (!hike.elevationGain && parsed.elevationGain) hike.elevationGain = parsed.elevationGain;
             if (!hike.elevationLoss && parsed.elevationLoss) hike.elevationLoss = parsed.elevationLoss;
             if (!hike.minElevation && parsed.minElevation) hike.minElevation = parsed.minElevation;
@@ -650,6 +652,7 @@ class StorageManager {
           if (parsed.points && parsed.points.length >= 5) {
             hike.points = parsed.points;
             if (!hike.startPoint) hike.startPoint = parsed.startPoint;
+            if (parsed.bounds) hike.bounds = parsed.bounds;
           }
         } catch (e) {}
       }
