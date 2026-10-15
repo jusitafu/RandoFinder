@@ -281,6 +281,27 @@
         <div id="map-column" class="flex-1 lg:w-1/2 h-1/2 lg:h-full relative flex flex-col">
           <div id="map-view" class="w-full h-full z-10"></div>
 
+          <!-- SELECTION GUIDANCE BANNER (Appears during 2-click rectangle selection) -->
+          <div id="map-selection-banner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-700/80 backdrop-blur-md flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-150 max-w-md w-[90%] sm:w-auto text-xs font-medium">
+            <span class="text-emerald-400 text-base flex-shrink-0 animate-pulse">📐</span>
+            <div id="map-selection-msg" class="flex-1">
+              <span class="font-bold text-emerald-300">Étape 1 sur 2 :</span> Cliquez sur la carte pour poser le premier coin.
+            </div>
+            <button id="btn-cancel-map-selection" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-bold border border-slate-600 transition cursor-pointer" title="Annuler la sélection (Touche Échap)">
+              ✕ Annuler
+            </button>
+          </div>
+
+          <!-- FLOATING MAP PRINT EXTRACT BUTTON (Bottom Right of Map) -->
+          <div class="absolute bottom-6 right-3.5 z-20">
+            <button id="btn-map-area-print" 
+              class="px-3.5 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-emerald-700 rounded-xl shadow-lg hover:shadow-xl border border-slate-200/90 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer backdrop-blur-md active:scale-95 group" 
+              title="Sélectionner une portion de carte en 2 clics pour l'imprimer en A4 ou A3">
+              <span class="text-sm group-hover:scale-110 transition-transform">🖨️</span>
+              <span id="btn-map-area-print-text">Imprimer une zone</span>
+            </button>
+          </div>
+
           <!-- Difficulty Legend on map -->
           <div class="absolute top-3 left-14 z-20 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl shadow-md border border-slate-200/90 text-[11px] font-semibold text-slate-700 pointer-events-none select-none">
             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Difficulté :</span>
@@ -885,6 +906,80 @@
             <span id="btn-apply-duplicates-text">Supprimer les doublons sélectionnés</span>
           </button>
         </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL : IMPRESSION D'UN EXTRAIT DE CARTE (ZONE SÉLECTIONNÉE EN 2 CLICS) -->
+  <!-- ========================================================================= -->
+  <div id="map-area-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      
+      <div class="bg-slate-900 text-white p-5 flex items-start justify-between">
+        <div>
+          <span class="text-[10px] font-bold tracking-widest text-emerald-400 uppercase">Extraction Cartographique HD</span>
+          <h3 class="text-base font-bold text-white leading-snug mt-0.5">Imprimer l'extrait de carte</h3>
+          <p id="modal-map-area-info" class="text-xs text-slate-400 mt-1"></p>
+        </div>
+        <button id="btn-close-map-area-modal" class="text-slate-400 hover:text-white p-1 rounded-lg transition text-lg">✕</button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        
+        <!-- Titre personnalisé -->
+        <div>
+          <label for="map-area-title" class="block text-xs font-bold text-slate-700 mb-1">Titre de la carte (imprimé en haut du document) :</label>
+          <input type="text" id="map-area-title" placeholder="Ex: Massif de la Sainte-Baume - Extrait topographique..." class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <!-- Format et Orientation -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <div>
+            <label for="map-area-format" class="block text-[11px] font-bold text-slate-700 mb-1">Format de page :</label>
+            <select id="map-area-format" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer shadow-2xs">
+              <option value="a4" selected>📄 A4 (21 × 29,7 cm - Standard)</option>
+              <option value="a3">📑 A3 (29,7 × 42 cm - Grand format)</option>
+            </select>
+          </div>
+          <div>
+            <label for="map-area-orientation" class="block text-[11px] font-bold text-slate-700 mb-1">Orientation :</label>
+            <select id="map-area-orientation" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer shadow-2xs">
+              <option value="landscape" selected>➡️ Paysage (Horizontal - Recommandé)</option>
+              <option value="portrait">⬆️ Portrait (Vertical)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Fond de carte -->
+        <div>
+          <label for="map-area-layer" class="block text-xs font-bold text-slate-700 mb-1">Fond de carte topographique :</label>
+          <select id="map-area-layer" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer shadow-2xs">
+            <option value="ign" selected>🗺️ IGN Top 25 / Plan v2 (Officiel France - Recommandé)</option>
+            <option value="opentopo">⛰️ OpenTopoMap (Relief mondial)</option>
+            <option value="osmfr">📍 OpenStreetMap France (Sentiers)</option>
+            <option value="satellite">🛰️ Satellite HD (IGN / Esri)</option>
+          </select>
+        </div>
+
+        <!-- Options d'affichage -->
+        <div class="space-y-2 pt-1 text-xs text-slate-700">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="map-area-opt-coords" checked class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+            <span class="font-medium">Indiquer les coordonnées GPS (Lat/Lon) aux quatre coins</span>
+          </label>
+        </div>
+
+      </div>
+
+      <div class="bg-slate-50 border-t border-slate-200 p-4 flex items-center justify-end gap-3">
+        <button id="btn-cancel-map-area" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition cursor-pointer">
+          Annuler
+        </button>
+        <button id="btn-confirm-map-area-download" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-2 cursor-pointer">
+          <span>📥</span> Générer et Télécharger la carte PDF
+        </button>
       </div>
 
     </div>
@@ -1673,14 +1768,14 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=51"></script>
-  <script src="js/auth-manager.js?v=51"></script>
-  <script src="js/gpx-parser.js?v=51"></script>
-  <script src="js/sample-data.js?v=51"></script>
-  <script src="js/storage.js?v=51"></script>
-  <script src="js/elevation-profile.js?v=51"></script>
-  <script src="js/map-manager.js?v=51"></script>
-  <script src="js/pdf-exporter.js?v=51"></script>
-  <script src="js/app.js?v=51"></script>
+  <script src="js/config.js?v=52"></script>
+  <script src="js/auth-manager.js?v=52"></script>
+  <script src="js/gpx-parser.js?v=52"></script>
+  <script src="js/sample-data.js?v=52"></script>
+  <script src="js/storage.js?v=52"></script>
+  <script src="js/elevation-profile.js?v=52"></script>
+  <script src="js/map-manager.js?v=52"></script>
+  <script src="js/pdf-exporter.js?v=52"></script>
+  <script src="js/app.js?v=52"></script>
 </body>
 </html>
