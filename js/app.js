@@ -593,6 +593,47 @@ class AppController {
       closeModalBtn.addEventListener('click', () => this.closeDownloadModal());
     }
 
+    // Map Area Print Extract (2-click selection mode)
+    const btnMapAreaPrint = document.getElementById('btn-map-area-print');
+    if (btnMapAreaPrint) {
+      btnMapAreaPrint.addEventListener('click', () => {
+        if (!window.MapManagerInstance) return;
+        if (window.MapManagerInstance.areaSelectionActive) {
+          window.MapManagerInstance.cancelAreaSelection();
+        } else {
+          this.deselectHike(); // Fermer toute prévisualisation en cours
+          window.MapManagerInstance.startAreaSelection(
+            (bounds) => this.openMapAreaModal(bounds),
+            () => {}
+          );
+        }
+      });
+    }
+
+    const btnCancelMapSelection = document.getElementById('btn-cancel-map-selection');
+    if (btnCancelMapSelection) {
+      btnCancelMapSelection.addEventListener('click', () => {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.cancelAreaSelection();
+        }
+      });
+    }
+
+    const btnCloseMapAreaModal = document.getElementById('btn-close-map-area-modal');
+    if (btnCloseMapAreaModal) {
+      btnCloseMapAreaModal.addEventListener('click', () => this.closeMapAreaModal());
+    }
+
+    const btnCancelMapArea = document.getElementById('btn-cancel-map-area');
+    if (btnCancelMapArea) {
+      btnCancelMapArea.addEventListener('click', () => this.closeMapAreaModal());
+    }
+
+    const btnConfirmMapAreaDownload = document.getElementById('btn-confirm-map-area-download');
+    if (btnConfirmMapAreaDownload) {
+      btnConfirmMapAreaDownload.addEventListener('click', () => this.executeMapAreaDownload());
+    }
+
     // Click on empty space in table container deselects
     const tableCol = document.getElementById('table-column');
     if (tableCol) {
@@ -2940,6 +2981,82 @@ class AppController {
     } catch (err) {
       console.error("Erreur paste GPX :", err);
       this.showToast(`Erreur d'analyse : ${err.message}`, "error");
+    }
+  }
+
+  // =========================================================================
+  // MAP AREA PRINT MODAL (2-CLICK RECTANGLE EXTRACTION)
+  // =========================================================================
+  openMapAreaModal(bounds) {
+    this.selectedAreaBounds = bounds;
+    const modal = document.getElementById('map-area-modal');
+    if (!modal) return;
+
+    const minLat = bounds[0][0];
+    const minLon = bounds[0][1];
+    const maxLat = bounds[1][0];
+    const maxLon = bounds[1][1];
+
+    const dKmWidth = GPXParser.haversineDistance(minLat, minLon, minLat, maxLon);
+    const dKmHeight = GPXParser.haversineDistance(minLat, minLon, maxLat, minLon);
+
+    const infoEl = document.getElementById('modal-map-area-info');
+    if (infoEl) {
+      infoEl.textContent = `Zone sélectionnée : ~${dKmWidth.toFixed(1)} km × ${dKmHeight.toFixed(1)} km • 2 clics`;
+    }
+
+    // Default title
+    const titleEl = document.getElementById('map-area-title');
+    if (titleEl) {
+      titleEl.value = `Extrait Cartographique (${dKmWidth.toFixed(1)} × ${dKmHeight.toFixed(1)} km)`;
+    }
+
+    // Default layer matching currently active map layer
+    const layerSelect = document.getElementById('map-area-layer');
+    if (layerSelect && window.MapManagerInstance) {
+      layerSelect.value = window.MapManagerInstance.getCurrentBaseLayerKey();
+    }
+
+    modal.classList.remove('hidden');
+  }
+
+  closeMapAreaModal() {
+    const modal = document.getElementById('map-area-modal');
+    if (modal) modal.classList.add('hidden');
+    if (window.MapManagerInstance) {
+      window.MapManagerInstance.clearAreaSelectionVisuals();
+    }
+  }
+
+  async executeMapAreaDownload() {
+    if (!this.selectedAreaBounds) return;
+
+    const formatEl = document.getElementById('map-area-format');
+    const format = formatEl ? formatEl.value : 'a4';
+    const orientationEl = document.getElementById('map-area-orientation');
+    const orientation = orientationEl ? orientationEl.value : 'landscape';
+    const layerEl = document.getElementById('map-area-layer');
+    const mapLayer = layerEl ? layerEl.value : 'ign';
+    const titleEl = document.getElementById('map-area-title');
+    const title = titleEl && titleEl.value.trim() ? titleEl.value.trim() : 'EXTRAIT DE CARTE TOPOGRAPHIQUE';
+    const showCoordsEl = document.getElementById('map-area-opt-coords');
+    const showCoords = showCoordsEl ? showCoordsEl.checked : true;
+
+    this.closeMapAreaModal();
+
+    this.showToast("Génération de l'extrait de carte en haute définition...", "info");
+    try {
+      await PDFExporter.exportMapAreaPDF(this.selectedAreaBounds, {
+        title: title,
+        format: format,
+        orientation: orientation,
+        mapLayer: mapLayer,
+        showCoords: showCoords
+      });
+      this.showToast(`Extrait de carte (${format.toUpperCase()} ${orientation === 'landscape' ? 'Paysage' : 'Portrait'}) téléchargé !`, "success");
+    } catch (err) {
+      console.error("Erreur export carte zone :", err);
+      this.showToast("Erreur lors de la génération de la carte PDF", "error");
     }
   }
 
