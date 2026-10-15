@@ -527,9 +527,173 @@ class PDFExporter {
   }
 
   /**
+   * Export an extracted map area to a high-definition PDF
+   * Supports Format (A4, A3) and Orientation (Landscape, Portrait)
+   * @param {Array} bounds - [[minLat, minLon], [maxLat, maxLon]]
+   * @param {Object} options - { title, format, orientation, mapLayer, showCoords }
+   */
+  static async exportMapAreaPDF(bounds, options = {}) {
+    const { jsPDF } = window.jspdf;
+    const format = (options.format || 'a4').toLowerCase(); // 'a4' or 'a3'
+    const orientation = (options.orientation || 'landscape').toLowerCase(); // 'landscape' or 'portrait'
+    const mapLayer = options.mapLayer || 'ign';
+    const title = options.title && options.title.trim() ? options.title.trim() : 'EXTRAIT DE CARTE TOPOGRAPHIQUE';
+    const showCoords = options.showCoords !== false;
+
+    const doc = new jsPDF({
+      orientation: orientation,
+      unit: 'mm',
+      format: format
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const isA3 = format === 'a3';
+    const isLandscape = orientation === 'landscape';
+    const margin = isA3 ? 16 : 12;
+    const contentWidth = pageWidth - (margin * 2);
+
+    let currentY = margin;
+
+    // Détection si la zone est en France métropolitaine / Corse
+    const minLat = bounds[0][0];
+    const minLon = bounds[0][1];
+    const maxLat = bounds[1][0];
+    const maxLon = bounds[1][1];
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLon = (minLon + maxLon) / 2;
+
+    const isInsideFrance = (centerLat >= 41.0 && centerLat <= 51.5 && centerLon >= -5.5 && centerLon <= 10.0);
+    const layerLabels = {
+      'ign': isInsideFrance ? "FOND OFFICIEL IGN TOP 25 / GÉOPLATEFORME" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'opentopo': "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'osmfr': "FOND OPENSTREETMAP FRANCE (SENTIERS)",
+      'satellite': "FOND SATELLITE HAUTE DÉFINITION (IGN / ESRI)"
+    };
+    const layerLabel = layerLabels[mapLayer] || "FOND TOPOGRAPHIQUE";
+
+    // 1. Bandeau supérieur (Header Banner)
+    const bannerH = isA3 ? 18 : 14;
+    doc.setFillColor(15, 23, 42); // Slate 900
+    doc.rect(margin, currentY, contentWidth, bannerH, 'F');
+
+    // Club Logo
+    try {
+      const logoImg = document.getElementById('app-logo');
+      if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+        const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
+        const logoH = bannerH - 4;
+        const logoW = logoH * logoAspect;
+        doc.addImage(logoImg, 'PNG', margin + 3, currentY + 2, Math.min(logoW, 55), logoH);
+      }
+    } catch (e) {}
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(isA3 ? 13 : 10.5);
+    doc.text("EXTRAIT DE CARTE TOPOGRAPHIQUE", pageWidth - margin - 5, currentY + (bannerH * 0.44), { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(isA3 ? 8.5 : 7);
+    doc.setTextColor(203, 213, 225);
+    doc.text("RandoFinder - JLDApps 2026", pageWidth - margin - 5, currentY + (bannerH * 0.80), { align: 'right' });
+
+    currentY += bannerH + 3.5;
+
+    // 2. Titre personnalisé & Sous-titre
+    const dKmWidth = GPXParser.haversineDistance(minLat, minLon, minLat, maxLon);
+    const dKmHeight = GPXParser.haversineDistance(minLat, minLon, maxLat, minLon);
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(isA3 ? 15 : 12);
+    const titleLines = doc.splitTextToSize(title, contentWidth);
+    doc.text(titleLines, margin, currentY + 3.5);
+
+    const subY = currentY + 4 + (titleLines.length * 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(isA3 ? 8 : 6.8);
+    doc.setTextColor(100, 116, 139);
+    const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const areaSubtitle = `Zone sélectionnée : ${dKmWidth.toFixed(1)} km × ${dKmHeight.toFixed(1)} km • Centre : Lat ${centerLat.toFixed(4)}°, Lon ${centerLon.toFixed(4)}° • ${layerLabel} • Édité le ${today}`;
+    doc.text(areaSubtitle, margin, subY);
+
+    currentY = subY + 4.5;
+
+    // 3. Carte Haute Définition
+    const mapX = margin;
+    const mapY = currentY;
+    const mapW = contentWidth;
+    const mapH = pageHeight - margin - 4 - currentY;
+
+    const pseudoHike = {
+      bounds: bounds,
+      points: []
+    };
+
+    try {
+      const pxW = Math.round(mapW * 4.5);
+      const pxH = Math.round(mapH * 4.5);
+      const mapResult = await this.renderStaticMap(pseudoHike, pxW, pxH, mapLayer, 0.96);
+      const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
+
+      if (mapImgData) {
+        doc.addImage(mapImgData, 'JPEG', mapX, mapY, mapW, mapH);
+        doc.setDrawColor(203, 213, 225);
+        doc.rect(mapX, mapY, mapW, mapH);
+      }
+    } catch (err) {
+      console.warn("Erreur export carte zone :", err);
+    }
+
+    // 4. Coordonnées GPS aux quatre coins (Optionnel)
+    if (showCoords) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isA3 ? 6.5 : 5.5);
+
+      // Coin Haut-Gauche
+      const tlText = `Lat ${maxLat.toFixed(4)}° • Lon ${minLon.toFixed(4)}°`;
+      const tlW = doc.getTextWidth(tlText) + 4;
+      doc.setFillColor(15, 23, 42);
+      doc.roundedRect(mapX + 2, mapY + 2, tlW, 4.5, 1, 1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.text(tlText, mapX + 4, mapY + 5.2);
+
+      // Coin Haut-Droit
+      const trText = `Lat ${maxLat.toFixed(4)}° • Lon ${maxLon.toFixed(4)}°`;
+      const trW = doc.getTextWidth(trText) + 4;
+      doc.setFillColor(15, 23, 42);
+      doc.roundedRect(mapX + mapW - trW - 2, mapY + 2, trW, 4.5, 1, 1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.text(trText, mapX + mapW - trW, mapY + 5.2);
+
+      // Coin Bas-Gauche
+      const blText = `Lat ${minLat.toFixed(4)}° • Lon ${minLon.toFixed(4)}°`;
+      const blW = doc.getTextWidth(blText) + 4;
+      doc.setFillColor(15, 23, 42);
+      doc.roundedRect(mapX + 2, mapY + mapH - 6.5, blW, 4.5, 1, 1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.text(blText, mapX + 4, mapY + mapH - 3.3);
+
+      // Coin Bas-Droit
+      const brText = `Lat ${minLat.toFixed(4)}° • Lon ${maxLon.toFixed(4)}°`;
+      const brW = doc.getTextWidth(brText) + 4;
+      doc.setFillColor(15, 23, 42);
+      doc.roundedRect(mapX + mapW - brW - 2, mapY + mapH - 6.5, brW, 4.5, 1, 1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.text(brText, mapX + mapW - brW, mapY + mapH - 3.3);
+    }
+
+    // 5. Téléchargement immédiat
+    const safeTitle = (title || 'carte_extrait').replace(/[\\/:*?"<>|]/g, '_').substring(0, 40);
+    const filename = `${safeTitle}_${format.toUpperCase()}_${orientation === 'landscape' ? 'Paysage' : 'Portrait'}.pdf`;
+    doc.save(filename);
+  }
+
+  /**
    * Render a static raster map with IGN Top 25 / OpenTopoMap / OSM tiles and GPX track vector
    */
-  static async renderStaticMap(hike, imgWidth = 720, imgHeight = 420, mapLayer = 'ign') {
+  static async renderStaticMap(hike, imgWidth = 720, imgHeight = 420, mapLayer = 'ign', customPadding = null) {
     const canvas = document.createElement('canvas');
     canvas.width = imgWidth;
     canvas.height = imgHeight;
@@ -586,8 +750,8 @@ class PDFExporter {
       Math.pow(2, z);
 
     // Calcul du zoom maximal pour cadrer au plus près de la trace (zoom maximal juste autour de la trace)
-    // Marge de 14% (0.86) pour que le tracé remplisse au maximum la carte sans déborder
-    const padding = 0.86;
+    // Marge de 14% (0.86) par défaut, ou customPadding (ex: 0.96 pour extrait de carte)
+    const padding = customPadding || 0.86;
     let zoom = 8;
     for (let z = 8; z <= 17; z++) {
       const tileDx = Math.abs(lon2tile(maxLon, z) - lon2tile(minLon, z));
@@ -779,47 +943,49 @@ class PDFExporter {
       }
     }
 
-    // 5. Légende élégante en bas à gauche
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-    if (ctx.roundRect) {
-      ctx.roundRect(10, imgHeight - 30, 255, 22, 5);
-    } else {
-      ctx.rect(10, imgHeight - 30, 255, 22);
+    // 5. Légende élégante en bas à gauche (uniquement si un tracé de randonnée est présent)
+    if (hike.points && hike.points.length > 0) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      if (ctx.roundRect) {
+        ctx.roundRect(10, imgHeight - 30, 255, 22, 5);
+      } else {
+        ctx.rect(10, imgHeight - 30, 255, 22);
+      }
+      ctx.fill();
+
+      // Pastille verte Départ
+      ctx.beginPath();
+      ctx.arc(22, imgHeight - 19, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#10b981';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Pastille rouge Arrivée
+      ctx.beginPath();
+      ctx.arc(92, imgHeight - 19, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Trait rose Tracé GPS
+      ctx.beginPath();
+      ctx.moveTo(162, imgHeight - 19);
+      ctx.lineTo(180, imgHeight - 19);
+      ctx.strokeStyle = '#e11d48';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText("Départ", 32, imgHeight - 16);
+      ctx.fillText("Arrivée", 102, imgHeight - 16);
+      ctx.fillText("Tracé GPS", 188, imgHeight - 16);
     }
-    ctx.fill();
-
-    // Pastille verte Départ
-    ctx.beginPath();
-    ctx.arc(22, imgHeight - 19, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#10b981';
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    // Pastille rouge Arrivée
-    ctx.beginPath();
-    ctx.arc(92, imgHeight - 19, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#ef4444';
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    // Trait rose Tracé GPS
-    ctx.beginPath();
-    ctx.moveTo(162, imgHeight - 19);
-    ctx.lineTo(180, imgHeight - 19);
-    ctx.strokeStyle = '#e11d48';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillText("Départ", 32, imgHeight - 16);
-    ctx.fillText("Arrivée", 102, imgHeight - 16);
-    ctx.fillText("Tracé GPS", 188, imgHeight - 16);
 
     // 6. Mention de copyright en bas à droite
     ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
