@@ -459,27 +459,32 @@ class PDFExporter {
     const centerLat = (minLat + maxLat) / 2;
     const centerLon = (minLon + maxLon) / 2;
 
-    // Calcul précis du zoom optimal pour cadrer la trace avec une marge esthétique
-    const lonDiff = Math.max(0.002, maxLon - minLon);
-    const latToY = (lat) => {
-      const s = Math.sin((lat * Math.PI) / 180);
-      return Math.log((1 + s) / (1 - s)) / 2;
-    };
-    const yDiff = Math.max(0.001, Math.abs(latToY(maxLat) - latToY(minLat)));
-    const padding = 0.80; // 20% de marge autour du tracé
-    const zoomX = Math.log2((imgWidth * padding * 360) / (lonDiff * 256));
-    const zoomY = Math.log2((imgHeight * padding * 2 * Math.PI) / (yDiff * 256));
-    let zoom = Math.floor(Math.min(zoomX, zoomY));
-    zoom = Math.max(8, Math.min(16, zoom));
-
-    // Convertisseurs lat/lon vers coordonnées de tuiles
+    // Convertisseurs lat/lon vers coordonnées de tuiles Web Mercator
     const lon2tile = (lon, z) => ((lon + 180) / 360) * Math.pow(2, z);
     const lat2tile = (lat, z) =>
       ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) *
       Math.pow(2, z);
 
-    const centerTileX = lon2tile(centerLon, zoom);
-    const centerTileY = lat2tile(centerLat, zoom);
+    // Calcul du zoom maximal pour cadrer au plus près de la trace (zoom maximal juste autour de la trace)
+    // Marge de 14% (0.86) pour que le tracé remplisse au maximum la carte sans déborder
+    const padding = 0.86;
+    let zoom = 8;
+    for (let z = 8; z <= 17; z++) {
+      const tileDx = Math.abs(lon2tile(maxLon, z) - lon2tile(minLon, z));
+      const tileDy = Math.abs(lat2tile(maxLat, z) - lat2tile(minLat, z));
+      const pixW = tileDx * 256;
+      const pixH = tileDy * 256;
+      if (pixW <= imgWidth * padding && pixH <= imgHeight * padding) {
+        zoom = z;
+      } else {
+        break;
+      }
+    }
+    zoom = Math.max(7, Math.min(17, zoom));
+
+    // Centrage mathématique parfait sur la boîte englobante de la trace
+    const centerTileX = (lon2tile(minLon, zoom) + lon2tile(maxLon, zoom)) / 2;
+    const centerTileY = (lat2tile(minLat, zoom) + lat2tile(maxLat, zoom)) / 2;
 
     const centerPixelX = imgWidth / 2;
     const centerPixelY = imgHeight / 2;
