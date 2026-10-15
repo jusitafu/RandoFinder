@@ -292,8 +292,14 @@
             </button>
           </div>
 
-          <!-- FLOATING MAP PRINT EXTRACT BUTTON (Bottom Right of Map) -->
-          <div class="absolute bottom-6 right-3.5 z-20">
+          <!-- FLOATING MAP TOOLS (Bottom Right of Map) -->
+          <div class="absolute bottom-6 right-3.5 z-20 flex items-center gap-2">
+            <button id="btn-map-legend" 
+              class="px-3 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-emerald-700 rounded-xl shadow-lg hover:shadow-xl border border-slate-200/90 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur-md active:scale-95 group" 
+              title="Consulter la légende des cartes (IGN Top 25, sentiers, symboles)">
+              <span class="text-sm group-hover:scale-110 transition-transform">🧭</span>
+              <span id="btn-map-legend-text">Légende</span>
+            </button>
             <button id="btn-map-area-print" 
               class="px-3.5 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-emerald-700 rounded-xl shadow-lg hover:shadow-xl border border-slate-200/90 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer backdrop-blur-md active:scale-95 group" 
               title="Sélectionner une portion de carte en 2 clics pour l'imprimer en A4 ou A3">
@@ -963,15 +969,22 @@
           </select>
         </div>
 
-        <!-- Options d'affichage -->
-        <div class="space-y-2 pt-1 text-xs text-slate-700">
-          <label id="map-area-opt-track-row" class="hidden flex items-start gap-2 cursor-pointer p-2.5 bg-rose-50 border border-rose-200 rounded-xl">
-            <input type="checkbox" id="map-area-opt-track" checked class="mt-0.5 w-4 h-4 text-rose-600 rounded focus:ring-rose-500">
-            <span>
-              <span class="font-bold text-rose-900">Afficher le tracé GPX</span>
-              <span id="map-area-opt-track-name" class="block text-[11px] text-rose-700"></span>
-            </span>
+        <!-- Tracé GPX à superposer (Toujours accessible et visible) -->
+        <div class="bg-rose-50/70 p-3.5 rounded-2xl border border-rose-200">
+          <label for="map-area-gpx-select" class="block text-xs font-bold text-rose-950 mb-1 flex items-center justify-between">
+            <span>📍 Tracé GPX à superposer sur l'extrait :</span>
+            <span class="text-[10px] font-semibold text-rose-600 uppercase tracking-wider">Optionnel</span>
           </label>
+          <select id="map-area-gpx-select" class="w-full bg-white border border-rose-300 text-slate-800 text-xs rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-rose-500 font-medium cursor-pointer shadow-2xs">
+            <option value="">🚫 Aucun tracé (fond de carte vierge)</option>
+          </select>
+          <p class="text-[11px] text-rose-700 mt-1.5 leading-snug">
+            Sélectionnez une randonnée pour superposer sa trace (départ vert 🟢, arrivée damier 🏁) ou laissez « Aucun tracé » pour une carte topographique pure.
+          </p>
+        </div>
+
+        <!-- Options d'affichage complémentaires -->
+        <div class="space-y-2 pt-1 text-xs text-slate-700">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" id="map-area-opt-coords" checked class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
             <span class="font-medium">Indiquer les coordonnées GPS (Lat/Lon) aux quatre coins</span>
@@ -980,12 +993,325 @@
 
       </div>
 
-      <div class="bg-slate-50 border-t border-slate-200 p-4 flex items-center justify-end gap-3">
-        <button id="btn-cancel-map-area" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition cursor-pointer">
-          Annuler
+      <div class="bg-slate-50 border-t border-slate-200 p-4 flex items-center justify-between gap-3">
+        <button type="button" onclick="App.openMapLegendModal()" class="text-xs text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1.5 hover:underline cursor-pointer">
+          <span>🧭</span> <span>Consulter la légende</span>
         </button>
-        <button id="btn-confirm-map-area-download" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-2 cursor-pointer">
-          <span>📥</span> Générer et Télécharger la carte PDF
+        <div class="flex items-center gap-2">
+          <button id="btn-cancel-map-area" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition cursor-pointer">
+            Annuler
+          </button>
+          <button id="btn-confirm-map-area-download" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-2 cursor-pointer">
+            <span>📥</span> Télécharger le PDF
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL : LÉGENDE DES CARTES TOPOGRAPHIQUES -->
+  <!-- ========================================================================= -->
+  <div id="map-legend-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Header -->
+      <div class="bg-slate-900 text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800 flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl font-bold">
+            🧭
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white leading-tight">Légende des Cartes Topographiques</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Guide des sentiers balisés, courbes de niveau, falaises et symboles essentiels</p>
+          </div>
+        </div>
+        <button id="btn-close-map-legend-modal" class="text-slate-400 hover:text-white p-1 rounded-lg transition text-lg cursor-pointer">✕</button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 pt-3 flex-shrink-0 overflow-x-auto">
+        <button type="button" id="tab-legend-btn-ign" onclick="App.switchLegendTab('ign')"
+          class="tab-legend-btn px-4 py-2 text-xs font-bold border-b-2 border-emerald-600 text-emerald-700 cursor-pointer flex items-center gap-1.5 transition">
+          <span>🗺️</span> <span>IGN Top 25 (France)</span>
+        </button>
+        <button type="button" id="tab-legend-btn-opentopo" onclick="App.switchLegendTab('opentopo')"
+          class="tab-legend-btn px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 border-b-2 border-transparent cursor-pointer flex items-center gap-1.5 transition">
+          <span>⛰️</span> <span>OpenTopoMap (Mondial)</span>
+        </button>
+        <button type="button" id="tab-legend-btn-osm" onclick="App.switchLegendTab('osm')"
+          class="tab-legend-btn px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 border-b-2 border-transparent cursor-pointer flex items-center gap-1.5 transition">
+          <span>📍</span> <span>OpenStreetMap</span>
+        </button>
+      </div>
+
+      <!-- Scrollable Tab Content Area -->
+      <div class="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 text-slate-700 text-xs sm:text-sm">
+        
+        <!-- PANE 1 : IGN TOP 25 -->
+        <div id="legend-pane-ign" class="space-y-5">
+          
+          <div class="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h4 class="font-bold text-emerald-950 text-sm">Cartographie Officielle IGN (1 : 25 000)</h4>
+              <p class="text-xs text-emerald-800 mt-0.5">1 cm sur la carte représente 250 mètres sur le terrain. La référence de la randonnée pédestre en France.</p>
+            </div>
+            <a href="https://geoservices.ign.fr/sites/default/files/2021-07/Legende_TOP25.pdf" target="_blank" rel="noopener noreferrer" 
+              class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
+              <span>📄</span> <span>Planche officielle IGN (PDF)</span> <span>↗</span>
+            </a>
+          </div>
+
+          <!-- 4 Category Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- 1. Sentiers et Itinéraires -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Itinéraires & Chemins pédestres
+              </h5>
+              <div class="space-y-2.5 text-xs">
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 h-3.5 bg-rose-500 rounded mt-0.5 flex-shrink-0 shadow-2xs"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Itinéraire de Grande Randonnée (GR®) :</span>
+                    <span class="text-slate-600 block">Surimpression magenta/rouge vif continue ou tiretée. Balisage officiel blanc/rouge sur le terrain.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 h-3.5 bg-amber-400 rounded mt-0.5 flex-shrink-0 shadow-2xs"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Promenade & Randonnée (PR®) :</span>
+                    <span class="text-slate-600 block">Surimpression jaune ou trait continu/tireté jaune. Boucles locales à la demi-journée ou journée.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-dashed border-slate-800 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Sentier étroit praticable à pied :</span>
+                    <span class="text-slate-600 block">Tireté noir fin. Cheminement exclusivement piétonnier (sentiers côtiers, sous-bois).</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 h-2.5 bg-white border border-slate-700 rounded-xs mt-1 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Piste carrossable & Voie DFCI :</span>
+                    <span class="text-slate-600 block">Double trait noir ou large bande blanche bordée. Pistes forestières ouvertes aux secours et pompiers.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Relief et Dénivelé -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-600"></span> Relief, Courbes & Pentes
+              </h5>
+              <div class="space-y-2.5 text-xs">
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-amber-800 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Courbe de niveau maîtresse (bistre foncé) :</span>
+                    <span class="text-slate-600 block">Trait marron épais avec altitude chiffrée (tous les 25 m ou 50 m). Le chiffre se lit la tête vers le sommet !</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t border-amber-600/70 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Courbes intercalaires (bistre clair) :</span>
+                    <span class="text-slate-600 block">Équidistance de 5 m ou 10 m. <span class="font-semibold text-amber-900">Règle d'or :</span> plus les courbes sont serrées, plus la pente est raide.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">🧗</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Falaises & Escarpements rocheux :</span>
+                    <span class="text-slate-600 block">Hachures noires très denses orientées dans le sens du vide. Indique un à-pic infranchissable à pied.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">🪨</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Pierriers & Zones d'éboulis :</span>
+                    <span class="text-slate-600 block">Petits points et polygones gris mouchetés. Terrain instable nécessitant de bonnes chaussures montantes.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Hydrographie et Points d'eau -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span> Hydrographie & Points d'eau
+              </h5>
+              <div class="space-y-2.5 text-xs">
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">💧</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Source & Fontaine :</span>
+                    <span class="text-slate-600 block">Point ou petit cercle bleu souvent accompagné du nom (ex: « Source de la Sainte »). Ravitaillement potentiel.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-sky-600 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Ruisseau / Rivière permanent :</span>
+                    <span class="text-slate-600 block">Ligne bleue continue. Eau présente toute l'année.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-dashed border-sky-400 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Cours d'eau intermittent :</span>
+                    <span class="text-slate-600 block">Ligne bleue en tiretés. À sec durant la période estivale (notamment en Provence/Var).</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-3.5 h-3.5 bg-sky-600 rounded-xs mt-0.5 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Citerne, Bassin, Lavoir :</span>
+                    <span class="text-slate-600 block">Rectangle bleu. Eau non garantie potable, filtrage nécessaire.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Patrimoine, Repères et Abris -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Abris, Patrimoine & Repères visuels
+              </h5>
+              <div class="space-y-2.5 text-xs">
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">🏠</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Refuge gardé & Gîte d'étape :</span>
+                    <span class="text-slate-600 block">Symbole maisonnette avec toit rouge ou icône de lit. Hébergement et secours en altitude.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">🛖</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Cabane pastorale & Abri ouvert :</span>
+                    <span class="text-slate-600 block">Petite cabane noire non gardée. Idéal pour s'abriter en cas d'orage violent.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">🔭</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Table d'orientation & Point de vue :</span>
+                    <span class="text-slate-600 block">Symbole en éventail de rayons. Panorama remarquable.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">📡</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Châteaux d'eau, Antennes & Pylônes :</span>
+                    <span class="text-slate-600 block">Points de repère visuels hauts, parfaits pour vérifier sa visée boussole.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- PANE 2 : OPENTOPOMAP -->
+        <div id="legend-pane-opentopo" class="hidden space-y-5">
+          <div class="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h4 class="font-bold text-amber-950 text-sm">Cartographie OpenTopoMap</h4>
+              <p class="text-xs text-amber-800 mt-0.5">Style topographique international inspiré de la cartographie suisse, avec estompage altimétrique SRTM.</p>
+            </div>
+            <a href="https://opentopomap.org/about#legende" target="_blank" rel="noopener noreferrer" 
+              class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
+              <span>⛰️</span> <span>Légende en ligne (OpenTopoMap)</span> <span>↗</span>
+            </a>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900">Classification des chemins</h5>
+              <div class="space-y-2.5 text-xs">
+                <div>
+                  <span class="font-bold text-rose-700">Tiretés rouges :</span>
+                  <span class="text-slate-600 block">Sentiers pédestres balisés (`sac_scale=hiking`).</span>
+                </div>
+                <div>
+                  <span class="font-bold text-amber-800">Tiretés bruns :</span>
+                  <span class="text-slate-600 block">Pistes forestières et agricoles non goudronnées (grades 1 à 5).</span>
+                </div>
+                <div>
+                  <span class="font-bold text-sky-700">Tiretés bleus fins :</span>
+                  <span class="text-slate-600 block">Passages alpins techniques (`sac_scale=mountain_hiking` ou `alpine_hiking`). Pied sûr et équipement requis.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900">Relief & Symbolique</h5>
+              <div class="space-y-2.5 text-xs">
+                <div>
+                  <span class="font-bold text-slate-900">▲ Triangle noir + Altitude :</span>
+                  <span class="text-slate-600 block">Sommets et pics remarquables avec mention de la cote (ex: `▲ 787 m`).</span>
+                </div>
+                <div>
+                  <span class="font-bold text-slate-900">Estompage de relief :</span>
+                  <span class="text-slate-600 block">Ombrage calculé simulant un éclairage du relief par le nord-ouest, visualisant immédiatement crêtes et combes.</span>
+                </div>
+                <div>
+                  <span class="font-bold text-slate-900">⛺ Abris & Refuges :</span>
+                  <span class="text-slate-600 block">Symboles d'hébergements de randonneurs, gîtes d'étape et bivouacs autorisés.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANE 3 : OPENSTREETMAP -->
+        <div id="legend-pane-osm" class="hidden space-y-5">
+          <div class="bg-sky-50/80 border border-sky-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h4 class="font-bold text-sky-950 text-sm">Cartographie OpenStreetMap France</h4>
+              <p class="text-xs text-sky-800 mt-0.5">La carte collaborative libre mondiale, particulièrement détaillée sur les agglomérations, voies carrossables et infrastructures.</p>
+            </div>
+            <a href="https://wiki.openstreetmap.org/wiki/FR:Map_Features" target="_blank" rel="noopener noreferrer" 
+              class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
+              <span>📍</span> <span>Wiki Map Features OSM</span> <span>↗</span>
+            </a>
+          </div>
+
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+            <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900">Équipements utiles en randonnée</h5>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <span class="font-bold text-slate-900">🚰 Eau potable (`drinking_water`) :</span>
+                <span class="text-slate-600 block">Fontaines et robinets d'eau certifiée potable en village et départ de sentier.</span>
+              </div>
+              <div>
+                <span class="font-bold text-slate-900">🅿️ Aires de stationnement (`parking`) :</span>
+                <span class="text-slate-600 block">Parkings de départ de randonnée, accès goudronné ou en terre battue.</span>
+              </div>
+              <div>
+                <span class="font-bold text-slate-900">🌲 Parcs naturels et forêts :</span>
+                <span class="text-slate-600 block">Fonds verts délimités, réserves naturelles avec réglementation spécifique (feux, chiens).</span>
+              </div>
+              <div>
+                <span class="font-bold text-slate-900">🚻 Sanitaires publics (`toilets`) :</span>
+                <span class="text-slate-600 block">Points sanitaires disponibles aux départs de sentiers ou dans les bourgs.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="bg-slate-50 border-t border-slate-200 p-4 flex items-center justify-end">
+        <button type="button" onclick="App.closeMapLegendModal()" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer">
+          Fermer la légende
         </button>
       </div>
 
@@ -1775,14 +2101,14 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=54"></script>
-  <script src="js/auth-manager.js?v=54"></script>
-  <script src="js/gpx-parser.js?v=54"></script>
-  <script src="js/sample-data.js?v=54"></script>
-  <script src="js/storage.js?v=54"></script>
-  <script src="js/elevation-profile.js?v=54"></script>
-  <script src="js/map-manager.js?v=54"></script>
-  <script src="js/pdf-exporter.js?v=54"></script>
-  <script src="js/app.js?v=54"></script>
+  <script src="js/config.js?v=55"></script>
+  <script src="js/auth-manager.js?v=55"></script>
+  <script src="js/gpx-parser.js?v=55"></script>
+  <script src="js/sample-data.js?v=55"></script>
+  <script src="js/storage.js?v=55"></script>
+  <script src="js/elevation-profile.js?v=55"></script>
+  <script src="js/map-manager.js?v=55"></script>
+  <script src="js/pdf-exporter.js?v=55"></script>
+  <script src="js/app.js?v=55"></script>
 </body>
 </html>
