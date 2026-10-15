@@ -947,6 +947,18 @@
               </div>
             </div>
 
+            <!-- Mode de mise en page (Panoramique avec profil incrusté vs Deux colonnes) -->
+            <div id="pdf-layout-style-container" class="bg-white/90 p-2.5 rounded-lg border border-emerald-200/60 shadow-2xs">
+              <label for="opt-pdf-style" class="block text-[11px] font-bold text-slate-800 mb-1">Disposition carte & profil :</label>
+              <select id="opt-pdf-style" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer shadow-2xs">
+                <option value="overlay" selected>🗺️ Carte panoramique plein écran + Profil incrusté en coin libre (Recommandé)</option>
+                <option value="columns">📑 Deux colonnes (Carte 70% + Profil altimétrique réduit à droite)</option>
+              </select>
+              <p class="text-[10px] text-slate-500 mt-1 italic leading-tight">
+                Le mode panoramique incruste le profil altimétrique dans un coin vide de la carte en calculant précisément les coordonnées pour ne jamais masquer le tracé GPS.
+              </p>
+            </div>
+
             <!-- Option Carte & Fond -->
             <div class="space-y-1.5">
               <label class="flex items-center gap-2 cursor-pointer">
@@ -1661,14 +1673,14 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=50"></script>
-  <script src="js/auth-manager.js?v=50"></script>
-  <script src="js/gpx-parser.js?v=50"></script>
-  <script src="js/sample-data.js?v=50"></script>
-  <script src="js/storage.js?v=50"></script>
-  <script src="js/elevation-profile.js?v=50"></script>
-  <script src="js/map-manager.js?v=50"></script>
-  <script src="js/pdf-exporter.js?v=50"></script>
-  <script src="js/app.js?v=50"></script>
+  <script src="js/config.js?v=51"></script>
+  <script src="js/auth-manager.js?v=51"></script>
+  <script src="js/gpx-parser.js?v=51"></script>
+  <script src="js/sample-data.js?v=51"></script>
+  <script src="js/storage.js?v=51"></script>
+  <script src="js/elevation-profile.js?v=51"></script>
+  <script src="js/map-manager.js?v=51"></script>
+  <script src="js/pdf-exporter.js?v=51"></script>
+  <script src="js/app.js?v=51"></script>
 </body>
 </html>
