@@ -626,10 +626,28 @@ class PDFExporter {
     const mapW = contentWidth;
     const mapH = pageHeight - margin - 4 - currentY;
 
+    // Cadrage = zone sélectionnée ; tracé GPX optionnel de la randonnée affichée
     const pseudoHike = {
       bounds: bounds,
       points: []
     };
+
+    const srcHike = options.hike || null;
+    if (srcHike) {
+      let pts = srcHike.points;
+      if ((!pts || pts.length === 0) && srcHike.rawGpx && typeof GPXParser !== 'undefined') {
+        try {
+          const parsed = GPXParser.parse(srcHike.rawGpx, srcHike.filename || 'trace.gpx');
+          pts = parsed.points || [];
+        } catch (e) { pts = []; }
+      }
+      if (pts && pts.length > 0) {
+        pseudoHike.points = pts;
+        pseudoHike.startPoint = srcHike.startPoint || { lat: pts[0].lat, lon: pts[0].lon };
+        pseudoHike.endPoint = srcHike.endPoint || { lat: pts[pts.length - 1].lat, lon: pts[pts.length - 1].lon };
+        pseudoHike.isLoop = !!srcHike.isLoop;
+      }
+    }
 
     try {
       const pxW = Math.round(mapW * 4.5);
