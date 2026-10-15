@@ -19,6 +19,7 @@ class PDFExporter {
     const mapLayer = options.mapLayer || 'ign';
     const includeProfile = options.includeProfile !== false;
     const includeNotes = options.includeNotes !== false;
+    const layoutStyle = options.layoutStyle || 'overlay'; // 'overlay' or 'columns'
 
     const doc = new jsPDF({
       orientation: orientation,
@@ -125,106 +126,224 @@ class PDFExporter {
 
       currentY += Math.max(badgeH, (titleLines.length * 4.5) + 6) + 4;
 
-      // 3. Corps principal : 2 Colonnes
+      // 3. Corps principal : Panoramique avec incrustation OU 2 Colonnes
       const availableH = pageHeight - margin - 8 - currentY;
       const colGap = isA3 ? 6 : 5;
 
-      let leftColW, rightColW;
-      if (includeMap && (includeProfile || includeNotes)) {
-        leftColW = Math.round((contentWidth - colGap) * 0.58);
-        rightColW = contentWidth - colGap - leftColW;
-      } else {
-        leftColW = contentWidth;
-        rightColW = contentWidth;
-      }
-
-      // --- Colonne Gauche : Carte Topographique ---
-      if (includeMap) {
+      if (layoutStyle === 'overlay' && includeMap) {
+        // -----------------------------------------------------------------------
+        // OPTION 1 : CARTE PANORAMIQUE AVEC PROFIL INCRUSTÉ EN COIN LIBRE
+        // -----------------------------------------------------------------------
         const mapX = margin;
         const mapY = currentY;
-        const mapW = (includeProfile || includeNotes) ? leftColW : contentWidth;
+        const mapW = contentWidth;
         const mapH = availableH;
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(isA3 ? 10 : 8.5);
+        doc.setFontSize(isA3 ? 10.5 : 9);
         doc.setTextColor(15, 23, 42);
-        doc.text(`1. CARTE DE L'ITINÉRAIRE (${layerLabel})`, mapX, mapY + 3.5);
+        doc.text(`1. CARTE PANORAMIQUE & ITINÉRAIRE (${layerLabel})`, mapX, mapY + 3.5);
 
         const actualMapY = mapY + 5;
         const actualMapH = mapH - 6;
 
+        let mapResult = null;
         try {
           const pxW = Math.round(mapW * 4.5);
           const pxH = Math.round(actualMapH * 4.5);
-          const mapImgData = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+          mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+          const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
           if (mapImgData) {
             doc.addImage(mapImgData, 'JPEG', mapX, actualMapY, mapW, actualMapH);
             doc.setDrawColor(203, 213, 225);
             doc.rect(mapX, actualMapY, mapW, actualMapH);
           }
         } catch (err) {
-          console.warn("Erreur image carte paysage :", err);
+          console.warn("Erreur image carte panoramique :", err);
         }
-      }
 
-      // --- Colonne Droite : Profil & Notes ---
-      if (includeProfile || includeNotes) {
-        const rightX = includeMap ? (margin + leftColW + colGap) : margin;
-        let rightY = currentY;
-        const rightW = includeMap ? rightColW : contentWidth;
+        // Incrustation intelligente du profil altimétrique dans un coin sans trace
+        if (includeProfile && mapResult && mapResult.zoom) {
+          const cardW = isA3 ? 130 : 96;
+          const cardH = isA3 ? 50 : 38;
+          const sortedCorners = this.findBestCorners(
+            hike, mapW, actualMapH, cardW, cardH,
+            mapResult.imgWidth, mapResult.imgHeight,
+            mapResult.zoom, mapResult.centerTileX, mapResult.centerTileY
+          );
+          const best = sortedCorners[0];
+          const cardX = mapX + best.rx;
+          const cardY = actualMapY + best.ry;
 
-        // Profil Altimétrique
-        if (includeProfile) {
-          const profH = includeNotes ? Math.round(availableH * 0.45) : availableH - 6;
+          // Ombre portée discrète et cadre blanc arrondi
+          doc.setFillColor(15, 23, 42);
+          doc.roundedRect(cardX + 0.8, cardY + 0.8, cardW, cardH, 2.5, 2.5, 'F');
+          doc.setFillColor(255, 255, 255);
+          doc.setDrawColor(203, 213, 225);
+          doc.roundedRect(cardX, cardY, cardW, cardH, 2.5, 2.5, 'FD');
+
+          // Header du carton de profil
+          const headerH = isA3 ? 7.5 : 6;
+          doc.setFillColor(248, 250, 252);
+          doc.roundedRect(cardX, cardY, cardW, headerH, 2.5, 2.5, 'F');
+          doc.rect(cardX, cardY + headerH - 1, cardW, 1, 'F'); // alignement bas
+          doc.setDrawColor(226, 232, 240);
+          doc.line(cardX, cardY + headerH, cardX + cardW, cardY + headerH);
 
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(isA3 ? 10 : 8.5);
+          doc.setFontSize(isA3 ? 7.5 : 6.2);
           doc.setTextColor(15, 23, 42);
-          doc.text(`2. PROFIL ALTIMÉTRIQUE (${hike.distanceKm} km • D+ ${hike.elevationGain || 0} m)`, rightX, rightY + 3.5);
+          doc.text(`PROFIL ALTIMÉTRIQUE (${hike.distanceKm} km • D+ ${hike.elevationGain || 0} m)`, cardX + 3, cardY + (headerH * 0.65));
 
-          const actualProfY = rightY + 5;
-          const actualProfH = profH - 6;
-
+          // Graphique haute définition
           try {
-            const profileImgData = ElevationProfile.renderStaticChart(hike, 1000, 360);
+            const profileImgData = ElevationProfile.renderStaticChart(hike, 960, 320);
             if (profileImgData) {
-              doc.addImage(profileImgData, 'PNG', rightX, actualProfY, rightW, actualProfH);
-              doc.setDrawColor(203, 213, 225);
-              doc.rect(rightX, actualProfY, rightW, actualProfH);
+              const chartY = cardY + headerH + 0.5;
+              const chartH = cardH - headerH - 1.5;
+              doc.addImage(profileImgData, 'PNG', cardX + 1.5, chartY, cardW - 3, chartH);
             }
-          } catch (err) {
-            console.warn("Erreur profil paysage :", err);
+          } catch (e) {
+            console.warn("Erreur incrustation profil :", e);
           }
 
-          rightY += profH + 2;
+          // Si des notes sont demandées et non vides, tenter de les incruster dans le 2ème coin libre
+          if (includeNotes && hike.notes && hike.notes.trim().length > 0 && sortedCorners.length > 1) {
+            const secondBest = sortedCorners[1];
+            if (secondBest.inside === 0) {
+              const noteW = isA3 ? 120 : 88;
+              const noteH = isA3 ? 36 : 28;
+              const noteX = mapX + secondBest.rx;
+              const noteY = actualMapY + secondBest.ry;
+
+              doc.setFillColor(15, 23, 42);
+              doc.roundedRect(noteX + 0.8, noteY + 0.8, noteW, noteH, 2.5, 2.5, 'F');
+              doc.setFillColor(255, 255, 255);
+              doc.setDrawColor(203, 213, 225);
+              doc.roundedRect(noteX, noteY, noteW, noteH, 2.5, 2.5, 'FD');
+
+              const nHeaderH = isA3 ? 6.5 : 5.2;
+              doc.setFillColor(248, 250, 252);
+              doc.roundedRect(noteX, noteY, noteW, nHeaderH, 2.5, 2.5, 'F');
+              doc.rect(noteX, noteY + nHeaderH - 1, noteW, 1, 'F');
+              doc.setDrawColor(226, 232, 240);
+              doc.line(noteX, noteY + nHeaderH, noteX + noteW, noteY + nHeaderH);
+
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(isA3 ? 7 : 5.8);
+              doc.setTextColor(15, 23, 42);
+              doc.text("NOTES & INFOS PRATIQUES", noteX + 3, noteY + (nHeaderH * 0.65));
+
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(isA3 ? 7.5 : 6.2);
+              doc.setTextColor(51, 65, 85);
+              const splitNotes = doc.splitTextToSize(hike.notes.trim(), noteW - 6);
+              doc.text(splitNotes, noteX + 3, noteY + nHeaderH + 3.5);
+            }
+          }
+        }
+      } else {
+        // -----------------------------------------------------------------------
+        // OPTION 2 : DEUX COLONNES (CARTE 70% + PROFIL RÉDUIT À DROITE 28%)
+        // -----------------------------------------------------------------------
+        let leftColW, rightColW;
+        if (includeMap && (includeProfile || includeNotes)) {
+          leftColW = Math.round((contentWidth - colGap) * 0.70); // Carte agrandie à 70% !
+          rightColW = contentWidth - colGap - leftColW;
+        } else {
+          leftColW = contentWidth;
+          rightColW = contentWidth;
         }
 
-        // Notes & Conseils
-        if (includeNotes) {
-          const notesH = pageHeight - margin - 8 - rightY;
+        // --- Colonne Gauche : Carte Topographique ---
+        if (includeMap) {
+          const mapX = margin;
+          const mapY = currentY;
+          const mapW = (includeProfile || includeNotes) ? leftColW : contentWidth;
+          const mapH = availableH;
 
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(isA3 ? 10 : 8.5);
           doc.setTextColor(15, 23, 42);
-          doc.text("3. NOTES LIBRES & INFOS PRATIQUES", rightX, rightY + 3.5);
+          doc.text(`1. CARTE DE L'ITINÉRAIRE (${layerLabel})`, mapX, mapY + 3.5);
 
-          const actualNotesY = rightY + 5;
-          const actualNotesH = notesH - 6;
+          const actualMapY = mapY + 5;
+          const actualMapH = mapH - 6;
 
-          doc.setFillColor(248, 250, 252);
-          doc.setDrawColor(226, 232, 240);
-          doc.roundedRect(rightX, actualNotesY, rightW, actualNotesH, 2, 2, 'FD');
+          try {
+            const pxW = Math.round(mapW * 4.5);
+            const pxH = Math.round(actualMapH * 4.5);
+            const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+            const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
+            if (mapImgData) {
+              doc.addImage(mapImgData, 'JPEG', mapX, actualMapY, mapW, actualMapH);
+              doc.setDrawColor(203, 213, 225);
+              doc.rect(mapX, actualMapY, mapW, actualMapH);
+            }
+          } catch (err) {
+            console.warn("Erreur image carte paysage :", err);
+          }
+        }
 
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(isA3 ? 8.5 : 7.2);
-          doc.setTextColor(51, 65, 85);
+        // --- Colonne Droite : Profil Réduit & Notes ---
+        if (includeProfile || includeNotes) {
+          const rightX = includeMap ? (margin + leftColW + colGap) : margin;
+          let rightY = currentY;
+          const rightW = includeMap ? rightColW : contentWidth;
 
-          const notesText = hike.notes && hike.notes.trim().length > 0
-            ? hike.notes
-            : "Aucune note particulière pour cette randonnée. Pensez à emporter de l'eau en quantité suffisante, de bonnes chaussures de marche et à vérifier la météo avant le départ.";
+          // Profil Altimétrique (taille réduite par rapport à avant)
+          if (includeProfile) {
+            const profH = includeNotes ? Math.round(availableH * 0.30) : availableH - 6; // Réduit à 30% au lieu de 45%
 
-          const splitNotes = doc.splitTextToSize(notesText, rightW - 6);
-          doc.text(splitNotes, rightX + 3, actualNotesY + 5);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(isA3 ? 9 : 7.8);
+            doc.setTextColor(15, 23, 42);
+            doc.text(`2. PROFIL (${hike.distanceKm} km • D+ ${hike.elevationGain || 0} m)`, rightX, rightY + 3.5);
+
+            const actualProfY = rightY + 5;
+            const actualProfH = profH - 6;
+
+            try {
+              const profileImgData = ElevationProfile.renderStaticChart(hike, 800, 260);
+              if (profileImgData) {
+                doc.addImage(profileImgData, 'PNG', rightX, actualProfY, rightW, actualProfH);
+                doc.setDrawColor(203, 213, 225);
+                doc.rect(rightX, actualProfY, rightW, actualProfH);
+              }
+            } catch (err) {
+              console.warn("Erreur profil paysage :", err);
+            }
+
+            rightY += profH + 3;
+          }
+
+          // Notes & Conseils
+          if (includeNotes) {
+            const notesH = pageHeight - margin - 8 - rightY;
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(isA3 ? 9 : 7.8);
+            doc.setTextColor(15, 23, 42);
+            doc.text("3. NOTES & INFOS PRATIQUES", rightX, rightY + 3.5);
+
+            const actualNotesY = rightY + 5;
+            const actualNotesH = notesH - 6;
+
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(226, 232, 240);
+            doc.roundedRect(rightX, actualNotesY, rightW, actualNotesH, 2, 2, 'FD');
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(isA3 ? 8 : 6.8);
+            doc.setTextColor(51, 65, 85);
+
+            const notesText = hike.notes && hike.notes.trim().length > 0
+              ? hike.notes
+              : "Aucune note particulière pour cette randonnée. Pensez à emporter de l'eau en quantité suffisante, de bonnes chaussures de marche et à vérifier la météo avant le départ.";
+
+            const splitNotes = doc.splitTextToSize(notesText, rightW - 6);
+            doc.text(splitNotes, rightX + 3, actualNotesY + 5);
+          }
         }
       }
 
@@ -321,7 +440,8 @@ class PDFExporter {
         try {
           const pxW = Math.round(contentWidth * 4.5);
           const pxH = Math.round(mapH * 4.5);
-          const mapImgData = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+          const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+          const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
           if (mapImgData) {
             doc.addImage(mapImgData, 'JPEG', margin, currentY, contentWidth, mapH);
             doc.setDrawColor(203, 213, 225);
@@ -715,7 +835,101 @@ class PDFExporter {
     ctx.font = '9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillText(attributionText, imgWidth - textWidth - 14, imgHeight - 10);
 
-    return canvas.toDataURL('image/jpeg', 0.92);
+    return {
+      imgData: canvas.toDataURL('image/jpeg', 0.92),
+      zoom,
+      centerTileX,
+      centerTileY,
+      imgWidth,
+      imgHeight
+    };
+  }
+
+  /**
+   * Find the best corners on the map that have zero collision with the GPS track
+   * Returns a list of corners sorted from best (furthest from track, zero collision) to worst
+   */
+  static findBestCorners(hike, mapW, mapH, cardW, cardH, imgWidth, imgHeight, zoom, centerTileX, centerTileY) {
+    const lon2tile = (lon, z) => ((lon + 180) / 360) * Math.pow(2, z);
+    const lat2tile = (lat, z) =>
+      ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) *
+      Math.pow(2, z);
+
+    const centerPixelX = imgWidth / 2;
+    const centerPixelY = imgHeight / 2;
+
+    const latLonToPix = (lat, lon) => {
+      const tx = lon2tile(lon, zoom);
+      const ty = lat2tile(lat, zoom);
+      return {
+        x: centerPixelX + (tx - centerTileX) * 256,
+        y: centerPixelY + (ty - centerTileY) * 256
+      };
+    };
+
+    // Candidate corners (relative mm coordinates within the map area)
+    const corners = [
+      { name: 'top-left', rx: 4, ry: 4 },
+      { name: 'top-right', rx: mapW - cardW - 4, ry: 4 },
+      { name: 'bottom-right', rx: mapW - cardW - 4, ry: mapH - cardH - 4 },
+      { name: 'bottom-left', rx: 4, ry: mapH - cardH - 12 } // Above the bottom-left legend bar
+    ];
+
+    const pts = (hike.points && hike.points.length > 0) ? hike.points : [];
+    if (pts.length === 0) {
+      return corners.map(c => ({ ...c, cardW, cardH, inside: 0, minDist: 9999, score: 100000 }));
+    }
+
+    // Sample up to 300 points for high accuracy & fast performance
+    const step = Math.max(1, Math.floor(pts.length / 300));
+    const sampledPix = [];
+    for (let i = 0; i < pts.length; i += step) {
+      sampledPix.push(latLonToPix(pts[i].lat, pts[i].lon));
+    }
+
+    const scored = corners.map(c => {
+      // Convert mm to pixels on canvas
+      const cpx = (c.rx / mapW) * imgWidth;
+      const cpy = (c.ry / mapH) * imgHeight;
+      const cpw = (cardW / mapW) * imgWidth;
+      const cph = (cardH / mapH) * imgHeight;
+
+      // 15px security buffer around the card
+      const buf = 15;
+      const bx1 = cpx - buf;
+      const bx2 = cpx + cpw + buf;
+      const by1 = cpy - buf;
+      const by2 = cpy + cph + buf;
+
+      const ccx = cpx + cpw / 2;
+      const ccy = cpy + cph / 2;
+
+      let inside = 0;
+      let minDist = 999999;
+
+      for (const p of sampledPix) {
+        if (p.x >= bx1 && p.x <= bx2 && p.y >= by1 && p.y <= by2) {
+          inside++;
+        }
+        const d = Math.hypot(p.x - ccx, p.y - ccy);
+        if (d < minDist) minDist = d;
+      }
+
+      // Priority: 0 points inside, then maximize distance from track
+      const score = inside === 0 ? (100000 + minDist) : (-inside * 1000 + minDist);
+
+      return {
+        ...c,
+        cardW,
+        cardH,
+        inside,
+        minDist,
+        score
+      };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored;
   }
 }
 
