@@ -833,52 +833,82 @@ class PDFExporter {
       }
     }
 
-    // Fonction de chargement résiliente pour chaque tuile
-    const loadTile = (tileX, tileY) => {
+    // Chargement d'une image avec délai maximal (évite les requêtes bloquées)
+    const fetchTileImage = (url, timeoutMs = 8000) => {
       return new Promise((resolve) => {
-        const px = centerPixelX + (tileX - centerTileX) * 256;
-        const py = centerPixelY + (tileY - centerTileY) * 256;
-
-        const tryImg = (urlFn, nextFallback) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
-            try {
-              ctx.drawImage(img, px, py, 256, 256);
-            } catch (e) {}
-            resolve();
-          };
-          img.onerror = () => {
-            if (nextFallback) {
-              nextFallback();
-            } else {
-              resolve(); // Ne jamais bloquer les autres tuiles
-            }
-          };
-          img.src = urlFn(tileX, tileY, zoom);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (!settled) { settled = true; img.src = ''; resolve(null); }
+        }, timeoutMs);
+        img.onload = () => {
+          if (settled) return;
+          settled = true; clearTimeout(timer); resolve(img);
         };
-
-        // Cascade : Primaire -> Repli 1 -> Repli 2
-        tryImg(primaryUrlFn, () => {
-          tryImg(fallbackUrlFn1, () => {
-            tryImg(fallbackUrlFn2, () => resolve());
-          });
-        });
+        img.onerror = () => {
+          if (settled) return;
+          settled = true; clearTimeout(timer); resolve(null);
+        };
+        img.src = url;
       });
     };
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    // Lancer tous les téléchargements de tuiles en parallèle
-    const tilePromises = [];
+    // Fonction de chargement résiliente pour chaque tuile :
+    // le fournisseur principal (ex: IGN) est réessayé plusieurs fois avant de basculer
+    // sur un fournisseur de secours, pour garder un style cartographique homogène.
+    const loadTile = async (tileX, tileY) => {
+      const px = centerPixelX + (tileX - centerTileX) * 256;
+      const py = centerPixelY + (tileY - centerTileY) * 256;
+
+      const draw = (img) => {
+        try { ctx.drawImage(img, px, py, 256, 256); } catch (e) {}
+      };
+
+      // 1. Fournisseur principal : 3 tentatives avec temporisation progressive
+      const retryDelays = [0, 600, 1500];
+      for (const delay of retryDelays) {
+        if (delay) await sleep(delay);
+        const img = await fetchTileImage(primaryUrlFn(tileX, tileY, zoom));
+        if (img) { draw(img); return; }
+      }
+
+      // 2. Secours uniquement si le principal reste indisponible (ex: mer hors couverture IGN)
+      for (const fn of [fallbackUrlFn1, fallbackUrlFn2]) {
+        if (!fn) continue;
+        const img = await fetchTileImage(fn(tileX, tileY, zoom));
+        if (img) { draw(img); return; }
+      }
+    };
+
+    // File d'attente des tuiles, triées du centre vers l'extérieur
+    const tileQueue = [];
     for (let tx = 0; tx < tilesAcross; tx++) {
       for (let ty = 0; ty < tilesDown; ty++) {
-        tilePromises.push(loadTile(startTileX + tx, startTileY + ty));
+        tileQueue.push([startTileX + tx, startTileY + ty]);
       }
     }
+    tileQueue.sort((a, b) =>
+      Math.hypot(a[0] + 0.5 - centerTileX, a[1] + 0.5 - centerTileY) -
+      Math.hypot(b[0] + 0.5 - centerTileX, b[1] + 0.5 - centerTileY)
+    );
 
-    // Attendre jusqu'à 6 secondes max
+    // Téléchargement avec 6 requêtes simultanées maximum (évite la limitation du serveur IGN)
+    const CONCURRENCY = 6;
+    const worker = async () => {
+      while (tileQueue.length > 0) {
+        const [x, y] = tileQueue.shift();
+        await loadTile(x, y);
+      }
+    };
+    const workers = [];
+    for (let i = 0; i < CONCURRENCY; i++) workers.push(worker());
+
+    // Attendre jusqu'à 45 secondes max (grands formats A3)
     await Promise.race([
-      Promise.all(tilePromises),
-      new Promise(r => setTimeout(r, 6000))
+      Promise.all(workers),
+      new Promise(r => setTimeout(r, 45000))
     ]);
 
     // Helper: conversion (lat, lon) vers pixels canvas
