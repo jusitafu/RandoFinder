@@ -7,188 +7,384 @@
 class PDFExporter {
   /**
    * Generate and download the Fiche Randonnée PDF
+   * Supports Format (A4, A3) and Orientation (Portrait, Landscape)
    * @param {Object} hike - Hike data
-   * @param {Object} options - { includeMap: bool, includeProfile: bool, includeNotes: bool }
+   * @param {Object} options - { includeMap: bool, mapLayer: string, format: string, orientation: string, includeProfile: bool, includeNotes: bool }
    */
-  static async exportFichePDF(hike, options = { includeMap: true, includeProfile: true, includeNotes: true }) {
+  static async exportFichePDF(hike, options = {}) {
     const { jsPDF } = window.jspdf;
+    const format = (options.format || 'a4').toLowerCase(); // 'a4' or 'a3'
+    const orientation = (options.orientation || 'portrait').toLowerCase(); // 'portrait' or 'landscape'
+    const includeMap = options.includeMap !== false;
+    const mapLayer = options.mapLayer || 'ign';
+    const includeProfile = options.includeProfile !== false;
+    const includeNotes = options.includeNotes !== false;
+
     const doc = new jsPDF({
-      orientation: 'portrait',
+      orientation: orientation,
       unit: 'mm',
-      format: 'a4'
+      format: format
     });
 
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const margin = 14;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const isA3 = format === 'a3';
+    const isLandscape = orientation === 'landscape';
+    const margin = isA3 ? 18 : 12;
     const contentWidth = pageWidth - (margin * 2);
 
     let currentY = margin;
 
-    // 1. Header Banner
-    doc.setFillColor(15, 23, 42); // Slate 900
-    doc.rect(margin, currentY, contentWidth, 22, 'F');
+    // Détection si la randonnée est en France métropolitaine / Corse
+    const isInsideFrance = (hike.startPoint && hike.startPoint.lat >= 41.0 && hike.startPoint.lat <= 51.5 && hike.startPoint.lon >= -5.5 && hike.startPoint.lon <= 10.0);
+    const layerLabels = {
+      'ign': isInsideFrance ? "FOND OFFICIEL IGN TOP 25 / GÉOPLATEFORME" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'opentopo': "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'osmfr': "FOND OPENSTREETMAP FRANCE (SENTIERS)",
+      'satellite': "FOND SATELLITE HAUTE DÉFINITION (IGN / ESRI)"
+    };
+    const layerLabel = layerLabels[mapLayer] || "FOND TOPOGRAPHIQUE";
 
-    // Club Logo or Text
-    try {
-      const logoImg = document.getElementById('app-logo');
-      if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
-        // Draw logo
-        const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
-        const logoH = 14;
-        const logoW = logoH * logoAspect;
-        doc.addImage(logoImg, 'PNG', margin + 4, currentY + 4, Math.min(logoW, 60), logoH);
-      }
-    } catch (e) {
-      console.warn("Logo non disponible pour le PDF", e);
-    }
+    if (isLandscape) {
+      // =========================================================================
+      // DISPOSITION PAYSAGE (DASHBOARD 2 COLONNES HAUTE DÉFINITION)
+      // =========================================================================
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text("FICHE RANDONNÉE", pageWidth - margin - 6, currentY + 11, { align: 'right' });
+      // 1. Bandeau supérieur (Header Banner)
+      const bannerH = isA3 ? 20 : 15;
+      doc.setFillColor(15, 23, 42); // Slate 900
+      doc.rect(margin, currentY, contentWidth, bannerH, 'F');
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(203, 213, 225); // Slate 300
-    doc.text("RandoFinder - JLDApps 2026", pageWidth - margin - 6, currentY + 17, { align: 'right' });
+      // Club Logo or Text
+      try {
+        const logoImg = document.getElementById('app-logo');
+        if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+          const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
+          const logoH = bannerH - 4;
+          const logoW = logoH * logoAspect;
+          doc.addImage(logoImg, 'PNG', margin + 3, currentY + 2, Math.min(logoW, 60), logoH);
+        }
+      } catch (e) {}
 
-    currentY += 28;
-
-    // 2. Hike Title & Place
-    doc.setTextColor(15, 23, 42);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    
-    // Split long titles if needed
-    const titleLines = doc.splitTextToSize(hike.name || "Randonnée", contentWidth);
-    doc.text(titleLines, margin, currentY);
-    currentY += (titleLines.length * 6) + 4;
-
-    // 3. Metrics Summary Box (Grid of 4 badges)
-    const boxH = 18;
-    const colW = (contentWidth - 6) / 4;
-
-    const metrics = [
-      { label: "DISTANCE", val: `${hike.distanceKm} km`, icon: "📏" },
-      { label: "DÉNIVELÉ D+", val: `+${hike.elevationGain} m`, icon: "↗️" },
-      { label: "ALTITUDE", val: `${hike.minElevation}m / ${hike.maxElevation}m`, icon: "⛰️" },
-      { label: "DURÉE ESTIMÉE", val: hike.estimatedDuration || "3h30", icon: "⏱️" }
-    ];
-
-    metrics.forEach((m, idx) => {
-      const bx = margin + (idx * (colW + 2));
-      doc.setFillColor(248, 250, 252); // Slate 50
-      doc.setDrawColor(226, 232, 240); // Slate 200
-      doc.roundedRect(bx, currentY, colW, boxH, 2, 2, 'FD');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isA3 ? 14 : 11);
+      doc.text("FICHE RANDONNÉE", pageWidth - margin - 5, currentY + (bannerH * 0.44), { align: 'right' });
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(100, 116, 139); // Slate 500
-      doc.text(m.label, bx + (colW / 2), currentY + 5.5, { align: 'center' });
+      doc.setFontSize(isA3 ? 9 : 7.2);
+      doc.setTextColor(203, 213, 225); // Slate 300
+      doc.text("RandoFinder - JLDApps 2026", pageWidth - margin - 5, currentY + (bannerH * 0.80), { align: 'right' });
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42); // Slate 900
-      doc.text(m.val, bx + (colW / 2), currentY + 13, { align: 'center' });
-    });
+      currentY += bannerH + 3;
 
-    currentY += boxH + 8;
+      // 2. Bandeau Titre & Badges Métriques
+      const metricsW = isA3 ? 175 : 126;
+      const titleW = contentWidth - metricsW - 6;
 
-    // 4. GPS Coordinates Departure Info
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(71, 85, 105);
-    const startCoord = `Point de départ GPS : Lat ${hike.startPoint.lat.toFixed(5)}°, Lon ${hike.startPoint.lon.toFixed(5)}° (${hike.isLoop ? 'Boucle' : 'Aller simple / Traversée'})`;
-    doc.text(startCoord, margin, currentY);
-    currentY += 6;
-
-    // 5. Option 1: Map Snapshot with Route (IGN / OpenTopoMap / OSM)
-    if (options.includeMap) {
-      const mapLayer = options.mapLayer || 'ign';
-      const layerLabels = {
-        'ign': "FOND OFFICIEL IGN TOP 25 / GÉOPLATEFORME",
-        'opentopo': "FOND OPENTOPOMAP (RELIEF MONDIAL)",
-        'osmfr': "FOND OPENSTREETMAP FRANCE (SENTIERS)",
-        'satellite': "FOND SATELLITE HAUTE DÉFINITION (IGN / ESRI)"
-      };
-      const layerLabel = layerLabels[mapLayer] || "FOND TOPOGRAPHIQUE";
-
-      doc.setFillColor(241, 245, 249);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
       doc.setTextColor(15, 23, 42);
-      doc.text(`1. CARTE DE L'ITINÉRAIRE (${layerLabel})`, margin, currentY);
-      currentY += 4;
-
-      try {
-        const mapImgData = await this.renderStaticMap(hike, 720, 420, mapLayer);
-        if (mapImgData) {
-          const mapH = 75; // mm
-          doc.addImage(mapImgData, 'JPEG', margin, currentY, contentWidth, mapH);
-          doc.setDrawColor(203, 213, 225);
-          doc.rect(margin, currentY, contentWidth, mapH);
-          currentY += mapH + 8;
-        }
-      } catch (err) {
-        console.warn("Erreur lors de la génération de l'image de carte :", err);
-      }
-    }
-
-    // 6. Option 2: Elevation Profile
-    if (options.includeProfile) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(15, 23, 42);
-      doc.text("2. PROFIL ALTIMÉTRIQUE", margin, currentY);
-      currentY += 4;
-
-      try {
-        const profileObj = new ElevationProfile('dummy');
-        profileObj.currentHike = hike;
-        const profileImgData = profileObj.generateChartImage(900, 320);
-        if (profileImgData) {
-          const profH = 45; // mm
-          doc.addImage(profileImgData, 'PNG', margin, currentY, contentWidth, profH);
-          doc.setDrawColor(203, 213, 225);
-          doc.rect(margin, currentY, contentWidth, profH);
-          currentY += profH + 8;
-        }
-      } catch (err) {
-        console.warn("Erreur génération profil PDF :", err);
-      }
-    }
-
-    // 7. Option 3: Free Notes & Practical Info
-    if (options.includeNotes) {
-      // Check if page overflow, create page 2 if needed
-      if (currentY > pageHeight - 45) {
-        doc.addPage();
-        currentY = margin + 5;
-      }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(15, 23, 42);
-      doc.text("3. NOTES LIBRES & CONSEILS PRATIQUES", margin, currentY);
-      currentY += 5;
-
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
-      const notesH = Math.min(45, pageHeight - currentY - margin - 15);
-      doc.roundedRect(margin, currentY, contentWidth, notesH, 2, 2, 'FD');
+      doc.setFontSize(isA3 ? 15 : 12);
+      const titleLines = doc.splitTextToSize(hike.name || "Randonnée", titleW);
+      doc.text(titleLines, margin, currentY + 4);
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(51, 65, 85);
+      doc.setFontSize(isA3 ? 8 : 6.8);
+      doc.setTextColor(100, 116, 139);
+      const startCoord = `Départ GPS : Lat ${hike.startPoint.lat.toFixed(5)}°, Lon ${hike.startPoint.lon.toFixed(5)}° • ${hike.isLoop ? 'Boucle' : 'Traversée'}`;
+      doc.text(startCoord, margin, currentY + 5 + (titleLines.length * 4.5));
 
-      const notesText = hike.notes && hike.notes.trim().length > 0 
-        ? hike.notes 
-        : "Aucune note particulière pour cette randonnée. Pensez à emporter de l'eau en quantité suffisante, de bonnes chaussures de marche et à vérifier la météo avant le départ.";
+      // 4 Badges métriques alignés à droite
+      const badgeH = isA3 ? 14 : 11.5;
+      const colW = (metricsW - 6) / 4;
+      const metricsStartX = pageWidth - margin - metricsW;
 
-      const splitNotes = doc.splitTextToSize(notesText, contentWidth - 8);
-      doc.text(splitNotes, margin + 4, currentY + 6);
-      currentY += notesH + 6;
+      const metrics = [
+        { label: "DISTANCE", val: `${hike.distanceKm} km` },
+        { label: "DÉNIVELÉ D+", val: `+${hike.elevationGain} m` },
+        { label: "ALTITUDE", val: `${hike.minElevation}m / ${hike.maxElevation}m` },
+        { label: "DURÉE EST.", val: hike.estimatedDuration || "3h30" }
+      ];
+
+      metrics.forEach((m, idx) => {
+        const bx = metricsStartX + (idx * (colW + 2));
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(bx, currentY, colW, badgeH, 1.5, 1.5, 'FD');
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(isA3 ? 6.5 : 5.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(m.label, bx + (colW / 2), currentY + (badgeH * 0.38), { align: 'center' });
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isA3 ? 9 : 7.2);
+        doc.setTextColor(15, 23, 42);
+        doc.text(m.val, bx + (colW / 2), currentY + (badgeH * 0.82), { align: 'center' });
+      });
+
+      currentY += Math.max(badgeH, (titleLines.length * 4.5) + 6) + 4;
+
+      // 3. Corps principal : 2 Colonnes
+      const availableH = pageHeight - margin - 8 - currentY;
+      const colGap = isA3 ? 6 : 5;
+
+      let leftColW, rightColW;
+      if (includeMap && (includeProfile || includeNotes)) {
+        leftColW = Math.round((contentWidth - colGap) * 0.58);
+        rightColW = contentWidth - colGap - leftColW;
+      } else {
+        leftColW = contentWidth;
+        rightColW = contentWidth;
+      }
+
+      // --- Colonne Gauche : Carte Topographique ---
+      if (includeMap) {
+        const mapX = margin;
+        const mapY = currentY;
+        const mapW = (includeProfile || includeNotes) ? leftColW : contentWidth;
+        const mapH = availableH;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isA3 ? 10 : 8.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`1. CARTE DE L'ITINÉRAIRE (${layerLabel})`, mapX, mapY + 3.5);
+
+        const actualMapY = mapY + 5;
+        const actualMapH = mapH - 6;
+
+        try {
+          const pxW = Math.round(mapW * 4.5);
+          const pxH = Math.round(actualMapH * 4.5);
+          const mapImgData = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+          if (mapImgData) {
+            doc.addImage(mapImgData, 'JPEG', mapX, actualMapY, mapW, actualMapH);
+            doc.setDrawColor(203, 213, 225);
+            doc.rect(mapX, actualMapY, mapW, actualMapH);
+          }
+        } catch (err) {
+          console.warn("Erreur image carte paysage :", err);
+        }
+      }
+
+      // --- Colonne Droite : Profil & Notes ---
+      if (includeProfile || includeNotes) {
+        const rightX = includeMap ? (margin + leftColW + colGap) : margin;
+        let rightY = currentY;
+        const rightW = includeMap ? rightColW : contentWidth;
+
+        // Profil Altimétrique
+        if (includeProfile) {
+          const profH = includeNotes ? Math.round(availableH * 0.45) : availableH - 6;
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(isA3 ? 10 : 8.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text(`2. PROFIL ALTIMÉTRIQUE (${hike.distanceKm} km • D+ ${hike.elevationGain || 0} m)`, rightX, rightY + 3.5);
+
+          const actualProfY = rightY + 5;
+          const actualProfH = profH - 6;
+
+          try {
+            const profileImgData = ElevationProfile.renderStaticChart(hike, 1000, 360);
+            if (profileImgData) {
+              doc.addImage(profileImgData, 'PNG', rightX, actualProfY, rightW, actualProfH);
+              doc.setDrawColor(203, 213, 225);
+              doc.rect(rightX, actualProfY, rightW, actualProfH);
+            }
+          } catch (err) {
+            console.warn("Erreur profil paysage :", err);
+          }
+
+          rightY += profH + 2;
+        }
+
+        // Notes & Conseils
+        if (includeNotes) {
+          const notesH = pageHeight - margin - 8 - rightY;
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(isA3 ? 10 : 8.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text("3. NOTES LIBRES & INFOS PRATIQUES", rightX, rightY + 3.5);
+
+          const actualNotesY = rightY + 5;
+          const actualNotesH = notesH - 6;
+
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(226, 232, 240);
+          doc.roundedRect(rightX, actualNotesY, rightW, actualNotesH, 2, 2, 'FD');
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(isA3 ? 8.5 : 7.2);
+          doc.setTextColor(51, 65, 85);
+
+          const notesText = hike.notes && hike.notes.trim().length > 0
+            ? hike.notes
+            : "Aucune note particulière pour cette randonnée. Pensez à emporter de l'eau en quantité suffisante, de bonnes chaussures de marche et à vérifier la météo avant le départ.";
+
+          const splitNotes = doc.splitTextToSize(notesText, rightW - 6);
+          doc.text(splitNotes, rightX + 3, actualNotesY + 5);
+        }
+      }
+
+    } else {
+      // =========================================================================
+      // DISPOSITION PORTRAIT (A4 / A3 VERTICAL)
+      // =========================================================================
+
+      // 1. Header Banner
+      const bannerH = isA3 ? 26 : 20;
+      doc.setFillColor(15, 23, 42); // Slate 900
+      doc.rect(margin, currentY, contentWidth, bannerH, 'F');
+
+      // Logo sur bandeau
+      try {
+        const logoImg = document.getElementById('app-logo');
+        if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+          const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
+          const logoH = bannerH - 6;
+          const logoW = logoH * logoAspect;
+          doc.addImage(logoImg, 'PNG', margin + 4, currentY + 3, Math.min(logoW, 60), logoH);
+        }
+      } catch (e) {}
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isA3 ? 16 : 13);
+      doc.text("FICHE RANDONNÉE", pageWidth - margin - 6, currentY + (bannerH * 0.45), { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(isA3 ? 9.5 : 7.8);
+      doc.setTextColor(203, 213, 225); // Slate 300
+      doc.text("RandoFinder - JLDApps 2026", pageWidth - margin - 6, currentY + (bannerH * 0.80), { align: 'right' });
+
+      currentY += bannerH + (isA3 ? 6 : 4);
+
+      // 2. Hike Title & Place
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isA3 ? 18 : 14);
+
+      const titleLines = doc.splitTextToSize(hike.name || "Randonnée", contentWidth);
+      doc.text(titleLines, margin, currentY);
+      currentY += (titleLines.length * (isA3 ? 7 : 5.5)) + 3;
+
+      // 3. Metrics Summary Box (Grid of 4 badges)
+      const boxH = isA3 ? 22 : 16;
+      const colW = (contentWidth - 6) / 4;
+
+      const metrics = [
+        { label: "DISTANCE", val: `${hike.distanceKm} km` },
+        { label: "DÉNIVELÉ D+", val: `+${hike.elevationGain} m` },
+        { label: "ALTITUDE", val: `${hike.minElevation}m / ${hike.maxElevation}m` },
+        { label: "DURÉE ESTIMÉE", val: hike.estimatedDuration || "3h30" }
+      ];
+
+      metrics.forEach((m, idx) => {
+        const bx = margin + (idx * (colW + 2));
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(bx, currentY, colW, boxH, 2, 2, 'FD');
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(isA3 ? 8 : 6.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(m.label, bx + (colW / 2), currentY + (boxH * 0.38), { align: 'center' });
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isA3 ? 12 : 9.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(m.val, bx + (colW / 2), currentY + (boxH * 0.82), { align: 'center' });
+      });
+
+      currentY += boxH + (isA3 ? 5 : 4);
+
+      // 4. GPS Departure Info
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(isA3 ? 9 : 7.5);
+      doc.setTextColor(71, 85, 105);
+      const startCoord = `Point de départ GPS : Lat ${hike.startPoint.lat.toFixed(5)}°, Lon ${hike.startPoint.lon.toFixed(5)}° (${hike.isLoop ? 'Boucle' : 'Aller simple / Traversée'})`;
+      doc.text(startCoord, margin, currentY);
+      currentY += (isA3 ? 6 : 5);
+
+      // 5. Option 1: Map Snapshot with Route (IGN / OpenTopoMap / OSM)
+      if (includeMap) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isA3 ? 11 : 9.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`1. CARTE DE L'ITINÉRAIRE (${layerLabel})`, margin, currentY);
+        currentY += 4;
+
+        const mapH = isA3 ? 125 : 76; // mm
+
+        try {
+          const pxW = Math.round(contentWidth * 4.5);
+          const pxH = Math.round(mapH * 4.5);
+          const mapImgData = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+          if (mapImgData) {
+            doc.addImage(mapImgData, 'JPEG', margin, currentY, contentWidth, mapH);
+            doc.setDrawColor(203, 213, 225);
+            doc.rect(margin, currentY, contentWidth, mapH);
+            currentY += mapH + (isA3 ? 6 : 5);
+          }
+        } catch (err) {
+          console.warn("Erreur image carte :", err);
+        }
+      }
+
+      // 6. Option 2: Elevation Profile
+      if (includeProfile) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isA3 ? 11 : 9.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`2. PROFIL ALTIMÉTRIQUE (${hike.distanceKm} km • D+ ${hike.elevationGain || 0} m)`, margin, currentY);
+        currentY += 4;
+
+        const profH = isA3 ? 70 : 44; // mm
+
+        try {
+          const profileImgData = ElevationProfile.renderStaticChart(hike, 1000, 360);
+          if (profileImgData) {
+            doc.addImage(profileImgData, 'PNG', margin, currentY, contentWidth, profH);
+            doc.setDrawColor(203, 213, 225);
+            doc.rect(margin, currentY, contentWidth, profH);
+            currentY += profH + (isA3 ? 6 : 5);
+          }
+        } catch (err) {
+          console.warn("Erreur profil altimétrique :", err);
+        }
+      }
+
+      // 7. Option 3: Free Notes & Practical Info
+      if (includeNotes) {
+        if (currentY > pageHeight - 35) {
+          doc.addPage();
+          currentY = margin + 5;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isA3 ? 11 : 9.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text("3. NOTES LIBRES & CONSEILS PRATIQUES", margin, currentY);
+        currentY += 4;
+
+        const notesH = Math.max(20, Math.min(isA3 ? 55 : 34, pageHeight - currentY - margin - 12));
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(margin, currentY, contentWidth, notesH, 2, 2, 'FD');
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(isA3 ? 9 : 7.8);
+        doc.setTextColor(51, 65, 85);
+
+        const notesText = hike.notes && hike.notes.trim().length > 0
+          ? hike.notes
+          : "Aucune note particulière pour cette randonnée. Pensez à emporter de l'eau en quantité suffisante, de bonnes chaussures de marche et à vérifier la météo avant le départ.";
+
+        const splitNotes = doc.splitTextToSize(notesText, contentWidth - 8);
+        doc.text(splitNotes, margin + 4, currentY + 5);
+      }
     }
 
     // Footer on all pages
@@ -196,15 +392,18 @@ class PDFExporter {
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(isA3 ? 9 : 7.5);
       doc.setTextColor(148, 163, 184); // Slate 400
-      doc.text(`RandoFinder - ${hike.name} | Page ${p}/${totalPages}`, margin, pageHeight - 8);
-      doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+      doc.text(`RandoFinder - ${hike.name} | Page ${p}/${totalPages}`, margin, pageHeight - 6);
+      const dateStr = new Date().toLocaleDateString('fr-FR');
+      const layoutStr = `${format.toUpperCase()} ${isLandscape ? 'Paysage' : 'Portrait'}`;
+      doc.text(`Généré le ${dateStr} • ${layoutStr}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
     }
 
     // Clean filename for PDF
     const safeName = (hike.name || 'Fiche_Randonnee').replace(/[\\/:*?"<>|]/g, '_');
-    doc.save(`Fiche_${safeName}.pdf`);
+    const fileSuffix = `${format.toUpperCase()}_${isLandscape ? 'Paysage' : 'Portrait'}`;
+    doc.save(`Fiche_${safeName}_${fileSuffix}.pdf`);
   }
 
   /**
