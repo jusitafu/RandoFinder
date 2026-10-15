@@ -58,7 +58,7 @@ class PDFExporter {
 
       // Club Logo or Text
       try {
-        const logoImg = document.getElementById('app-logo');
+        const logoImg = document.getElementById('app-logo-white') || document.getElementById('app-logo');
         if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
           const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
           const logoH = bannerH - 4;
@@ -359,7 +359,7 @@ class PDFExporter {
 
       // Logo sur bandeau
       try {
-        const logoImg = document.getElementById('app-logo');
+        const logoImg = document.getElementById('app-logo-white') || document.getElementById('app-logo');
         if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
           const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
           const logoH = bannerH - 6;
@@ -579,7 +579,7 @@ class PDFExporter {
 
     // Club Logo
     try {
-      const logoImg = document.getElementById('app-logo');
+      const logoImg = document.getElementById('app-logo-white') || document.getElementById('app-logo');
       if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
         const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
         const logoH = bannerH - 4;

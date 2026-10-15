@@ -60,6 +60,7 @@
         <div id="logo-frame" class="relative overflow-hidden cursor-pointer select-none rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200 inline-flex items-center" title="Les Randonneurs Sanaryens (Cliquez pour faire marcher les randonneurs)">
           <!-- Logo officiel grand format adapté -->
           <img id="app-logo" src="logo.png" alt="Les Randonneurs Sanaryens" class="h-10 sm:h-12 md:h-14 lg:h-16 w-auto max-w-full block object-contain transition-opacity duration-300" style="opacity: 1;">
+          <img id="app-logo-white" src="logo_white.png" alt="Les Randonneurs Sanaryens" class="hidden">
           
           <!-- Calque d'animation de marche à l'ouverture -->
           <div id="logo-anim-overlay" class="absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-300 flex items-center" style="opacity: 0;">
@@ -1057,9 +1058,10 @@
               <h4 class="font-bold text-emerald-950 text-sm">Cartographie Officielle IGN (1 : 25 000)</h4>
               <p class="text-xs text-emerald-800 mt-0.5">1 cm sur la carte représente 250 mètres sur le terrain. La référence de la randonnée pédestre en France.</p>
             </div>
-            <a href="https://geoservices.ign.fr/sites/default/files/2021-07/Legende_TOP25.pdf" target="_blank" rel="noopener noreferrer" 
-              class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
-              <span>📄</span> <span>Planche officielle IGN (PDF)</span> <span>↗</span>
+            <a href="Legende_IGN_Top25.pdf" target="_blank" rel="noopener noreferrer" 
+              class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+              title="Ouvrir directement le document officiel de la légende IGN Top 25 en PDF">
+              <span>📄</span> <span>Ouvrir la légende officielle IGN (PDF)</span> <span>↗</span>
             </a>
           </div>
 
@@ -1218,55 +1220,170 @@
 
         </div>
 
-        <!-- PANE 2 : OPENTOPOMAP -->
+        <!-- PANE 2 : OPENTOPOMAP (TRADUCTION FRANÇAISE INTÉGRALE) -->
         <div id="legend-pane-opentopo" class="hidden space-y-5">
           <div class="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-              <h4 class="font-bold text-amber-950 text-sm">Cartographie OpenTopoMap</h4>
-              <p class="text-xs text-amber-800 mt-0.5">Style topographique international inspiré de la cartographie suisse, avec estompage altimétrique SRTM.</p>
+              <h4 class="font-bold text-amber-950 text-sm">Cartographie OpenTopoMap (Traduction française intégrale)</h4>
+              <p class="text-xs text-amber-800 mt-0.5">La légende d'OpenTopoMap étant éditée en allemand sur le site d'origine, voici tous les symboles et classifications traduits en français pour vos randonnées.</p>
             </div>
-            <a href="https://opentopomap.org/about#legende" target="_blank" rel="noopener noreferrer" 
-              class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
-              <span>⛰️</span> <span>Légende en ligne (OpenTopoMap)</span> <span>↗</span>
-            </a>
+            <div class="flex items-center gap-2">
+              <span class="px-3 py-1.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5 whitespace-nowrap">
+                <span>🇫🇷</span> <span>100% en Français</span>
+              </span>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- 1. Sentiers et Itinéraires de Randonnée -->
             <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900">Classification des chemins</h5>
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Sentiers & Itinéraires pédestres (Wanderwege)
+              </h5>
               <div class="space-y-2.5 text-xs">
-                <div>
-                  <span class="font-bold text-rose-700">Tiretés rouges :</span>
-                  <span class="text-slate-600 block">Sentiers pédestres balisés (`sac_scale=hiking`).</span>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-dashed border-rose-600 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-rose-700">Tiretés rouges vifs (Wanderweg) :</span>
+                    <span class="text-slate-600 block">Sentier de randonnée balisé officiel. Praticable en randonnée pédestre standard.</span>
+                  </div>
                 </div>
-                <div>
-                  <span class="font-bold text-amber-800">Tiretés bruns :</span>
-                  <span class="text-slate-600 block">Pistes forestières et agricoles non goudronnées (grades 1 à 5).</span>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-dashed border-sky-600 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-sky-700">Tiretés bleus fins (Alpiner Pfad / SAC T2-T6) :</span>
+                    <span class="text-slate-600 block">Sentier alpin technique de montagne / crête escarpée. Pied sûr, bon sens de l'orientation et absence de vertige indispensables.</span>
+                  </div>
                 </div>
-                <div>
-                  <span class="font-bold text-sky-700">Tiretés bleus fins :</span>
-                  <span class="text-slate-600 block">Passages alpins techniques (`sac_scale=mountain_hiking` ou `alpine_hiking`). Pied sûr et équipement requis.</span>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-dotted border-rose-400 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Pointillés rouges fins (Pfad) :</span>
+                    <span class="text-slate-600 block">Sentier pédestre naturel visible mais sans balisage officiel.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">🧗</div>
+                  <div>
+                    <span class="font-bold text-purple-800">Via Ferrata (Klettersteig) :</span>
+                    <span class="text-slate-600 block">Parcours rocheux équipé de câbles d'assurage et échelons. Casque et baudrier requis.</span>
+                  </div>
                 </div>
               </div>
             </div>
 
+            <!-- 2. Pistes et Chemins par classification de viabilité -->
             <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900">Relief & Symbolique</h5>
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-700"></span> Pistes forestières & Chemins (Grades 1 à 5)
+              </h5>
               <div class="space-y-2.5 text-xs">
-                <div>
-                  <span class="font-bold text-slate-900">▲ Triangle noir + Altitude :</span>
-                  <span class="text-slate-600 block">Sommets et pics remarquables avec mention de la cote (ex: `▲ 787 m`).</span>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-amber-900 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Trait marron plein (Grade 1 - Asphalt/Beton) :</span>
+                    <span class="text-slate-600 block">Voie carrossable asphaltée, bétonnée ou empierrée dure.</span>
+                  </div>
                 </div>
-                <div>
-                  <span class="font-bold text-slate-900">Estompage de relief :</span>
-                  <span class="text-slate-600 block">Ombrage calculé simulant un éclairage du relief par le nord-ouest, visualisant immédiatement crêtes et combes.</span>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-dashed border-amber-800 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Tireté marron large (Grade 2 - Schotterweg) :</span>
+                    <span class="text-slate-600 block">Piste forestière en gravier compacté carrossable.</span>
+                  </div>
                 </div>
-                <div>
-                  <span class="font-bold text-slate-900">⛺ Abris & Refuges :</span>
-                  <span class="text-slate-600 block">Symboles d'hébergements de randonneurs, gîtes d'étape et bivouacs autorisés.</span>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-dashed border-amber-600 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Tireté marron fin (Grade 3 - Fester Erd/Waldweg) :</span>
+                    <span class="text-slate-600 block">Chemin forestier en terre battue non stabilisée.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-dotted border-amber-500 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Pointillé marron (Grade 4-5 - Rückeweg/Wiesenweg) :</span>
+                    <span class="text-slate-600 block">Piste d'exploitation en terre meuble, herbeuse ou ornières (accès difficile).</span>
+                  </div>
                 </div>
               </div>
             </div>
+
+            <!-- 3. Relief et Altitudes -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-slate-700"></span> Relief & Altitudes (Höhenlinien)
+              </h5>
+              <div class="space-y-2.5 text-xs">
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">▲</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Sommet & Pic (Gipfel) :</span>
+                    <span class="text-slate-600 block">Triangle noir avec altitude exacte en mètres (ex: `▲ 804 m`).</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t-2 border-amber-800 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Courbes maîtresses (Haupt-Höhenlinien) :</span>
+                    <span class="text-slate-600 block">Tous les 100 m avec cote d'altitude inscrite.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="w-8 border-t border-amber-600 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Courbes secondaires :</span>
+                    <span class="text-slate-600 block">Équidistance de 20 m (ou 10 m selon le zoom).</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">👁️</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Belvédère & Point de vue (Aussichtspunkt) :</span>
+                    <span class="text-slate-600 block">Panorama remarquable sur la vallée ou le littoral.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Abris, Hébergements et Eau -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Abris, Hébergements & Eau (Unterkunft)
+              </h5>
+              <div class="space-y-2.5 text-xs">
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">🏠</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Refuge & Cabane (Schutzhütte) :</span>
+                    <span class="text-slate-600 block">Refuge gardé ou abri pastoral ouvert aux randonneurs.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">⛺</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Camping / Bivouac (Campingplatz) :</span>
+                    <span class="text-slate-600 block">Emplacement réservé aux tentes et randonneurs itinérants.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">💧</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Source d'eau naturelle (Quelle) :</span>
+                    <span class="text-slate-600 block">Point de captage ou résurgence d'eau en montagne.</span>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <div class="text-base leading-none">🏰</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Ruine & Château (Burg / Ruine) :</span>
+                    <span class="text-slate-600 block">Vestige historique servant d'excellent point de repère.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -2101,15 +2218,15 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=55"></script>
-  <script src="js/auth-manager.js?v=55"></script>
-  <script src="js/gpx-parser.js?v=55"></script>
-  <script src="js/sample-data.js?v=55"></script>
-  <script src="js/storage.js?v=55"></script>
-  <script src="js/elevation-profile.js?v=55"></script>
-  <script src="js/map-manager.js?v=55"></script>
-  <script src="js/pdf-exporter.js?v=55"></script>
-  <script src="js/app.js?v=55"></script>
+  <script src="js/config.js?v=56"></script>
+  <script src="js/auth-manager.js?v=56"></script>
+  <script src="js/gpx-parser.js?v=56"></script>
+  <script src="js/sample-data.js?v=56"></script>
+  <script src="js/storage.js?v=56"></script>
+  <script src="js/elevation-profile.js?v=56"></script>
+  <script src="js/map-manager.js?v=56"></script>
+  <script src="js/pdf-exporter.js?v=56"></script>
+  <script src="js/app.js?v=56"></script>
 </body>
 </html>
 
