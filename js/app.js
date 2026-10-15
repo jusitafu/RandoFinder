@@ -2973,6 +2973,8 @@ class AppController {
     const pdfFormat = pdfFormatEl ? pdfFormatEl.value : 'a4';
     const pdfOrientationEl = document.getElementById('opt-pdf-orientation');
     const pdfOrientation = pdfOrientationEl ? pdfOrientationEl.value : 'portrait';
+    const pdfStyleEl = document.getElementById('opt-pdf-style');
+    const layoutStyle = pdfStyleEl ? pdfStyleEl.value : 'overlay';
     const incProfile = document.getElementById('opt-pdf-profile').checked;
     const incNotes = document.getElementById('opt-pdf-notes').checked;
 
@@ -3009,10 +3011,12 @@ class AppController {
           mapLayer: mapLayer,
           format: pdfFormat,
           orientation: pdfOrientation,
+          layoutStyle: layoutStyle,
           includeProfile: incProfile,
           includeNotes: incNotes
         });
-        this.showToast(`Fiche PDF (${pdfFormat.toUpperCase()} ${pdfOrientation === 'landscape' ? 'Paysage' : 'Portrait'}) téléchargée !`, "success");
+        const styleLabel = pdfOrientation === 'landscape' ? (layoutStyle === 'overlay' ? ' • Panoramique' : ' • 2 Colonnes') : '';
+        this.showToast(`Fiche PDF (${pdfFormat.toUpperCase()} ${pdfOrientation === 'landscape' ? 'Paysage' : 'Portrait'}${styleLabel}) téléchargée !`, "success");
       } catch (err) {
         console.error("Erreur PDF :", err);
         this.showToast("Erreur lors de la génération du PDF", "error");
