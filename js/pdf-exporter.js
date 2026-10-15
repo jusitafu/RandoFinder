@@ -16,7 +16,7 @@ class PDFExporter {
     const format = (options.format || 'a4').toLowerCase(); // 'a4' or 'a3'
     const orientation = (options.orientation || 'portrait').toLowerCase(); // 'portrait' or 'landscape'
     const includeMap = options.includeMap !== false;
-    const mapLayer = options.mapLayer || 'ign';
+    const mapLayer = options.mapLayer || 'igntop25';
     const includeProfile = options.includeProfile !== false;
     const includeNotes = options.includeNotes !== false;
     const layoutStyle = options.layoutStyle || 'overlay'; // 'overlay' or 'columns'
@@ -153,7 +153,7 @@ class PDFExporter {
         try {
           const pxW = Math.round(mapW * 4.5);
           const pxH = Math.round(actualMapH * 4.5);
-          mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+          mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer, null, options.trackColor);
           const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
           if (mapImgData) {
             doc.addImage(mapImgData, 'JPEG', mapX, actualMapY, mapW, actualMapH);
@@ -275,7 +275,7 @@ class PDFExporter {
           try {
             const pxW = Math.round(mapW * 4.5);
             const pxH = Math.round(actualMapH * 4.5);
-            const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+            const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer, null, options.trackColor);
             const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
             if (mapImgData) {
               doc.addImage(mapImgData, 'JPEG', mapX, actualMapY, mapW, actualMapH);
@@ -442,7 +442,7 @@ class PDFExporter {
         try {
           const pxW = Math.round(contentWidth * 4.5);
           const pxH = Math.round(mapH * 4.5);
-          const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer);
+          const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer, null, options.trackColor);
           const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
           if (mapImgData) {
             doc.addImage(mapImgData, 'JPEG', margin, currentY, contentWidth, mapH);
@@ -538,7 +538,7 @@ class PDFExporter {
     const { jsPDF } = window.jspdf;
     const format = (options.format || 'a4').toLowerCase(); // 'a4' or 'a3'
     const orientation = (options.orientation || 'landscape').toLowerCase(); // 'landscape' or 'portrait'
-    const mapLayer = options.mapLayer || 'ign';
+    const mapLayer = options.mapLayer || 'igntop25';
     const title = options.title && options.title.trim() ? options.title.trim() : 'EXTRAIT DE CARTE TOPOGRAPHIQUE';
     const showCoords = options.showCoords !== false;
 
@@ -656,7 +656,7 @@ class PDFExporter {
     try {
       const pxW = Math.round(mapW * 4.5);
       const pxH = Math.round(mapH * 4.5);
-      const mapResult = await this.renderStaticMap(pseudoHike, pxW, pxH, mapLayer, 0.96);
+      const mapResult = await this.renderStaticMap(pseudoHike, pxW, pxH, mapLayer, 0.96, options.trackColor);
       const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
 
       if (mapImgData) {
@@ -715,7 +715,7 @@ class PDFExporter {
   /**
    * Render a static raster map with IGN Top 25 / OpenTopoMap / OSM tiles and GPX track vector
    */
-  static async renderStaticMap(hike, imgWidth = 720, imgHeight = 420, mapLayer = 'ign', customPadding = null) {
+  static async renderStaticMap(hike, imgWidth = 720, imgHeight = 420, mapLayer = 'igntop25', customPadding = null, trackColor = null) {
     const canvas = document.createElement('canvas');
     canvas.width = imgWidth;
     canvas.height = imgHeight;
@@ -958,9 +958,11 @@ class PDFExporter {
       };
     };
 
-    // Dessiner le tracé GPX avec contraste élevé
+    // Dessiner le tracé GPX avec contraste maximal absolu
     if (hike.points && hike.points.length > 0) {
-      // 1. Bordure blanche extérieure pour détacher la trace de tout fond cartographique
+      const finalTrackColor = trackColor || '#1d4ed8'; // Bleu Roi Électrique par défaut (contraste maximal sur Top 25)
+
+      // 1. Bordure d'ombre externe sombre (détache le halo blanc même sur fond blanc/neige/rochers clairs)
       ctx.beginPath();
       let first = latLonToPixel(hike.points[0].lat, hike.points[0].lon);
       ctx.moveTo(first.x, first.y);
@@ -968,90 +970,154 @@ class PDFExporter {
         const pt = latLonToPixel(hike.points[i].lat, hike.points[i].lon);
         ctx.lineTo(pt.x, pt.y);
       }
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.45)'; // Liseré sombre 10px
+      ctx.lineWidth = 10;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.stroke();
 
-      // 2. Trait rouge vif (rose-red) haute visibilité
+      // 2. Halo blanc pur très contrasté (détache la trace des forêts vertes et sentiers GR roses)
       ctx.beginPath();
       ctx.moveTo(first.x, first.y);
       for (let i = 1; i < hike.points.length; i++) {
         const pt = latLonToPixel(hike.points[i].lat, hike.points[i].lon);
         ctx.lineTo(pt.x, pt.y);
       }
-      ctx.strokeStyle = '#e11d48'; // Rose red
-      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 8;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.stroke();
 
-      // 3. Marqueur de départ (vert émeraude avec halo blanc)
+      // 3. Tracé principal Bleu Roi Électrique (ou couleur personnalisée)
+      ctx.beginPath();
+      ctx.moveTo(first.x, first.y);
+      for (let i = 1; i < hike.points.length; i++) {
+        const pt = latLonToPixel(hike.points[i].lat, hike.points[i].lon);
+        ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.strokeStyle = finalTrackColor;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      // 4. Chevrons directionnels (flèches blanches) le long du tracé pour certifier le sens du parcours
+      let accumulatedDist = 0;
+      const arrowSpacing = 65; // pixels
+      for (let i = 1; i < hike.points.length; i++) {
+        const p1 = latLonToPixel(hike.points[i - 1].lat, hike.points[i - 1].lon);
+        const p2 = latLonToPixel(hike.points[i].lat, hike.points[i].lon);
+        const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        accumulatedDist += segLen;
+        if (accumulatedDist >= arrowSpacing && segLen > 4) {
+          accumulatedDist = 0;
+          const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+          const midX = (p1.x + p2.x) / 2;
+          const midY = (p1.y + p2.y) / 2;
+          
+          ctx.save();
+          ctx.translate(midX, midY);
+          ctx.rotate(angle);
+          ctx.beginPath();
+          ctx.moveTo(-3.5, -3);
+          ctx.lineTo(2.5, 0);
+          ctx.lineTo(-3.5, 3);
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.8;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // 5. Marqueur de départ (Pastille verte 'D' avec halo blanc)
       const startPix = latLonToPixel(hike.startPoint.lat, hike.startPoint.lon);
       ctx.beginPath();
-      ctx.arc(startPix.x, startPix.y, 8, 0, Math.PI * 2);
+      ctx.arc(startPix.x, startPix.y, 9.5, 0, Math.PI * 2);
       ctx.fillStyle = '#10b981';
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2.5;
       ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('D', startPix.x, startPix.y + 0.5);
 
-      // 4. Marqueur d'arrivée (si hors boucle)
+      // 6. Marqueur d'arrivée (si hors boucle : Pastille rouge 'A')
       if (!hike.isLoop && hike.endPoint) {
         const endPix = latLonToPixel(hike.endPoint.lat, hike.endPoint.lon);
         ctx.beginPath();
-        ctx.arc(endPix.x, endPix.y, 8, 0, Math.PI * 2);
+        ctx.arc(endPix.x, endPix.y, 9.5, 0, Math.PI * 2);
         ctx.fillStyle = '#ef4444';
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2.5;
         ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('A', endPix.x, endPix.y + 0.5);
       }
     }
 
-    // 5. Légende élégante en bas à gauche (uniquement si un tracé de randonnée est présent)
+    // 7. Légende élégante en bas à gauche (uniquement si un tracé de randonnée est présent)
     if (hike.points && hike.points.length > 0) {
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      const finalTrackColor = trackColor || '#1d4ed8';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
       if (ctx.roundRect) {
-        ctx.roundRect(10, imgHeight - 30, 255, 22, 5);
+        ctx.roundRect(10, imgHeight - 30, 260, 22, 5);
       } else {
-        ctx.rect(10, imgHeight - 30, 255, 22);
+        ctx.rect(10, imgHeight - 30, 260, 22);
       }
       ctx.fill();
 
-      // Pastille verte Départ
+      // Pastille verte Départ D
       ctx.beginPath();
-      ctx.arc(22, imgHeight - 19, 4.5, 0, Math.PI * 2);
+      ctx.arc(22, imgHeight - 19, 5, 0, Math.PI * 2);
       ctx.fillStyle = '#10b981';
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.2;
       ctx.stroke();
 
-      // Pastille rouge Arrivée
+      // Pastille rouge Arrivée A
       ctx.beginPath();
-      ctx.arc(92, imgHeight - 19, 4.5, 0, Math.PI * 2);
+      ctx.arc(92, imgHeight - 19, 5, 0, Math.PI * 2);
       ctx.fillStyle = '#ef4444';
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.2;
       ctx.stroke();
 
-      // Trait rose Tracé GPS
+      // Trait Tracé GPX (Double contour Blanc + Bleu Roi)
       ctx.beginPath();
-      ctx.moveTo(162, imgHeight - 19);
-      ctx.lineTo(180, imgHeight - 19);
-      ctx.strokeStyle = '#e11d48';
+      ctx.moveTo(160, imgHeight - 19);
+      ctx.lineTo(182, imgHeight - 19);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(160, imgHeight - 19);
+      ctx.lineTo(182, imgHeight - 19);
+      ctx.strokeStyle = finalTrackColor;
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
       ctx.fillText("Départ", 32, imgHeight - 16);
       ctx.fillText("Arrivée", 102, imgHeight - 16);
-      ctx.fillText("Tracé GPS", 188, imgHeight - 16);
+      ctx.fillText("Tracé GPX", 190, imgHeight - 16);
     }
 
     // 6. Mention de copyright en bas à droite

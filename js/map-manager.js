@@ -548,51 +548,59 @@ class MapManager {
 
     const latLngs = hike.points.map(p => [p.lat, p.lon]);
     
-    // GPS Track Colors: Electric Royal Blue (#2563eb) when selected, Emerald (#059669) when hovered
-    const trackColor = isSelected ? '#2563eb' : '#059669';
+    // GPS Track Colors: Bleu Roi Électrique (#1d4ed8 / #2563eb) pour un contraste absolu sur le fond Top 25
+    const trackColor = isSelected ? '#1d4ed8' : '#2563eb';
 
-    // 1. White casing background line for maximum contrast against any map background
+    // 1. Bordure d'ombre externe sombre (détache le halo blanc des zones claires/falaises)
+    L.polyline(latLngs, {
+      color: '#0f172a',
+      weight: isSelected ? 10 : 8,
+      opacity: 0.35,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false
+    }).addTo(this.trackLayer);
+
+    // 2. Halo blanc pur très contrasté (détache la trace des forêts vertes et sentiers GR roses)
     L.polyline(latLngs, {
       color: '#ffffff',
-      weight: isSelected ? 7.5 : 5.5,
+      weight: isSelected ? 8 : 6,
       opacity: 0.95,
       lineCap: 'round',
       lineJoin: 'round',
       interactive: false
     }).addTo(this.trackLayer);
 
-    // 2. Main GPS trail polyline
+    // 3. Tracé GPS principal en Bleu Roi Électrique
     this.activeTrackPolyline = L.polyline(latLngs, {
       color: trackColor,
-      weight: isSelected ? 4.5 : 3.5,
+      weight: isSelected ? 5 : 4,
       opacity: 1,
       lineCap: 'round',
       lineJoin: 'round',
       interactive: false
     }).addTo(this.trackLayer);
 
-    // 3. Departure Marker (Green Dot with White Halo)
+    // 4. Marqueur de départ (Pastille verte 'D' avec halo blanc)
     const startPt = hike.points[0];
-    L.circleMarker([startPt.lat, startPt.lon], {
-      radius: 6.5,
-      fillColor: '#10b981',
-      color: '#ffffff',
-      weight: 2.5,
-      fillOpacity: 1,
-      interactive: false
-    }).addTo(this.trackLayer);
+    const startIcon = L.divIcon({
+      className: 'custom-start-marker',
+      html: '<div style="width:20px;height:20px;background:#10b981;border:2.5px solid #ffffff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);color:#ffffff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;">D</div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+    L.marker([startPt.lat, startPt.lon], { icon: startIcon, interactive: false }).addTo(this.trackLayer);
 
-    // 4. Arrival Marker (Red Dot) if not a closed loop
+    // 5. Marqueur d'arrivée (si hors boucle : Pastille rouge 'A')
     if (!hike.isLoop && hike.points.length > 1) {
       const endPt = hike.points[hike.points.length - 1];
-      L.circleMarker([endPt.lat, endPt.lon], {
-        radius: 6.5,
-        fillColor: '#ef4444',
-        color: '#ffffff',
-        weight: 2.5,
-        fillOpacity: 1,
-        interactive: false
-      }).addTo(this.trackLayer);
+      const endIcon = L.divIcon({
+        className: 'custom-end-marker',
+        html: '<div style="width:20px;height:20px;background:#ef4444;border:2.5px solid #ffffff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);color:#ffffff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;">A</div>',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+      L.marker([endPt.lat, endPt.lon], { icon: endIcon, interactive: false }).addTo(this.trackLayer);
     }
 
   }

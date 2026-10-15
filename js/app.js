@@ -3151,6 +3151,8 @@ class AppController {
     const title = titleEl && titleEl.value.trim() ? titleEl.value.trim() : 'EXTRAIT DE CARTE TOPOGRAPHIQUE';
     const showCoordsEl = document.getElementById('map-area-opt-coords');
     const showCoords = showCoordsEl ? showCoordsEl.checked : true;
+    const trackColorEl = document.getElementById('map-area-track-color');
+    const trackColor = trackColorEl ? trackColorEl.value : '#1d4ed8';
 
     // Récupérer la randonnée choisie dans le sélecteur GPX
     const gpxSelect = document.getElementById('map-area-gpx-select');
@@ -3175,6 +3177,7 @@ class AppController {
         orientation: orientation,
         mapLayer: mapLayer,
         showCoords: showCoords,
+        trackColor: trackColor,
         hike: hikeForTrack
       });
       const trackNotice = hikeForTrack ? ` avec tracé « ${hikeForTrack.name} »` : ' (fond vierge)';

@@ -972,16 +972,27 @@
         </div>
 
         <!-- Tracé GPX à superposer (Toujours accessible et visible) -->
-        <div class="bg-rose-50/70 p-3.5 rounded-2xl border border-rose-200">
-          <label for="map-area-gpx-select" class="block text-xs font-bold text-rose-950 mb-1 flex items-center justify-between">
+        <div class="bg-blue-50/70 p-3.5 rounded-2xl border border-blue-200">
+          <label for="map-area-gpx-select" class="block text-xs font-bold text-blue-950 mb-1 flex items-center justify-between">
             <span>📍 Tracé GPX à superposer sur l'extrait :</span>
-            <span class="text-[10px] font-semibold text-rose-600 uppercase tracking-wider">Optionnel</span>
+            <span class="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Optionnel</span>
           </label>
-          <select id="map-area-gpx-select" class="w-full bg-white border border-rose-300 text-slate-800 text-xs rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-rose-500 font-medium cursor-pointer shadow-2xs">
+          <select id="map-area-gpx-select" class="w-full bg-white border border-blue-300 text-slate-800 text-xs rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer shadow-2xs">
             <option value="">🚫 Aucun tracé (fond de carte vierge)</option>
           </select>
-          <p class="text-[11px] text-rose-700 mt-1.5 leading-snug">
-            Sélectionnez une randonnée pour superposer sa trace (départ vert 🟢, arrivée damier 🏁) ou laissez « Aucun tracé » pour une carte topographique pure.
+
+          <div class="mt-2.5 flex items-center justify-between gap-2">
+            <label for="map-area-track-color" class="text-xs font-semibold text-blue-950">Couleur du tracé GPS :</label>
+            <select id="map-area-track-color" class="bg-white border border-blue-300 text-slate-800 text-xs rounded-lg px-2 py-1 font-medium focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs">
+              <option value="#1d4ed8" selected>🔵 Bleu Roi Électrique (Recommandé sur Top 25)</option>
+              <option value="#7c3aed">🟣 Violet Intense</option>
+              <option value="#ea580c">🟠 Orange Fluo</option>
+              <option value="#dc2626">🔴 Rouge Vif</option>
+            </select>
+          </div>
+
+          <p class="text-[11px] text-blue-700 mt-2 leading-snug">
+            Le tracé est renforcé d'un double halo blanc/sombre et de chevrons directionnels pour ressortir nettement au-dessus des forêts vertes et des sentiers GR roses du Top 25.
           </p>
         </div>
 
@@ -2219,15 +2230,15 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=58"></script>
-  <script src="js/auth-manager.js?v=58"></script>
-  <script src="js/gpx-parser.js?v=58"></script>
-  <script src="js/sample-data.js?v=58"></script>
-  <script src="js/storage.js?v=58"></script>
-  <script src="js/elevation-profile.js?v=58"></script>
-  <script src="js/map-manager.js?v=58"></script>
-  <script src="js/pdf-exporter.js?v=58"></script>
-  <script src="js/app.js?v=58"></script>
+  <script src="js/config.js?v=59"></script>
+  <script src="js/auth-manager.js?v=59"></script>
+  <script src="js/gpx-parser.js?v=59"></script>
+  <script src="js/sample-data.js?v=59"></script>
+  <script src="js/storage.js?v=59"></script>
+  <script src="js/elevation-profile.js?v=59"></script>
+  <script src="js/map-manager.js?v=59"></script>
+  <script src="js/pdf-exporter.js?v=59"></script>
+  <script src="js/app.js?v=59"></script>
 </body>
 </html>
 
