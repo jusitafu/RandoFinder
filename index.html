@@ -965,6 +965,13 @@
 
         <!-- Options d'affichage -->
         <div class="space-y-2 pt-1 text-xs text-slate-700">
+          <label id="map-area-opt-track-row" class="hidden flex items-start gap-2 cursor-pointer p-2.5 bg-rose-50 border border-rose-200 rounded-xl">
+            <input type="checkbox" id="map-area-opt-track" checked class="mt-0.5 w-4 h-4 text-rose-600 rounded focus:ring-rose-500">
+            <span>
+              <span class="font-bold text-rose-900">Afficher le tracé GPX</span>
+              <span id="map-area-opt-track-name" class="block text-[11px] text-rose-700"></span>
+            </span>
+          </label>
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" id="map-area-opt-coords" checked class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
             <span class="font-medium">Indiquer les coordonnées GPS (Lat/Lon) aux quatre coins</span>
@@ -1768,14 +1775,14 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=53"></script>
-  <script src="js/auth-manager.js?v=53"></script>
-  <script src="js/gpx-parser.js?v=53"></script>
-  <script src="js/sample-data.js?v=53"></script>
-  <script src="js/storage.js?v=53"></script>
-  <script src="js/elevation-profile.js?v=53"></script>
-  <script src="js/map-manager.js?v=53"></script>
-  <script src="js/pdf-exporter.js?v=53"></script>
-  <script src="js/app.js?v=53"></script>
+  <script src="js/config.js?v=54"></script>
+  <script src="js/auth-manager.js?v=54"></script>
+  <script src="js/gpx-parser.js?v=54"></script>
+  <script src="js/sample-data.js?v=54"></script>
+  <script src="js/storage.js?v=54"></script>
+  <script src="js/elevation-profile.js?v=54"></script>
+  <script src="js/map-manager.js?v=54"></script>
+  <script src="js/pdf-exporter.js?v=54"></script>
+  <script src="js/app.js?v=54"></script>
 </body>
 </html>
