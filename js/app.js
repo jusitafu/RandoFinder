@@ -635,6 +635,17 @@ class AppController {
       btnConfirmMapAreaDownload.addEventListener('click', () => this.executeMapAreaDownload());
     }
 
+    // Map Legend Modal
+    const btnMapLegend = document.getElementById('btn-map-legend');
+    if (btnMapLegend) {
+      btnMapLegend.addEventListener('click', () => this.openMapLegendModal());
+    }
+
+    const btnCloseMapLegend = document.getElementById('btn-close-map-legend-modal');
+    if (btnCloseMapLegend) {
+      btnCloseMapLegend.addEventListener('click', () => this.closeMapLegendModal());
+    }
+
     // Click on empty space in table container deselects
     const tableCol = document.getElementById('table-column');
     if (tableCol) {
@@ -645,12 +656,20 @@ class AppController {
       });
     }
 
-    // Escape key closes CGU Modal
+    // Escape key closes modals
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const cguModal = document.getElementById('cgu-modal');
         if (cguModal && !cguModal.classList.contains('hidden')) {
           this.closeCguModal();
+        }
+        const legendModal = document.getElementById('map-legend-modal');
+        if (legendModal && !legendModal.classList.contains('hidden')) {
+          this.closeMapLegendModal();
+        }
+        const areaModal = document.getElementById('map-area-modal');
+        if (areaModal && !areaModal.classList.contains('hidden')) {
+          this.closeMapAreaModal();
         }
       }
     });
@@ -3006,26 +3025,47 @@ class AppController {
       infoEl.textContent = `Zone sélectionnée : ~${dKmWidth.toFixed(1)} km × ${dKmHeight.toFixed(1)} km • 2 clics`;
     }
 
-    // Default title
+    // Déterminer la randonnée active s'il y en a une
+    const activeHike = this.areaPrintHike || this.selectedHike || (window.MapManagerInstance && window.MapManagerInstance.selectedHike) || null;
+
+    // Remplir le sélecteur de tracé GPX (accessible et visible en permanence)
+    const gpxSelect = document.getElementById('map-area-gpx-select');
     const titleEl = document.getElementById('map-area-title');
-    if (titleEl) {
-      titleEl.value = this.areaPrintHike
-        ? `${this.areaPrintHike.name} - Extrait de carte`
-        : `Extrait Cartographique (${dKmWidth.toFixed(1)} × ${dKmHeight.toFixed(1)} km)`;
+    const hikesList = (this.allHikes && this.allHikes.length > 0) ? this.allHikes : (this.hikes || []);
+
+    if (gpxSelect) {
+      gpxSelect.innerHTML = '<option value="">🚫 Aucun tracé (fond de carte vierge)</option>';
+      const sortedHikes = [...hikesList].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+      sortedHikes.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h.id;
+        opt.textContent = `📍 ${h.name} (${h.distanceKm ? h.distanceKm + ' km' : 'GPX'})`;
+        if (activeHike && (activeHike.id === h.id || activeHike.name === h.name)) {
+          opt.selected = true;
+        }
+        gpxSelect.appendChild(opt);
+      });
+
+      // Adapter automatiquement le titre en cas de changement de sélection
+      gpxSelect.onchange = () => {
+        const selectedId = gpxSelect.value;
+        const chosen = hikesList.find(h => String(h.id) === String(selectedId));
+        if (titleEl) {
+          if (chosen) {
+            titleEl.value = `${chosen.name} - Extrait de carte`;
+          } else {
+            titleEl.value = `Extrait Cartographique (${dKmWidth.toFixed(1)} × ${dKmHeight.toFixed(1)} km)`;
+          }
+        }
+      };
     }
 
-    // Option "tracé GPX" visible uniquement si une randonnée est affichée sur la carte
-    const trackRow = document.getElementById('map-area-opt-track-row');
-    const trackName = document.getElementById('map-area-opt-track-name');
-    const trackChk = document.getElementById('map-area-opt-track');
-    if (trackRow) {
-      if (this.areaPrintHike) {
-        trackRow.classList.remove('hidden');
-        if (trackName) trackName.textContent = this.areaPrintHike.name;
-        if (trackChk) trackChk.checked = true;
-      } else {
-        trackRow.classList.add('hidden');
-      }
+    // Default title
+    if (titleEl) {
+      titleEl.value = activeHike
+        ? `${activeHike.name} - Extrait de carte`
+        : `Extrait Cartographique (${dKmWidth.toFixed(1)} × ${dKmHeight.toFixed(1)} km)`;
     }
 
     // Default layer matching currently active map layer
@@ -3058,9 +3098,15 @@ class AppController {
     const title = titleEl && titleEl.value.trim() ? titleEl.value.trim() : 'EXTRAIT DE CARTE TOPOGRAPHIQUE';
     const showCoordsEl = document.getElementById('map-area-opt-coords');
     const showCoords = showCoordsEl ? showCoordsEl.checked : true;
-    const trackChk = document.getElementById('map-area-opt-track');
-    const includeTrack = !!(this.areaPrintHike && trackChk && trackChk.checked);
-    const hikeForTrack = includeTrack ? this.areaPrintHike : null;
+
+    // Récupérer la randonnée choisie dans le sélecteur GPX
+    const gpxSelect = document.getElementById('map-area-gpx-select');
+    const selectedHikeId = gpxSelect ? gpxSelect.value : '';
+    let hikeForTrack = null;
+    if (selectedHikeId) {
+      const hikesList = (this.allHikes && this.allHikes.length > 0) ? this.allHikes : (this.hikes || []);
+      hikeForTrack = hikesList.find(h => String(h.id) === String(selectedHikeId)) || null;
+    }
 
     this.closeMapAreaModal();
 
@@ -3078,11 +3124,49 @@ class AppController {
         showCoords: showCoords,
         hike: hikeForTrack
       });
-      this.showToast(`Extrait de carte (${format.toUpperCase()} ${orientation === 'landscape' ? 'Paysage' : 'Portrait'}) téléchargé !`, "success");
+      const trackNotice = hikeForTrack ? ` avec tracé « ${hikeForTrack.name} »` : ' (fond vierge)';
+      this.showToast(`Extrait de carte (${format.toUpperCase()} ${orientation === 'landscape' ? 'Paysage' : 'Portrait'})${trackNotice} téléchargé !`, "success");
     } catch (err) {
       console.error("Erreur export carte zone :", err);
       this.showToast("Erreur lors de la génération de la carte PDF", "error");
     }
+  }
+
+  // =========================================================================
+  // MAP LEGEND MODAL (IGN TOP 25 / OPENTOPOMAP / OSM)
+  // =========================================================================
+  openMapLegendModal(tab = 'ign') {
+    const modal = document.getElementById('map-legend-modal');
+    if (!modal) return;
+    this.switchLegendTab(tab);
+    modal.classList.remove('hidden');
+  }
+
+  closeMapLegendModal() {
+    const modal = document.getElementById('map-legend-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  switchLegendTab(tabKey) {
+    const tabs = ['ign', 'opentopo', 'osm'];
+    tabs.forEach(t => {
+      const btn = document.getElementById(`tab-legend-btn-${t}`);
+      const pane = document.getElementById(`legend-pane-${t}`);
+      if (btn) {
+        if (t === tabKey) {
+          btn.className = 'tab-legend-btn px-4 py-2 text-xs font-bold border-b-2 border-emerald-600 text-emerald-700 cursor-pointer flex items-center gap-1.5 transition';
+        } else {
+          btn.className = 'tab-legend-btn px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 border-b-2 border-transparent cursor-pointer flex items-center gap-1.5 transition';
+        }
+      }
+      if (pane) {
+        if (t === tabKey) {
+          pane.classList.remove('hidden');
+        } else {
+          pane.classList.add('hidden');
+        }
+      }
+    });
   }
 
   // =========================================================================
