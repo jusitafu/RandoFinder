@@ -266,15 +266,34 @@ class AppController {
       });
     }
 
-    // Search Location Input (Worldwide Autocomplete + Enter support)
+    // Search Location Input (High-Speed Autocomplete + Enter support)
     const locationInput = document.getElementById('location-input');
     if (locationInput) {
       let debounceTimer = null;
       locationInput.addEventListener('input', (e) => {
         clearTimeout(debounceTimer);
         const query = e.target.value.trim();
-        if (query.length < 2) return;
-        debounceTimer = setTimeout(() => this.searchPlaces(query), 300);
+        const resultsContainer = document.getElementById('location-autocomplete-results');
+        if (query.length < 2) {
+          if (resultsContainer) resultsContainer.classList.add('hidden');
+          return;
+        }
+
+        // 1. Réponse instantanée si déjà en cache mémoire (0 ms)
+        const normKey = query.toLowerCase();
+        if (this.placesCache && this.placesCache.has(normKey)) {
+          this.renderPlacesResults(this.placesCache.get(normKey), query);
+          return;
+        }
+
+        // 2. Pré-suggestions instantanées sur les communes & massifs locaux (0 ms)
+        const localMatches = this.getLocalPlaceMatches(query);
+        if (localMatches.length > 0) {
+          this.renderPlacesResults(localMatches, query);
+        }
+
+        // 3. Appel réseau ultra-réactif (debounce 120 ms)
+        debounceTimer = setTimeout(() => this.searchPlaces(query), 120);
       });
 
       locationInput.addEventListener('keydown', async (e) => {
@@ -2000,21 +2019,83 @@ class AppController {
     });
   }
 
-  async fetchPlacesList(query) {
+  getLocalPlaceMatches(query) {
+    const q = (query || '').toLowerCase().trim();
+    if (q.length < 2) return [];
+
+    const commonPlaces = [
+      { title: "Sanary-sur-Mer", subtitle: "83110, Var, Provence-Alpes-Côte d'Azur", lat: 43.1187, lon: 5.8037, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Bandol", subtitle: "83150, Var, Provence-Alpes-Côte d'Azur", lat: 43.1364, lon: 5.7533, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Ollioules", subtitle: "83190, Var, Provence-Alpes-Côte d'Azur", lat: 43.1397, lon: 5.8481, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Six-Fours-les-Plages", subtitle: "83140, Var, Provence-Alpes-Côte d'Azur", lat: 43.1066, lon: 5.8396, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Toulon", subtitle: "83000, Var, Provence-Alpes-Côte d'Azur", lat: 43.1242, lon: 5.9280, typeLabel: "Ville", icon: "🏙️" },
+      { title: "La Seyne-sur-Mer", subtitle: "83500, Var, Provence-Alpes-Côte d'Azur", lat: 43.1009, lon: 5.8824, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Saint-Mandrier-sur-Mer", subtitle: "83430, Var, Provence-Alpes-Côte d'Azur", lat: 43.0789, lon: 5.9288, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Le Beausset", subtitle: "83330, Var, Provence-Alpes-Côte d'Azur", lat: 43.1978, lon: 5.8039, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Le Castellet", subtitle: "83330, Var, Provence-Alpes-Côte d'Azur", lat: 43.2036, lon: 5.7769, typeLabel: "Ville", icon: "🏙️" },
+      { title: "La Cadière-d'Azur", subtitle: "83740, Var, Provence-Alpes-Côte d'Azur", lat: 43.1956, lon: 5.7561, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Saint-Cyr-sur-Mer", subtitle: "83270, Var, Provence-Alpes-Côte d'Azur", lat: 43.1819, lon: 5.7142, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Évenos / Sainte-Anne", subtitle: "83330, Var, Provence-Alpes-Côte d'Azur", lat: 43.1664, lon: 5.8286, typeLabel: "Village", icon: "📍" },
+      { title: "Signes", subtitle: "83870, Var, Provence-Alpes-Côte d'Azur", lat: 43.2922, lon: 5.8631, typeLabel: "Village", icon: "📍" },
+      { title: "Cassis", subtitle: "13260, Bouches-du-Rhône", lat: 43.2144, lon: 5.5381, typeLabel: "Ville", icon: "🏙️" },
+      { title: "La Ciotat", subtitle: "13600, Bouches-du-Rhône", lat: 43.1748, lon: 5.6047, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Roquefort-la-Bédoule", subtitle: "13830, Bouches-du-Rhône", lat: 43.2483, lon: 5.5908, typeLabel: "Village", icon: "📍" },
+      { title: "Hyères", subtitle: "83400, Var, Provence-Alpes-Côte d'Azur", lat: 43.1206, lon: 6.1286, typeLabel: "Ville", icon: "🏙️" },
+      { title: "La Valette-du-Var", subtitle: "83160, Var, Provence-Alpes-Côte d'Azur", lat: 43.1378, lon: 5.9831, typeLabel: "Ville", icon: "🏙️" },
+      { title: "La Garde", subtitle: "83130, Var, Provence-Alpes-Côte d'Azur", lat: 43.1250, lon: 6.0125, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Le Pradet", subtitle: "83220, Var, Provence-Alpes-Côte d'Azur", lat: 43.1064, lon: 6.0222, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Carqueiranne", subtitle: "83320, Var, Provence-Alpes-Côte d'Azur", lat: 43.0947, lon: 6.0747, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Solliès-Pont", subtitle: "83210, Var, Provence-Alpes-Côte d'Azur", lat: 43.1906, lon: 6.0411, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Cuers", subtitle: "83390, Var, Provence-Alpes-Côte d'Azur", lat: 43.2375, lon: 6.0717, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Marseille", subtitle: "13000, Bouches-du-Rhône", lat: 43.2965, lon: 5.3698, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Aubagne", subtitle: "13400, Bouches-du-Rhône", lat: 43.2928, lon: 5.5708, typeLabel: "Ville", icon: "🏙️" },
+      { title: "Cap Sicié / Notre-Dame du Mai", subtitle: "Massif côtier, Six-Fours / La Seyne", lat: 43.0578, lon: 5.8569, typeLabel: "Massif", icon: "⛰️" },
+      { title: "Mont Faron", subtitle: "Sommet & Belvédère, Toulon", lat: 43.1539, lon: 5.9525, typeLabel: "Sommet", icon: "⛰️" },
+      { title: "Le Croupatier", subtitle: "Barre rocheuse, Ollioules / Evenos", lat: 43.1611, lon: 5.8614, typeLabel: "Massif", icon: "⛰️" },
+      { title: "Gros Cerveau", subtitle: "Crête panoramique, Ollioules / Sanary", lat: 43.1528, lon: 5.8194, typeLabel: "Massif", icon: "⛰️" }
+    ];
+
+    return commonPlaces
+      .filter(p => p.title.toLowerCase().includes(q) || p.subtitle.toLowerCase().includes(q))
+      .map(p => ({
+        ...p,
+        shortName: p.title,
+        displayName: `${p.title} (${p.subtitle})`,
+        isAddress: false
+      }));
+  }
+
+  async fetchPlacesList(query, signal) {
     const cleanQuery = (query || '').trim();
     if (cleanQuery.length < 2) return [];
+
+    const normKey = cleanQuery.toLowerCase();
+    if (!this.placesCache) this.placesCache = new Map();
+    if (this.placesCache.has(normKey)) {
+      return this.placesCache.get(normKey);
+    }
 
     const hasDigits = /\d/.test(cleanQuery);
     let results = [];
 
-    // 0. Base Adresse Nationale (BAN) - Précision maximale pour la France (adresses avec numéros de rue)
+    // 1. BASE ADRESSE NATIONALE (BAN) - ULTRA-RAPIDE POUR LA FRANCE (~150-300 ms)
     try {
-      const bUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(cleanQuery)}&limit=6`;
-      const bRes = await fetch(bUrl);
+      const bUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(cleanQuery)}&limit=7`;
+      const banController = new AbortController();
+      const banTimer = setTimeout(() => banController.abort(), 1500);
+
+      // Combiner le signal externe et le timeout
+      const onAbort = () => banController.abort();
+      if (signal) signal.addEventListener('abort', onAbort, { once: true });
+
+      const bRes = await fetch(bUrl, { signal: banController.signal });
+      clearTimeout(banTimer);
+      if (signal) signal.removeEventListener('abort', onAbort);
+
       if (bRes.ok) {
         const bData = await bRes.json();
         const banItems = (bData.features || [])
-          .filter(f => f.properties && (f.properties.score > 0.45 || (hasDigits && f.properties.type === 'housenumber')))
+          .filter(f => f.properties && (f.properties.score > 0.40 || (hasDigits && f.properties.type === 'housenumber')))
           .map(f => {
             const props = f.properties || {};
             const type = props.type || 'locality';
@@ -2049,175 +2130,147 @@ class AppController {
         results.push(...banItems);
       }
     } catch (e) {
-      console.warn("Erreur BAN :", e);
+      if (e.name !== 'AbortError') console.warn("Erreur BAN :", e);
     }
 
-    // 1. Photon Komoot API (Mondial : adresses, rues, parcs, sommets, villes dans le monde entier)
+    // SI LA BAN A TROUVÉ DES RÉSULTATS : RETOUR IMMÉDIAT (Économise 10 secondes d'attente !)
+    if (results.length > 0) {
+      if (hasDigits) {
+        results.sort((a, b) => (b.isAddress ? 1 : 0) - (a.isAddress ? 1 : 0));
+      }
+      this.placesCache.set(normKey, results);
+      return results;
+    }
+
+    // 2. FALLBACK MONDIAL (Nominatim OpenStreetMap) UNIQUEMENT SI 0 RÉSULTAT EN FRANCE
     try {
-      const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanQuery)}&limit=8`;
-      const pRes = await fetch(pUrl);
-      if (pRes.ok) {
-        const pData = await pRes.json();
-        if (pData && pData.features && pData.features.length > 0) {
-          const photonItems = pData.features.map(f => {
-            const props = f.properties || {};
-            const coords = f.geometry ? f.geometry.coordinates : [0, 0];
-            const hasNum = Boolean(props.housenumber);
-            const streetWithNum = props.street 
-              ? (hasNum ? `${props.housenumber} ${props.street}` : props.street)
-              : '';
-            
-            let title = props.name || streetWithNum || props.city || cleanQuery;
-            if (props.name && streetWithNum && props.name !== streetWithNum) {
-              title = `${props.name} (${streetWithNum})`;
-            }
+      const nUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(cleanQuery)}&limit=6`;
+      const nController = new AbortController();
+      const nTimer = setTimeout(() => nController.abort(), 1800);
 
-            const subParts = [];
-            if (props.postcode || props.city) subParts.push([props.postcode, props.city].filter(Boolean).join(' '));
-            if (props.state && props.state !== props.city) subParts.push(props.state);
-            if (props.country) subParts.push(props.country);
-            const subtitle = subParts.join(', ');
+      const onAbortN = () => nController.abort();
+      if (signal) signal.addEventListener('abort', onAbortN, { once: true });
 
-            let icon = '📍';
-            let typeLabel = 'Lieu';
-            const pType = (props.type || '').toLowerCase();
-            const osmKey = (props.osm_key || '').toLowerCase();
-            const osmVal = (props.osm_value || '').toLowerCase();
+      const nRes = await fetch(nUrl, { 
+        headers: { 'Accept-Language': 'fr' },
+        signal: nController.signal 
+      });
+      clearTimeout(nTimer);
+      if (signal) signal.removeEventListener('abort', onAbortN);
 
-            if (pType === 'house' || hasNum) {
-              icon = '🏠';
-              typeLabel = 'Adresse';
-            } else if (pType === 'street' || osmKey === 'highway') {
-              icon = '🛣️';
-              typeLabel = 'Rue';
-            } else if (pType === 'city' || osmKey === 'place') {
-              icon = '🏙️';
-              typeLabel = 'Ville';
-            } else if (osmKey === 'natural' || osmVal === 'peak') {
-              icon = '⛰️';
-              typeLabel = 'Nature';
-            }
+      if (nRes.ok) {
+        const nData = await nRes.json();
+        if (nData && nData.length > 0) {
+          results = nData.map(p => {
+            const addr = p.address || {};
+            const hasNum = Boolean(addr.house_number);
+            const street = addr.road ? (hasNum ? `${addr.house_number} ${addr.road}` : addr.road) : '';
+            const title = street || (p.display_name || '').split(',')[0];
+            const subParts = [addr.city || addr.town || addr.village, addr.state, addr.country].filter(Boolean);
+            const subtitle = subParts.join(', ') || p.display_name;
 
             return {
-              lat: coords[1],
-              lon: coords[0],
+              lat: parseFloat(p.lat),
+              lon: parseFloat(p.lon),
               title: title,
               subtitle: subtitle,
               shortName: title,
               displayName: subtitle ? `${title} (${subtitle})` : title,
-              icon: icon,
-              typeLabel: typeLabel,
-              isAddress: pType === 'house' || hasNum
+              icon: hasNum ? '🏠' : '📍',
+              typeLabel: hasNum ? 'Adresse' : 'Lieu',
+              isAddress: hasNum
             };
-          }).filter(p => p.lat && p.lon);
-
-          // Déduplication avec les résultats BAN existants (par proximité < 100m)
-          photonItems.forEach(pi => {
-            const exists = results.some(r => 
-              Math.abs(r.lat - pi.lat) < 0.001 && Math.abs(r.lon - pi.lon) < 0.001
-            );
-            if (!exists) {
-              results.push(pi);
-            }
           });
         }
       }
     } catch (e) {
-      console.warn("Erreur Photon :", e);
+      if (e.name !== 'AbortError') console.warn("Erreur Nominatim fallback :", e);
     }
 
-    // 2. Nominatim fallback (si aucun résultat trouvé)
-    if (results.length === 0) {
-      try {
-        const nUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(cleanQuery)}&limit=6`;
-        const nRes = await fetch(nUrl, { headers: { 'Accept-Language': 'fr' } });
-        if (nRes.ok) {
-          const nData = await nRes.json();
-          if (nData && nData.length > 0) {
-            results = nData.map(p => {
-              const addr = p.address || {};
-              const hasNum = Boolean(addr.house_number);
-              const street = addr.road ? (hasNum ? `${addr.house_number} ${addr.road}` : addr.road) : '';
-              const title = street || (p.display_name || '').split(',')[0];
-              const subParts = [addr.city || addr.town || addr.village, addr.state, addr.country].filter(Boolean);
-              const subtitle = subParts.join(', ') || p.display_name;
-
-              return {
-                lat: parseFloat(p.lat),
-                lon: parseFloat(p.lon),
-                title: title,
-                subtitle: subtitle,
-                shortName: title,
-                displayName: subtitle ? `${title} (${subtitle})` : title,
-                icon: hasNum ? '🏠' : '📍',
-                typeLabel: hasNum ? 'Adresse' : 'Lieu',
-                isAddress: hasNum
-              };
-            });
-          }
-        }
-      } catch (e) {
-        console.warn("Erreur Nominatim :", e);
-      }
-    }
-
-    // Si la recherche contient des chiffres (ex: "6 Joubert street"), prioriser les adresses exactes
-    if (hasDigits) {
-      results.sort((a, b) => (b.isAddress ? 1 : 0) - (a.isAddress ? 1 : 0));
+    if (results.length > 0) {
+      this.placesCache.set(normKey, results);
     }
 
     return results;
   }
 
-  async searchPlaces(query) {
+  renderPlacesResults(places, query) {
     const resultsContainer = document.getElementById('location-autocomplete-results');
     if (!resultsContainer) return;
 
-    try {
-      const places = await this.fetchPlacesList(query);
-      resultsContainer.innerHTML = '';
-      if (!places || places.length === 0) {
-        resultsContainer.innerHTML = `
-          <div class="p-3 text-xs text-slate-500 text-center flex items-center justify-center gap-1.5">
-            <span>🔍</span> Aucun lieu ou adresse trouvé pour "<b>${this.escapeHtml(query)}</b>"
-          </div>`;
-        resultsContainer.classList.remove('hidden');
-        return;
-      }
-
+    resultsContainer.innerHTML = '';
+    if (!places || places.length === 0) {
+      resultsContainer.innerHTML = `
+        <div class="p-3 text-xs text-slate-500 text-center flex items-center justify-center gap-1.5">
+          <span>🔍</span> Aucun lieu ou adresse trouvé pour "<b>${this.escapeHtml(query)}</b>"
+        </div>`;
       resultsContainer.classList.remove('hidden');
-      places.forEach(place => {
-        const item = document.createElement('div');
-        item.className = 'px-3.5 py-2.5 hover:bg-emerald-50 cursor-pointer transition border-b border-slate-100 last:border-b-0 flex items-start gap-3 text-left group';
-        
-        const badgeColor = place.isAddress 
-          ? 'bg-amber-100 text-amber-800 border-amber-200'
-          : place.typeLabel === 'Ville'
-          ? 'bg-sky-100 text-sky-800 border-sky-200'
-          : place.typeLabel === 'Rue'
-          ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
-          : place.typeLabel === 'Nature'
-          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-          : 'bg-slate-100 text-slate-700 border-slate-200';
+      return;
+    }
 
-        item.innerHTML = `
-          <span class="text-base select-none mt-0.5 group-hover:scale-110 transition-transform">${place.icon || '📍'}</span>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="font-semibold text-xs sm:text-sm text-slate-800 truncate group-hover:text-emerald-700">${this.escapeHtml(place.title)}</span>
-              <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${badgeColor} select-none whitespace-nowrap">${place.typeLabel || 'Lieu'}</span>
-            </div>
-            ${place.subtitle ? `<div class="text-[11px] text-slate-500 truncate mt-0.5">${this.escapeHtml(place.subtitle)}</div>` : ''}
+    resultsContainer.classList.remove('hidden');
+    places.forEach(place => {
+      const item = document.createElement('div');
+      item.className = 'px-3.5 py-2.5 hover:bg-emerald-50 cursor-pointer transition border-b border-slate-100 last:border-b-0 flex items-start gap-3 text-left group';
+      
+      const badgeColor = place.isAddress 
+        ? 'bg-amber-100 text-amber-800 border-amber-200'
+        : place.typeLabel === 'Ville'
+        ? 'bg-sky-100 text-sky-800 border-sky-200'
+        : place.typeLabel === 'Rue'
+        ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
+        : place.typeLabel === 'Nature' || place.typeLabel === 'Massif' || place.typeLabel === 'Sommet'
+        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+        : 'bg-slate-100 text-slate-700 border-slate-200';
+
+      item.innerHTML = `
+        <span class="text-base select-none mt-0.5 group-hover:scale-110 transition-transform">${place.icon || '📍'}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-xs sm:text-sm text-slate-800 truncate group-hover:text-emerald-700">${this.escapeHtml(place.title)}</span>
+            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${badgeColor} select-none whitespace-nowrap">${place.typeLabel || 'Lieu'}</span>
           </div>
-        `;
-        
-        item.addEventListener('click', () => {
-          this.applySelectedPlace(place.lat, place.lon, place.title, place.isAddress);
-        });
-        resultsContainer.appendChild(item);
+          ${place.subtitle ? `<div class="text-[11px] text-slate-500 truncate mt-0.5">${this.escapeHtml(place.subtitle)}</div>` : ''}
+        </div>
+      `;
+      
+      item.addEventListener('click', () => {
+        this.applySelectedPlace(place.lat, place.lon, place.title, place.isAddress);
       });
+      resultsContainer.appendChild(item);
+    });
+  }
+
+  async searchPlaces(query) {
+    // Annuler la requête réseau précédente si l'utilisateur continue de taper
+    if (this.placesAbortController) {
+      this.placesAbortController.abort();
+    }
+    this.placesAbortController = new AbortController();
+    const signal = this.placesAbortController.signal;
+
+    const iconEl = document.getElementById('location-search-icon');
+    if (iconEl) iconEl.innerHTML = '<span class="animate-spin inline-block">⏳</span>';
+
+    try {
+      const places = await this.fetchPlacesList(query, signal);
+      
+      // Fusionner avec les pré-suggestions locales
+      const localMatches = this.getLocalPlaceMatches(query);
+      const combined = [...localMatches];
+      (places || []).forEach(p => {
+        const exists = combined.some(c => 
+          (c.title && c.title.toLowerCase() === p.title.toLowerCase()) ||
+          (Math.abs(c.lat - p.lat) < 0.005 && Math.abs(c.lon - p.lon) < 0.005)
+        );
+        if (!exists) combined.push(p);
+      });
+
+      this.renderPlacesResults(combined, query);
     } catch (e) {
-      console.warn("Erreur recherche lieu :", e);
+      if (e.name !== 'AbortError') console.warn("Erreur recherche lieu :", e);
+    } finally {
+      if (iconEl) iconEl.textContent = '📍';
     }
   }
 
