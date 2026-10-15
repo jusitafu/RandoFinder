@@ -29,6 +29,15 @@ class MapManager {
     // Default center: Sanary-sur-Mer (43.1189, 5.8033)
     this.searchOrigin = { lat: 43.1189, lon: 5.8033, name: 'Sanary-sur-Mer' };
     this.searchRadiusKm = 100;
+
+    // Area selection state (2-click rectangle print mode)
+    this.currentBaseLayer = 'ign';
+    this.areaSelectionActive = false;
+    this.areaSelectionCorner1 = null;
+    this.areaSelectionLayer = null;
+    this.areaSelectionRect = null;
+    this.areaSelectionOnComplete = null;
+    this.areaSelectionOnCancel = null;
   }
 
   init() {
@@ -90,8 +99,21 @@ class MapManager {
 
     this.updateSearchRadiusVisuals(false);
 
+    // Track active base layer
+    this.map.on('baselayerchange', (e) => {
+      const name = (e.name || '').toLowerCase();
+      if (name.includes('ign') || name.includes('topo')) this.currentBaseLayer = 'ign';
+      else if (name.includes('opentopo')) this.currentBaseLayer = 'opentopo';
+      else if (name.includes('france') || name.includes('openstreetmap')) this.currentBaseLayer = 'osmfr';
+      else if (name.includes('satellite')) this.currentBaseLayer = 'satellite';
+    });
+
     // Map Click Listener (Background click deselects or sets search origin)
     this.map.on('click', (e) => {
+      if (this.areaSelectionActive) {
+        this.handleAreaSelectionClick(e.latlng);
+        return;
+      }
       if (this.clickModeActive) {
         this.setSearchOrigin(e.latlng.lat, e.latlng.lng, 'Point choisi sur carte');
         this.setClickMode(false);
@@ -112,6 +134,190 @@ class MapManager {
     setTimeout(() => {
       if (this.map) this.map.invalidateSize();
     }, 200);
+  }
+
+  getCurrentBaseLayerKey() {
+    return this.currentBaseLayer || 'ign';
+  }
+
+  /**
+   * Start 2-click rectangular area selection on the map
+   * @param {Function} onComplete - Callback with final bounds [[minLat, minLon], [maxLat, maxLon]]
+   * @param {Function} onCancel - Callback on cancel
+   */
+  startAreaSelection(onComplete, onCancel) {
+    this.areaSelectionActive = true;
+    this.areaSelectionCorner1 = null;
+    this.areaSelectionOnComplete = onComplete;
+    this.areaSelectionOnCancel = onCancel;
+
+    // Change cursor to crosshair
+    L.DomUtil.addClass(this.map.getContainer(), 'area-selection-cursor');
+
+    // Layer group for selection rectangle and corner markers
+    if (!this.areaSelectionLayer) {
+      this.areaSelectionLayer = L.layerGroup().addTo(this.map);
+    }
+    this.areaSelectionLayer.clearLayers();
+    this.areaSelectionRect = null;
+
+    // Show banner & update button in UI
+    const banner = document.getElementById('map-selection-banner');
+    const msg = document.getElementById('map-selection-msg');
+    const btnText = document.getElementById('btn-map-area-print-text');
+    if (banner) banner.classList.remove('hidden');
+    if (msg) msg.innerHTML = '<span class="font-bold text-emerald-300">Étape 1 sur 2 :</span> Cliquez sur la carte pour poser le premier coin.';
+    if (btnText) btnText.textContent = 'Annuler la sélection';
+
+    // Mouse move handler
+    this._onAreaMouseMove = (e) => {
+      if (!this.areaSelectionCorner1) return;
+      const corner2 = e.latlng;
+      const bounds = L.latLngBounds(this.areaSelectionCorner1, corner2);
+
+      if (!this.areaSelectionRect) {
+        this.areaSelectionRect = L.rectangle(bounds, {
+          color: '#10b981',
+          weight: 2,
+          dashArray: '5, 5',
+          fillColor: '#10b981',
+          fillOpacity: 0.2
+        }).addTo(this.areaSelectionLayer);
+      } else {
+        this.areaSelectionRect.setBounds(bounds);
+      }
+
+      // Calculate approximate dimensions in km
+      const dKmWidth = GPXParser.haversineDistance(
+        this.areaSelectionCorner1.lat, this.areaSelectionCorner1.lng,
+        this.areaSelectionCorner1.lat, corner2.lng
+      );
+      const dKmHeight = GPXParser.haversineDistance(
+        this.areaSelectionCorner1.lat, this.areaSelectionCorner1.lng,
+        corner2.lat, this.areaSelectionCorner1.lng
+      );
+      if (msg) {
+        msg.innerHTML = `<span class="font-bold text-emerald-300">Étape 2 sur 2 :</span> Cliquez pour le coin opposé • <span class="bg-slate-800 px-2 py-0.5 rounded text-white font-mono">${dKmWidth.toFixed(1)} km × ${dKmHeight.toFixed(1)} km</span>`;
+      }
+    };
+    this.map.on('mousemove', this._onAreaMouseMove);
+
+    // Escape key handler
+    this._onAreaKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        this.cancelAreaSelection();
+      }
+    };
+    window.addEventListener('keydown', this._onAreaKeyDown);
+  }
+
+  cancelAreaSelection() {
+    this.areaSelectionActive = false;
+    this.areaSelectionCorner1 = null;
+    L.DomUtil.removeClass(this.map.getContainer(), 'area-selection-cursor');
+
+    if (this._onAreaMouseMove) {
+      this.map.off('mousemove', this._onAreaMouseMove);
+      this._onAreaMouseMove = null;
+    }
+    if (this._onAreaKeyDown) {
+      window.removeEventListener('keydown', this._onAreaKeyDown);
+      this._onAreaKeyDown = null;
+    }
+
+    if (this.areaSelectionLayer) {
+      this.areaSelectionLayer.clearLayers();
+    }
+    this.areaSelectionRect = null;
+
+    const banner = document.getElementById('map-selection-banner');
+    const btnText = document.getElementById('btn-map-area-print-text');
+    if (banner) banner.classList.add('hidden');
+    if (btnText) btnText.textContent = 'Imprimer une zone';
+
+    if (this.areaSelectionOnCancel) {
+      this.areaSelectionOnCancel();
+    }
+  }
+
+  handleAreaSelectionClick(latlng) {
+    if (!this.areaSelectionCorner1) {
+      // 1st click: set Corner 1
+      this.areaSelectionCorner1 = latlng;
+
+      // Marker at corner 1
+      L.circleMarker(latlng, {
+        radius: 6,
+        color: '#ffffff',
+        weight: 2,
+        fillColor: '#10b981',
+        fillOpacity: 1
+      }).addTo(this.areaSelectionLayer);
+
+      const msg = document.getElementById('map-selection-msg');
+      if (msg) {
+        msg.innerHTML = '<span class="font-bold text-emerald-300">Étape 2 sur 2 :</span> Déplacez la souris et cliquez pour figer le coin opposé.';
+      }
+    } else {
+      // 2nd click: finish selection
+      const corner2 = latlng;
+      const bounds = L.latLngBounds(this.areaSelectionCorner1, corner2);
+
+      // Lock rectangle style (solid border)
+      if (this.areaSelectionRect) {
+        this.areaSelectionRect.setBounds(bounds);
+        this.areaSelectionRect.setStyle({
+          dashArray: null,
+          weight: 3,
+          color: '#059669',
+          fillOpacity: 0.15
+        });
+      }
+
+      // Marker at corner 2
+      L.circleMarker(corner2, {
+        radius: 6,
+        color: '#ffffff',
+        weight: 2,
+        fillColor: '#059669',
+        fillOpacity: 1
+      }).addTo(this.areaSelectionLayer);
+
+      // Clean up event listeners & cursor
+      L.DomUtil.removeClass(this.map.getContainer(), 'area-selection-cursor');
+      if (this._onAreaMouseMove) {
+        this.map.off('mousemove', this._onAreaMouseMove);
+        this._onAreaMouseMove = null;
+      }
+      if (this._onAreaKeyDown) {
+        window.removeEventListener('keydown', this._onAreaKeyDown);
+        this._onAreaKeyDown = null;
+      }
+
+      const banner = document.getElementById('map-selection-banner');
+      const btnText = document.getElementById('btn-map-area-print-text');
+      if (banner) banner.classList.add('hidden');
+      if (btnText) btnText.textContent = 'Imprimer une zone';
+
+      const finalBounds = [
+        [Math.min(bounds.getSouth(), bounds.getNorth()), Math.min(bounds.getWest(), bounds.getEast())],
+        [Math.max(bounds.getSouth(), bounds.getNorth()), Math.max(bounds.getWest(), bounds.getEast())]
+      ];
+
+      this.areaSelectionActive = false;
+      this.areaSelectionCorner1 = null;
+
+      if (this.areaSelectionOnComplete) {
+        this.areaSelectionOnComplete(finalBounds);
+      }
+    }
+  }
+
+  clearAreaSelectionVisuals() {
+    if (this.areaSelectionLayer) {
+      this.areaSelectionLayer.clearLayers();
+    }
+    this.areaSelectionRect = null;
   }
 
   setClickMode(active) {
