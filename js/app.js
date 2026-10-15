@@ -2827,6 +2827,10 @@ class AppController {
     const incMap = document.getElementById('opt-pdf-map').checked;
     const mapLayerEl = document.getElementById('opt-pdf-map-layer');
     const mapLayer = mapLayerEl ? mapLayerEl.value : 'ign';
+    const pdfFormatEl = document.getElementById('opt-pdf-format');
+    const pdfFormat = pdfFormatEl ? pdfFormatEl.value : 'a4';
+    const pdfOrientationEl = document.getElementById('opt-pdf-orientation');
+    const pdfOrientation = pdfOrientationEl ? pdfOrientationEl.value : 'portrait';
     const incProfile = document.getElementById('opt-pdf-profile').checked;
     const incNotes = document.getElementById('opt-pdf-notes').checked;
 
@@ -2856,15 +2860,17 @@ class AppController {
     }
 
     if (dlPdf) {
-      this.showToast("Génération de la Fiche Randonnée avec fond de carte...", "info");
+      this.showToast("Génération de la Fiche Randonnée...", "info");
       try {
         await PDFExporter.exportFichePDF(this.selectedHike, {
           includeMap: incMap,
           mapLayer: mapLayer,
+          format: pdfFormat,
+          orientation: pdfOrientation,
           includeProfile: incProfile,
           includeNotes: incNotes
         });
-        this.showToast("Fiche Randonnée PDF téléchargée !", "success");
+        this.showToast(`Fiche PDF (${pdfFormat.toUpperCase()} ${pdfOrientation === 'landscape' ? 'Paysage' : 'Portrait'}) téléchargée !`, "success");
       } catch (err) {
         console.error("Erreur PDF :", err);
         this.showToast("Erreur lors de la génération du PDF", "error");
