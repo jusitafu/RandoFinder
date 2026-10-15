@@ -31,7 +31,7 @@ class MapManager {
     this.searchRadiusKm = 100;
 
     // Area selection state (2-click rectangle print mode)
-    this.currentBaseLayer = 'ign';
+    this.currentBaseLayer = 'igntop25';
     this.areaSelectionActive = false;
     this.areaSelectionCorner1 = null;
     this.areaSelectionLayer = null;
@@ -43,10 +43,17 @@ class MapManager {
   init() {
     if (this.map) return;
 
-    // 1. Define 100% Free & Unrestricted French & Global Base Layers (No API Key Required)
+    // 1. Define Base Layers
+    // Véritable IGN TOP 25 officiel (Scan 25 Touristique papier avec balisages GR® roses et rochers)
+    const ignTop25 = L.tileLayer('https://data.geopf.fr/private/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image%2Fjpeg&apikey=ign_scan_ws', {
+      maxZoom: 19,
+      maxNativeZoom: 18,
+      attribution: '&copy; IGN France - Carte TOPO 25 (SCAN 25®)'
+    });
+
     const ignPlan = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image%2Fpng', {
       maxZoom: 19,
-      attribution: '&copy; IGN France - Géoplateforme'
+      attribution: '&copy; IGN France - Plan Numérique v2'
     });
 
     const osmFr = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
@@ -74,19 +81,20 @@ class MapManager {
     });
 
     this.baseLayers = {
-      "IGN Plan / Topo (Officiel)": ignPlan,
-      "OpenStreetMap France": osmFr,
-      "OpenTopoMap (Relief)": openTopo,
+      "IGN TOP 25 (Carte papier officielle)": ignTop25,
+      "IGN Plan (Numérique moderne)": ignPlan,
+      "OpenTopoMap (Relief mondial)": openTopo,
+      "OpenStreetMap France (Sentiers)": osmFr,
       "Satellite Mondial (Esri 🌍)": esriSat,
       "Satellite France (IGN Ortho)": ignSat
     };
 
-    // 2. Init Map centered on Sanary-sur-Mer with official IGN Plan Topo layer
+    // 2. Init Map centered on Sanary-sur-Mer with official IGN Top 25 layer
     this.map = L.map(this.containerId, {
       center: [this.searchOrigin.lat, this.searchOrigin.lon],
       zoom: 11,
       maxZoom: 19,
-      layers: [ignPlan],
+      layers: [ignTop25],
       zoomControl: true
     });
 
@@ -102,7 +110,8 @@ class MapManager {
     // Track active base layer
     this.map.on('baselayerchange', (e) => {
       const name = (e.name || '').toLowerCase();
-      if (name.includes('ign') || name.includes('topo')) this.currentBaseLayer = 'ign';
+      if (name.includes('top 25') || name.includes('top25')) this.currentBaseLayer = 'igntop25';
+      else if (name.includes('plan')) this.currentBaseLayer = 'ignplan';
       else if (name.includes('opentopo')) this.currentBaseLayer = 'opentopo';
       else if (name.includes('france') || name.includes('openstreetmap')) this.currentBaseLayer = 'osmfr';
       else if (name.includes('satellite')) this.currentBaseLayer = 'satellite';
@@ -137,7 +146,7 @@ class MapManager {
   }
 
   getCurrentBaseLayerKey() {
-    return this.currentBaseLayer || 'ign';
+    return this.currentBaseLayer || 'igntop25';
   }
 
   /**

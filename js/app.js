@@ -3146,7 +3146,7 @@ class AppController {
     const orientationEl = document.getElementById('map-area-orientation');
     const orientation = orientationEl ? orientationEl.value : 'landscape';
     const layerEl = document.getElementById('map-area-layer');
-    const mapLayer = layerEl ? layerEl.value : 'ign';
+    const mapLayer = layerEl ? layerEl.value : 'igntop25';
     const titleEl = document.getElementById('map-area-title');
     const title = titleEl && titleEl.value.trim() ? titleEl.value.trim() : 'EXTRAIT DE CARTE TOPOGRAPHIQUE';
     const showCoordsEl = document.getElementById('map-area-opt-coords');

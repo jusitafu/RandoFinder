@@ -39,7 +39,9 @@ class PDFExporter {
     // Détection si la randonnée est en France métropolitaine / Corse
     const isInsideFrance = (hike.startPoint && hike.startPoint.lat >= 41.0 && hike.startPoint.lat <= 51.5 && hike.startPoint.lon >= -5.5 && hike.startPoint.lon <= 10.0);
     const layerLabels = {
-      'ign': isInsideFrance ? "FOND OFFICIEL IGN TOP 25 / GÉOPLATEFORME" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'igntop25': isInsideFrance ? "FOND OFFICIEL IGN TOP 25 (CARTE PAPIER)" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'ign': isInsideFrance ? "FOND OFFICIEL IGN TOP 25 (CARTE PAPIER)" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'ignplan': isInsideFrance ? "FOND OFFICIEL PLAN IGN (NUMÉRIQUE V2)" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
       'opentopo': "FOND OPENTOPOMAP (RELIEF MONDIAL)",
       'osmfr': "FOND OPENSTREETMAP FRANCE (SENTIERS)",
       'satellite': "FOND SATELLITE HAUTE DÉFINITION (IGN / ESRI)"
@@ -565,7 +567,9 @@ class PDFExporter {
 
     const isInsideFrance = (centerLat >= 41.0 && centerLat <= 51.5 && centerLon >= -5.5 && centerLon <= 10.0);
     const layerLabels = {
-      'ign': isInsideFrance ? "FOND OFFICIEL IGN TOP 25 / GÉOPLATEFORME" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'igntop25': isInsideFrance ? "FOND OFFICIEL IGN TOP 25 (CARTE PAPIER)" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'ign': isInsideFrance ? "FOND OFFICIEL IGN TOP 25 (CARTE PAPIER)" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
+      'ignplan': isInsideFrance ? "FOND OFFICIEL PLAN IGN (NUMÉRIQUE V2)" : "FOND OPENTOPOMAP (RELIEF MONDIAL)",
       'opentopo': "FOND OPENTOPOMAP (RELIEF MONDIAL)",
       'osmfr': "FOND OPENSTREETMAP FRANCE (SENTIERS)",
       'satellite': "FOND SATELLITE HAUTE DÉFINITION (IGN / ESRI)"
@@ -801,6 +805,9 @@ class PDFExporter {
     const isInsideFrance = (centerLat >= 41.0 && centerLat <= 51.5 && centerLon >= -5.5 && centerLon <= 10.0);
 
     // URLs des serveurs de tuiles cartographiques
+    // Véritable IGN TOP 25 officiel (Scan 25 Touristique avec balisage GR® rose et rochers)
+    const ignTop25Url = (x, y, z) => `https://data.geopf.fr/private/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}&FORMAT=image%2Fjpeg&apikey=ign_scan_ws`;
+
     const ignPlanUrl = (x, y, z) => `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}&FORMAT=image%2Fpng`;
     
     const openTopoUrl = (x, y, z) => {
@@ -821,28 +828,40 @@ class PDFExporter {
     let primaryUrlFn, fallbackUrlFn1, fallbackUrlFn2;
     let attributionText = '© IGN France / OpenStreetMap';
 
-    if (mapLayer === 'opentopo') {
+    if (mapLayer === 'ignplan') {
+      if (isInsideFrance) {
+        primaryUrlFn = ignPlanUrl;
+        fallbackUrlFn1 = osmFrUrl;
+        fallbackUrlFn2 = openTopoUrl;
+        attributionText = '© IGN France - Plan Numérique v2';
+      } else {
+        primaryUrlFn = openTopoUrl;
+        fallbackUrlFn1 = osmFrUrl;
+        fallbackUrlFn2 = osmStdUrl;
+        attributionText = '© OpenTopoMap / OpenStreetMap';
+      }
+    } else if (mapLayer === 'opentopo') {
       primaryUrlFn = openTopoUrl;
-      fallbackUrlFn1 = isInsideFrance ? ignPlanUrl : osmFrUrl;
+      fallbackUrlFn1 = isInsideFrance ? ignTop25Url : osmFrUrl;
       fallbackUrlFn2 = osmStdUrl;
       attributionText = '© OpenTopoMap / OpenStreetMap';
     } else if (mapLayer === 'osmfr') {
       primaryUrlFn = osmFrUrl;
-      fallbackUrlFn1 = isInsideFrance ? ignPlanUrl : openTopoUrl;
+      fallbackUrlFn1 = isInsideFrance ? ignTop25Url : openTopoUrl;
       fallbackUrlFn2 = osmStdUrl;
       attributionText = '© OpenStreetMap France';
     } else if (mapLayer === 'satellite') {
       primaryUrlFn = esriSatUrl;
-      fallbackUrlFn1 = isInsideFrance ? ignPlanUrl : osmStdUrl;
+      fallbackUrlFn1 = isInsideFrance ? ignTop25Url : osmStdUrl;
       fallbackUrlFn2 = osmStdUrl;
       attributionText = '© Esri World Imagery / IGN';
     } else {
-      // 'ign' par défaut : Plan IGN v2 officiel pour la France, OpenTopo/OSM pour l'étranger
+      // 'igntop25' ou 'ign' par défaut : Vrai IGN TOP 25 officiel pour la France
       if (isInsideFrance) {
-        primaryUrlFn = ignPlanUrl;
-        fallbackUrlFn1 = osmFrUrl;   // Très utile pour la mer en bord de côte où IGN retourne 404
-        fallbackUrlFn2 = openTopoUrl;
-        attributionText = '© IGN France - Géoplateforme (Top 25)';
+        primaryUrlFn = ignTop25Url;
+        fallbackUrlFn1 = ignPlanUrl; // secours si besoin
+        fallbackUrlFn2 = osmFrUrl;   // secours pour la mer / côtes
+        attributionText = '© IGN France - Carte TOPO 25 (SCAN 25®)';
       } else {
         primaryUrlFn = openTopoUrl;
         fallbackUrlFn1 = osmFrUrl;
