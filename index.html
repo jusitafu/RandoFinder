@@ -44,7 +44,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/styles.css?v=32">
+  <link rel="stylesheet" href="css/styles.css?v=61">
 </head>
 <body class="h-full flex flex-col bg-slate-50 text-slate-800 antialiased select-none overflow-hidden">
 
@@ -291,6 +291,25 @@
             <button id="btn-cancel-map-selection" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-bold border border-slate-600 transition cursor-pointer" title="Annuler la sélection (Touche Échap)">
               ✕ Annuler
             </button>
+          </div>
+
+          <!-- FLOATING CARTOGRAPHY HUD (Bottom Left of Map: Dynamic Scale, GPS WGS84 & UTM Coordinates) -->
+          <div id="map-coords-hud" 
+            onclick="App.copyMapCoords()"
+            class="absolute bottom-2 left-2 z-20 bg-slate-900/90 hover:bg-slate-950 text-white px-2.5 sm:px-3 py-1.5 rounded-xl shadow-lg border border-slate-700/80 backdrop-blur-md text-[10px] sm:text-[11px] font-medium transition-all select-none cursor-pointer flex items-center gap-2 max-w-[calc(100%-240px)] sm:max-w-none"
+            title="Cliquer pour copier les coordonnées GPS & UTM dans le presse-papier">
+            <span class="flex items-center gap-1 text-emerald-400 font-bold whitespace-nowrap" id="map-hud-scale">
+              <span>🔍</span> <span>Échelle : 1 : 25 000</span>
+            </span>
+            <span class="text-slate-600 hidden sm:inline">|</span>
+            <span class="flex items-center gap-1 text-slate-200 whitespace-nowrap" id="map-hud-wgs84">
+              <span>📍</span> <span>43.1189° N, 5.8033° E</span>
+            </span>
+            <span class="text-slate-600 hidden md:inline">|</span>
+            <span class="items-center gap-1 text-sky-300 font-mono hidden md:flex whitespace-nowrap" id="map-hud-utm">
+              <span>🌐</span> <span>31T 728057 E  4777833 N</span>
+            </span>
+            <span class="text-[9px] text-slate-400 opacity-60 hover:opacity-100 hidden lg:inline ml-1 font-sans">📋 Copier</span>
           </div>
 
           <!-- FLOATING MAP TOOLS (Bottom Right of Map) -->
@@ -1001,6 +1020,10 @@
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" id="map-area-opt-coords" checked class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
             <span class="font-medium">Indiquer les coordonnées GPS (Lat/Lon) aux quatre coins</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="map-area-opt-utm" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+            <span class="font-bold text-blue-900">🌐 Afficher le carroyage UTM kilométrique et l'échelle (1 : 25 000)</span>
           </label>
         </div>
 
@@ -2068,6 +2091,13 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
             <button type="button" onclick="App.testAndSyncSupabaseUsers()" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
               <span>🔄</span> <span>Vérifier la synchronisation Cloud</span>
             </button>
+            <button type="button" onclick="App.exportUsersToFile()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-xs" title="Télécharger le fichier de sauvegarde des comptes">
+              <span>💾</span> <span>Exporter les comptes (JSON)</span>
+            </button>
+            <label class="px-3 py-1.5 bg-white border border-blue-300 hover:bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-xs" title="Importer des comptes depuis un fichier JSON">
+              <span>📂</span> <span>Importer des comptes</span>
+              <input type="file" id="import-users-file-input" accept=".json" class="hidden" onchange="App.handleImportUsersFile(event)">
+            </label>
           </div>
         </div>
 
@@ -2230,15 +2260,15 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=60"></script>
-  <script src="js/auth-manager.js?v=60"></script>
-  <script src="js/gpx-parser.js?v=60"></script>
-  <script src="js/sample-data.js?v=60"></script>
-  <script src="js/storage.js?v=60"></script>
-  <script src="js/elevation-profile.js?v=60"></script>
-  <script src="js/map-manager.js?v=60"></script>
-  <script src="js/pdf-exporter.js?v=60"></script>
-  <script src="js/app.js?v=60"></script>
+  <script src="js/config.js?v=61"></script>
+  <script src="js/auth-manager.js?v=61"></script>
+  <script src="js/gpx-parser.js?v=61"></script>
+  <script src="js/sample-data.js?v=61"></script>
+  <script src="js/storage.js?v=61"></script>
+  <script src="js/elevation-profile.js?v=61"></script>
+  <script src="js/map-manager.js?v=61"></script>
+  <script src="js/pdf-exporter.js?v=61"></script>
+  <script src="js/app.js?v=61"></script>
 </body>
 </html>
 

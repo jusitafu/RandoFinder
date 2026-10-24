@@ -3171,12 +3171,14 @@ class AppController {
       if (hikeForTrack && typeof StorageManager !== 'undefined') {
         try { await StorageManager.ensureHikeTrackLoaded(hikeForTrack); } catch (e) {}
       }
+      const showUtm = document.getElementById('map-area-opt-utm') ? document.getElementById('map-area-opt-utm').checked : true;
       await PDFExporter.exportMapAreaPDF(this.selectedAreaBounds, {
         title: title,
         format: format,
         orientation: orientation,
         mapLayer: mapLayer,
         showCoords: showCoords,
+        showUtmGrid: showUtm,
         trackColor: trackColor,
         hike: hikeForTrack
       });
@@ -3928,9 +3930,12 @@ class AppController {
 
     if (errBox) errBox.classList.add('hidden');
 
+    const createdUsername = userInp.value.trim();
+    const createdPwd = pwdInp.value.trim();
+
     const res = await AuthManager.createUser({
-      username: userInp.value,
-      password: pwdInp.value,
+      username: createdUsername,
+      password: createdPwd,
       can_upload: upChk ? upChk.checked : false,
       can_edit: edChk ? edChk.checked : false
     });
@@ -3947,7 +3952,25 @@ class AppController {
     pwdInp.value = '';
     this._customTempPwd = false;
     this.renderUsersTable();
-    this.showToast(`✅ Utilisateur « ${res.user.username} » créé avec succès !`, "success");
+    this.updateSupabaseUsersStatusBadge();
+
+    // Feedback clair avec identifiants pour transmission au membre
+    const credsSummary = `Compte créé avec succès !\n\n👤 Identifiant : ${createdUsername}\n🔑 Mot de passe temporaire : ${createdPwd}\n\n(Ces identifiants sont enregistrés. Le membre pourra se connecter et changer son mot de passe.)`;
+    
+    if (res.cloudSynced) {
+      this.showToast(`✅ Utilisateur « ${createdUsername} » créé et synchronisé sur le Cloud !`, "success");
+    } else {
+      this.showToast(`💾 Utilisateur « ${createdUsername} » enregistré en local sur cet appareil.`, "info");
+    }
+
+    setTimeout(() => {
+      if (confirm(`${credsSummary}\n\nSouhaitez-vous copier ces identifiants dans le presse-papier pour les envoyer au membre ?`)) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(`Accès RandoFinder - Les Randonneurs Sanaryens\nIdentifiant : ${createdUsername}\nMot de passe : ${createdPwd}\nLien : https://jusitafu.github.io/RandoFinder/`);
+          this.showToast("📋 Identifiants copiés dans le presse-papier !", "success");
+        }
+      }
+    }, 150);
   }
 
   renderUsersTable() {
@@ -4112,6 +4135,45 @@ class AppController {
       badge.textContent = '💾 Stockage Local Actif';
       badge.className = 'px-2 py-0.5 rounded-full font-bold text-[10px] bg-slate-200 text-slate-700';
     }
+  }
+
+  copyMapCoords() {
+    if (this.mapManager && typeof this.mapManager.copyCurrentCoordsToClipboard === 'function') {
+      this.mapManager.copyCurrentCoordsToClipboard();
+    }
+  }
+
+  exportUsersToFile() {
+    if (typeof AuthManager === 'undefined') return;
+    const jsonStr = AuthManager.exportUsersJSON();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `randofinder_comptes_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this.showToast("💾 Fichier des comptes utilisateurs téléchargé !", "success");
+  }
+
+  async handleImportUsersFile(event) {
+    const file = event.target && event.target.files && event.target.files[0];
+    if (!file || typeof AuthManager === 'undefined') return;
+    try {
+      const text = await file.text();
+      const res = await AuthManager.importUsersJSON(text);
+      if (res.success) {
+        this.showToast(`🎉 ${res.imported} compte(s) importé(s) avec succès ! Total : ${res.count} comptes.`, "success");
+        this.renderUsersTable();
+      } else {
+        this.showToast(`Erreur d'importation : ${res.error}`, "error");
+      }
+    } catch (e) {
+      this.showToast(`Erreur de lecture du fichier : ${e.message}`, "error");
+    }
+    event.target.value = '';
   }
 
   openCguModal() {

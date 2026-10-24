@@ -38,6 +38,10 @@ class MapManager {
     this.areaSelectionRect = null;
     this.areaSelectionOnComplete = null;
     this.areaSelectionOnCancel = null;
+
+    // Carroyage UTM & HUD
+    this.utmGridLayer = null;
+    this._lastCoords = null;
   }
 
   init() {
@@ -98,12 +102,20 @@ class MapManager {
       zoomControl: true
     });
 
-    L.control.layers(this.baseLayers, null, { position: 'topright' }).addTo(this.map);
+    this.utmGridLayer = L.layerGroup();
+    const overlayLayers = {
+      "🌐 Carroyage UTM (Grille kilométrique)": this.utmGridLayer
+    };
+
+    this.layerControl = L.control.layers(this.baseLayers, overlayLayers, { position: 'topright' }).addTo(this.map);
     L.control.scale({ imperial: false, metric: true, position: 'bottomleft' }).addTo(this.map);
 
     this.markersLayer = L.layerGroup().addTo(this.map);
     this.selectionHaloLayer = L.layerGroup().addTo(this.map);
     this.trackLayer = L.layerGroup().addTo(this.map);
+
+    // Activer la grille kilométrique UTM par défaut (conforme carte papier IGN Top 25)
+    this.utmGridLayer.addTo(this.map);
 
     this.updateSearchRadiusVisuals(false);
 
@@ -133,16 +145,46 @@ class MapManager {
       }
     });
 
-    // Map Zoom Listener (e.g. mouse wheel zoom/dezoom on map)
-    this.map.on('zoomend', () => {
+    // Map Zoom & Pan Listeners : mise à jour dynamique du Carroyage UTM et de l'Échelle
+    this.map.on('moveend zoomend', () => {
+      if (this.map.hasLayer(this.utmGridLayer)) {
+        this.renderUtmGrid();
+      }
+      this.updateMapHud();
       if (this.onMapZoomChangeCallback) {
         this.onMapZoomChangeCallback(this.map.getZoom());
       }
     });
 
+    this.map.on('overlayadd', (e) => {
+      if (e.layer === this.utmGridLayer) {
+        this.renderUtmGrid();
+      }
+    });
+
+    this.map.on('overlayremove', (e) => {
+      if (e.layer === this.utmGridLayer) {
+        this.utmGridLayer.clearLayers();
+      }
+    });
+
+    // Écouteur de position du curseur en direct sur la carte
+    this.map.on('mousemove', (e) => {
+      this.updateCursorCoords(e.latlng);
+    });
+
+    this.map.on('mouseout', () => {
+      this.updateCursorCoords(null);
+    });
+
     setTimeout(() => {
-      if (this.map) this.map.invalidateSize();
-    }, 200);
+      if (this.map) {
+        this.map.invalidateSize();
+        this.renderUtmGrid();
+        this.updateMapHud();
+        this.updateCursorCoords(null);
+      }
+    }, 250);
   }
 
   getCurrentBaseLayerKey() {
@@ -678,6 +720,301 @@ class MapManager {
     if (this.cursorMarker) {
       this.cursorMarker.remove();
       this.cursorMarker = null;
+    }
+  }
+
+  // =========================================================================
+  // CARROYAGE UTM & OUTILS CARTOGRAPHIQUES (TOP 25)
+  // =========================================================================
+
+  /**
+   * Conversion WGS84 (Lat, Lon) vers UTM (Zone, Band, Easting, Northing)
+   * Précision sub-millimétrique basée sur l'ellipsoïde WGS84 standard IGN/OTAN
+   */
+  static latLonToUtm(lat, lon) {
+    const a = 6378137.0;
+    const f = 1 / 298.257223563;
+    const b = a * (1 - f);
+    const e2 = (a * a - b * b) / (a * a);
+    const e_prime2 = (a * a - b * b) / (b * b);
+    const k0 = 0.9996;
+
+    let zone = Math.floor((lon + 180) / 6) + 1;
+    if (lat >= 56.0 && lat < 64.0 && lon >= 3.0 && lon < 12.0) zone = 32;
+
+    const lon0 = (zone - 1) * 6 - 180 + 3;
+    const lon0_rad = (lon0 * Math.PI) / 180;
+    const lat_rad = (lat * Math.PI) / 180;
+    const lon_rad = (lon * Math.PI) / 180;
+
+    const N = a / Math.sqrt(1 - e2 * Math.sin(lat_rad) * Math.sin(lat_rad));
+    const T = Math.tan(lat_rad) * Math.tan(lat_rad);
+    const C = e_prime2 * Math.cos(lat_rad) * Math.cos(lat_rad);
+    const A = (lon_rad - lon0_rad) * Math.cos(lat_rad);
+
+    const M = a * (
+      (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * Math.pow(e2, 3) / 256) * lat_rad
+      - (3 * e2 / 8 + 3 * e2 * e2 / 32 + 45 * Math.pow(e2, 3) / 1024) * Math.sin(2 * lat_rad)
+      + (15 * e2 * e2 / 256 + 45 * Math.pow(e2, 3) / 1024) * Math.sin(4 * lat_rad)
+      - (35 * Math.pow(e2, 3) / 3072) * Math.sin(6 * lat_rad)
+    );
+
+    const easting = k0 * N * (
+      A + (1 - T + C) * Math.pow(A, 3) / 6
+      + (5 - 18 * T + T * T + 72 * C - 58 * e_prime2) * Math.pow(A, 5) / 120
+    ) + 500000.0;
+
+    let northing = k0 * (
+      M + N * Math.tan(lat_rad) * (
+        (A * A) / 2
+        + (5 - T + 9 * C + 4 * C * C) * Math.pow(A, 4) / 24
+        + (61 - 58 * T + T * T + 600 * C - 330 * e_prime2) * Math.pow(A, 6) / 720
+      )
+    );
+
+    if (lat < 0) {
+      northing += 10000000.0;
+    }
+
+    const bands = 'CDEFGHJKLMNPQRSTUVWX';
+    let band = 'N';
+    if (lat >= -80 && lat <= 84) {
+      const idx = Math.floor((lat + 80) / 8);
+      band = bands[Math.min(idx, bands.length - 1)];
+    }
+
+    return {
+      zone,
+      band,
+      easting: Math.round(easting),
+      northing: Math.round(northing),
+      formatted: `${zone}${band} ${Math.round(easting)} E  ${Math.round(northing)} N`
+    };
+  }
+
+  /**
+   * Conversion Inverse UTM vers WGS84 (Lat, Lon)
+   */
+  static utmToLatLon(easting, northing, zone, isNorthern = true) {
+    const a = 6378137.0;
+    const f = 1 / 298.257223563;
+    const b = a * (1 - f);
+    const e2 = (a * a - b * b) / (a * a);
+    const e_prime2 = (a * a - b * b) / (b * b);
+    const k0 = 0.9996;
+
+    const x = easting - 500000.0;
+    const y = isNorthern ? northing : northing - 10000000.0;
+    const lon0 = (zone - 1) * 6 - 180 + 3;
+    const lon0_rad = (lon0 * Math.PI) / 180;
+
+    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    const M = y / k0;
+    const mu = M / (a * (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * Math.pow(e2, 3) / 256));
+
+    const phi1_rad = mu
+      + (3 * e1 / 2 - 27 * Math.pow(e1, 3) / 32) * Math.sin(2 * mu)
+      + (21 * e1 * e1 / 16 - 55 * Math.pow(e1, 4) / 32) * Math.sin(4 * mu)
+      + (151 * Math.pow(e1, 3) / 96) * Math.sin(6 * mu);
+
+    const N1 = a / Math.sqrt(1 - e2 * Math.sin(phi1_rad) * Math.sin(phi1_rad));
+    const T1 = Math.tan(phi1_rad) * Math.tan(phi1_rad);
+    const C1 = e_prime2 * Math.cos(phi1_rad) * Math.cos(phi1_rad);
+    const R1 = a * (1 - e2) / Math.pow(1 - e2 * Math.sin(phi1_rad) * Math.sin(phi1_rad), 1.5);
+    const D = x / (N1 * k0);
+
+    const lat_rad = phi1_rad - (N1 * Math.tan(phi1_rad) / R1) * (
+      (D * D) / 2
+      - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * e_prime2) * Math.pow(D, 4) / 24
+      + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * e_prime2 - 3 * C1 * C1) * Math.pow(D, 6) / 720
+    );
+
+    const lon_rad = lon0_rad + (
+      D
+      - (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6
+      + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * e_prime2 + 24 * T1 * T1) * Math.pow(D, 5) / 120
+    ) / Math.cos(phi1_rad);
+
+    return {
+      lat: (lat_rad * 180) / Math.PI,
+      lon: (lon_rad * 180) / Math.PI
+    };
+  }
+
+  /**
+   * Rendu dynamique du Carroyage UTM kilométrique sur la carte
+   */
+  renderUtmGrid() {
+    if (!this.map || !this.utmGridLayer || !this.map.hasLayer(this.utmGridLayer)) return;
+    this.utmGridLayer.clearLayers();
+
+    const zoom = this.map.getZoom();
+    if (zoom < 8) return; // Trop dézoomé pour afficher la grille
+
+    // Intervalle métrique adapté selon le zoom
+    let step = 1000; // 1 km par défaut (authentique Top 25)
+    if (zoom <= 8) step = 20000;
+    else if (zoom <= 10) step = 10000;
+    else if (zoom <= 12) step = 5000;
+    else step = 1000; // Zoom >= 13 : Carroyage 1 km officiel
+
+    const bounds = this.map.getBounds();
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const center = bounds.getCenter();
+
+    const centerUtm = MapManager.latLonToUtm(center.lat, center.lng);
+    const zone = centerUtm.zone;
+
+    const utmSW = MapManager.latLonToUtm(sw.lat, sw.lng);
+    const utmNE = MapManager.latLonToUtm(ne.lat, ne.lng);
+    const utmNW = MapManager.latLonToUtm(ne.lat, sw.lng);
+    const utmSE = MapManager.latLonToUtm(sw.lat, ne.lng);
+
+    const minE = Math.min(utmSW.easting, utmNE.easting, utmNW.easting, utmSE.easting);
+    const maxE = Math.max(utmSW.easting, utmNE.easting, utmNW.easting, utmSE.easting);
+    const minN = Math.min(utmSW.northing, utmNE.northing, utmNW.northing, utmSE.northing);
+    const maxN = Math.max(utmSW.northing, utmNE.northing, utmNW.northing, utmSE.northing);
+
+    const startE = Math.floor(minE / step) * step;
+    const endE = Math.ceil(maxE / step) * step;
+    const startN = Math.floor(minN / step) * step;
+    const endN = Math.ceil(maxN / step) * step;
+
+    // Protection surcharge
+    const countE = Math.round((endE - startE) / step);
+    const countN = Math.round((endN - startN) / step);
+    if (countE > 60 || countN > 60 || countE < 1 || countN < 1) return;
+
+    // Lignes verticales de carroyage (Easting constant)
+    const nSteps = 6;
+    for (let e = startE; e <= endE; e += step) {
+      const linePts = [];
+      for (let s = 0; s <= nSteps; s++) {
+        const currN = startN + (s / nSteps) * (endN - startN);
+        const ll = MapManager.utmToLatLon(e, currN, zone, center.lat >= 0);
+        linePts.push([ll.lat, ll.lon]);
+      }
+      L.polyline(linePts, {
+        color: '#0284c7', // Bleu Top 25
+        weight: 1,
+        opacity: 0.55,
+        dashArray: '3, 4',
+        interactive: false
+      }).addTo(this.utmGridLayer);
+
+      // Étiquette kilométrique
+      const km = Math.round(e / 1000);
+      const botPt = linePts[0];
+      const icon = L.divIcon({
+        className: 'utm-grid-label',
+        html: `<span>${km}</span>`,
+        iconSize: [26, 14],
+        iconAnchor: [13, 7]
+      });
+      L.marker(botPt, { icon, interactive: false }).addTo(this.utmGridLayer);
+    }
+
+    // Lignes horizontales de carroyage (Northing constant)
+    for (let n = startN; n <= endN; n += step) {
+      const linePts = [];
+      for (let s = 0; s <= nSteps; s++) {
+        const currE = startE + (s / nSteps) * (endE - startE);
+        const ll = MapManager.utmToLatLon(currE, n, zone, center.lat >= 0);
+        linePts.push([ll.lat, ll.lon]);
+      }
+      L.polyline(linePts, {
+        color: '#0284c7',
+        weight: 1,
+        opacity: 0.55,
+        dashArray: '3, 4',
+        interactive: false
+      }).addTo(this.utmGridLayer);
+
+      // Étiquette kilométrique
+      const km = Math.round(n / 1000);
+      const leftPt = linePts[0];
+      const icon = L.divIcon({
+        className: 'utm-grid-label',
+        html: `<span>${km}</span>`,
+        iconSize: [36, 14],
+        iconAnchor: [18, 7]
+      });
+      L.marker(leftPt, { icon, interactive: false }).addTo(this.utmGridLayer);
+    }
+  }
+
+  /**
+   * Calcul du ratio d'échelle cartographique dynamique selon le zoom et la latitude
+   */
+  getNumericScaleRatio() {
+    if (!this.map) return 25000;
+    const center = this.map.getCenter();
+    const zoom = this.map.getZoom();
+    const metersPerPixel = (40075016.686 * Math.cos((center.lat * Math.PI) / 180)) / (256 * Math.pow(2, zoom));
+    const scale = metersPerPixel * 3779.5275;
+    return Math.round(scale);
+  }
+
+  /**
+   * Mise à jour du bandeau HUD sur la carte (Échelle dynamique)
+   */
+  updateMapHud() {
+    const scaleEl = document.getElementById('map-hud-scale');
+    if (!scaleEl || !this.map) return;
+    const scale = this.getNumericScaleRatio();
+    let label = `Échelle ~ 1 : ${scale.toLocaleString('fr-FR')}`;
+    if (scale >= 21000 && scale <= 29000) {
+      label = `Échelle 1 : 25 000 (TOP 25)`;
+    }
+    scaleEl.innerHTML = `<span>🔍</span> <span>${label}</span>`;
+  }
+
+  /**
+   * Mise à jour des coordonnées GPS et UTM du curseur en direct
+   */
+  updateCursorCoords(latlng) {
+    const wgsEl = document.getElementById('map-hud-wgs84');
+    const utmEl = document.getElementById('map-hud-utm');
+    if (!wgsEl || !utmEl) return;
+
+    const pt = latlng || (this.map ? this.map.getCenter() : { lat: 43.1189, lng: 5.8033 });
+    const lat = pt.lat;
+    const lon = pt.lng;
+
+    const latStr = `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}`;
+    const lonStr = `${Math.abs(lon).toFixed(4)}° ${lon >= 0 ? 'E' : 'O'}`;
+    wgsEl.innerHTML = `<span>📍</span> <span>${latStr}, ${lonStr}</span>`;
+
+    const utm = MapManager.latLonToUtm(lat, lon);
+    utmEl.innerHTML = `<span>🌐</span> <span>${utm.zone}${utm.band} ${utm.easting} E  ${utm.northing} N</span>`;
+
+    this._lastCoords = {
+      lat,
+      lon,
+      latStr,
+      lonStr,
+      utm
+    };
+  }
+
+  /**
+   * Copie dans le presse-papier des coordonnées actuelles
+   */
+  copyCurrentCoordsToClipboard() {
+    const c = this._lastCoords;
+    if (!c) return;
+    const text = `GPS WGS84 : ${c.lat.toFixed(5)}°, ${c.lon.toFixed(5)}° (${c.latStr}, ${c.lonStr}) | Carroyage UTM : ${c.utm.zone}${c.utm.band} ${c.utm.easting} m E, ${c.utm.northing} m N`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        if (window.App && window.App.showToast) {
+          window.App.showToast(`📋 Coordonnées copiées : ${c.latStr}, ${c.lonStr} (UTM ${c.utm.zone}${c.utm.band} ${c.utm.easting}E ${c.utm.northing}N)`, "success");
+        }
+      }).catch(() => {
+        prompt("Coordonnées GPS & UTM :", text);
+      });
+    } else {
+      prompt("Coordonnées GPS & UTM :", text);
     }
   }
 }

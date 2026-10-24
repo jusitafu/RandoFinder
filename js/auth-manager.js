@@ -200,22 +200,49 @@ class AuthManager {
    * Connexion utilisateur
    */
   static async login(username, password) {
-    const cleanUser = (username || '').trim().toLowerCase();
-    const cleanPwd = (password || '').trim();
+    const rawUser = (username || '').trim().normalize('NFC');
+    const cleanUser = rawUser.toLowerCase();
+    const cleanPwd = (password || '').trim().normalize('NFC');
 
     if (!cleanUser || !cleanPwd) {
       return { success: false, error: "Veuillez saisir votre identifiant et votre mot de passe." };
     }
 
-    // Retrouver l'utilisateur
-    const user = this.users.find(u => u.username.toLowerCase() === cleanUser);
+    // Retrouver l'utilisateur (insensible à la casse et aux espaces superflus)
+    const user = this.users.find(u => (u.username || '').trim().normalize('NFC').toLowerCase() === cleanUser);
     if (!user) {
       return { success: false, error: "Identifiant ou mot de passe incorrect." };
     }
 
-    // Calcul du hash
+    // 1. Calcul du hash principal exact
     const inputHash = await this.hashPassword(cleanPwd);
-    if (inputHash !== user.password_hash) {
+    let isMatch = (inputHash === user.password_hash);
+
+    // 2. Si pas de correspondance exacte, tester les variantes de casse courantes
+    // (très fréquent sur mobile/smartphone où le clavier force la première majuscule)
+    if (!isMatch) {
+      const lowerHash = await this.hashPassword(cleanPwd.toLowerCase());
+      if (lowerHash === user.password_hash) {
+        isMatch = true;
+      }
+    }
+    if (!isMatch) {
+      const upperHash = await this.hashPassword(cleanPwd.toUpperCase());
+      if (upperHash === user.password_hash) {
+        isMatch = true;
+      }
+    }
+
+    // 3. Cas du mot de passe initial égal au nom d'utilisateur (créé par l'administrateur)
+    if (!isMatch && cleanPwd.toLowerCase() === user.username.trim().normalize('NFC').toLowerCase()) {
+      const targetUserHash = await this.hashPassword(user.username.trim());
+      const targetUserLowerHash = await this.hashPassword(user.username.trim().toLowerCase());
+      if (user.password_hash === targetUserHash || user.password_hash === targetUserLowerHash) {
+        isMatch = true;
+      }
+    }
+
+    if (!isMatch) {
       return { success: false, error: "Identifiant ou mot de passe incorrect." };
     }
 
@@ -340,9 +367,9 @@ class AuthManager {
     this.saveToLocalStorage();
 
     // Push vers Supabase
-    await this.pushUserToSupabase(newUser);
+    const isSynced = await this.pushUserToSupabase(newUser);
 
-    return { success: true, user: newUser };
+    return { success: true, user: newUser, cloudSynced: Boolean(isSynced) };
   }
 
   /**
@@ -548,7 +575,7 @@ class AuthManager {
     }];
 
     try {
-      const resp = await fetch(`${url}/rest/v1/app_users`, {
+      const resp = await fetch(`${url}/rest/v1/app_users?on_conflict=username`, {
         method: 'POST',
         headers: {
           'apikey': key,
@@ -561,6 +588,51 @@ class AuthManager {
       return resp.ok;
     } catch (e) {
       return false;
+    }
+  }
+
+  /**
+   * Export des utilisateurs en JSON pour sauvegarde ou transfert multi-appareils
+   */
+  static exportUsersJSON() {
+    return JSON.stringify(this.users, null, 2);
+  }
+
+  /**
+   * Importation de comptes utilisateurs depuis un fichier JSON
+   */
+  static async importUsersJSON(jsonStr) {
+    try {
+      const data = JSON.parse(jsonStr);
+      if (!Array.isArray(data)) return { success: false, error: "Format JSON invalide (un tableau est attendu)." };
+      const mergedMap = new Map();
+      this.users.forEach(u => mergedMap.set(u.username.toLowerCase(), u));
+      let added = 0;
+      for (const item of data) {
+        if (item && item.username && item.password_hash) {
+          const uObj = {
+            id: item.id || ('user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
+            username: item.username,
+            password_hash: item.password_hash,
+            role: item.role || 'user',
+            can_upload: Boolean(item.can_upload),
+            can_edit: Boolean(item.can_edit),
+            created_at: item.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          mergedMap.set(item.username.toLowerCase(), uObj);
+          added++;
+          await this.pushUserToSupabase(uObj);
+        }
+      }
+      this.users = Array.from(mergedMap.values());
+      if (!this.users.some(u => u.username === 'admin')) {
+        this.users.unshift(this.DEFAULT_ADMIN);
+      }
+      this.saveToLocalStorage();
+      return { success: true, count: this.users.length, imported: added };
+    } catch (e) {
+      return { success: false, error: "Erreur JSON : " + e.message };
     }
   }
 

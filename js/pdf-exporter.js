@@ -153,7 +153,7 @@ class PDFExporter {
         try {
           const pxW = Math.round(mapW * 4.5);
           const pxH = Math.round(actualMapH * 4.5);
-          mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer, null, options.trackColor);
+          mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer, null, options.trackColor, options);
           const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
           if (mapImgData) {
             doc.addImage(mapImgData, 'JPEG', mapX, actualMapY, mapW, actualMapH);
@@ -275,7 +275,7 @@ class PDFExporter {
           try {
             const pxW = Math.round(mapW * 4.5);
             const pxH = Math.round(actualMapH * 4.5);
-            const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer, null, options.trackColor);
+            const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer, null, options.trackColor, options);
             const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
             if (mapImgData) {
               doc.addImage(mapImgData, 'JPEG', mapX, actualMapY, mapW, actualMapH);
@@ -442,7 +442,7 @@ class PDFExporter {
         try {
           const pxW = Math.round(contentWidth * 4.5);
           const pxH = Math.round(mapH * 4.5);
-          const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer, null, options.trackColor);
+          const mapResult = await this.renderStaticMap(hike, pxW, pxH, mapLayer, null, options.trackColor, options);
           const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
           if (mapImgData) {
             doc.addImage(mapImgData, 'JPEG', margin, currentY, contentWidth, mapH);
@@ -656,7 +656,7 @@ class PDFExporter {
     try {
       const pxW = Math.round(mapW * 4.5);
       const pxH = Math.round(mapH * 4.5);
-      const mapResult = await this.renderStaticMap(pseudoHike, pxW, pxH, mapLayer, 0.96, options.trackColor);
+      const mapResult = await this.renderStaticMap(pseudoHike, pxW, pxH, mapLayer, 0.96, options.trackColor, options);
       const mapImgData = mapResult && mapResult.imgData ? mapResult.imgData : mapResult;
 
       if (mapImgData) {
@@ -715,7 +715,7 @@ class PDFExporter {
   /**
    * Render a static raster map with IGN Top 25 / OpenTopoMap / OSM tiles and GPX track vector
    */
-  static async renderStaticMap(hike, imgWidth = 720, imgHeight = 420, mapLayer = 'igntop25', customPadding = null, trackColor = null) {
+  static async renderStaticMap(hike, imgWidth = 720, imgHeight = 420, mapLayer = 'igntop25', customPadding = null, trackColor = null, options = {}) {
     const canvas = document.createElement('canvas');
     canvas.width = imgWidth;
     canvas.height = imgHeight;
@@ -958,6 +958,119 @@ class PDFExporter {
       };
     };
 
+    // 0. Carroyage UTM kilométrique (si activé)
+    if (typeof MapManager !== 'undefined' && options && options.showUtmGrid !== false) {
+      try {
+        const centerUtm = MapManager.latLonToUtm(centerLat, centerLon);
+        const zone = centerUtm.zone;
+
+        const utmSW = MapManager.latLonToUtm(minLat, minLon);
+        const utmNE = MapManager.latLonToUtm(maxLat, maxLon);
+        const utmNW = MapManager.latLonToUtm(maxLat, minLon);
+        const utmSE = MapManager.latLonToUtm(minLat, maxLon);
+
+        const minE = Math.min(utmSW.easting, utmNE.easting, utmNW.easting, utmSE.easting);
+        const maxE = Math.max(utmSW.easting, utmNE.easting, utmNW.easting, utmSE.easting);
+        const minN = Math.min(utmSW.northing, utmNE.northing, utmNW.northing, utmSE.northing);
+        const maxN = Math.max(utmSW.northing, utmNE.northing, utmNW.northing, utmSE.northing);
+
+        let step = 1000;
+        if (zoom <= 9) step = 10000;
+        else if (zoom <= 12) step = 2000;
+        else step = 1000;
+
+        const startE = Math.floor(minE / step) * step;
+        const endE = Math.ceil(maxE / step) * step;
+        const startN = Math.floor(minN / step) * step;
+        const endN = Math.ceil(maxN / step) * step;
+
+        const countE = Math.round((endE - startE) / step);
+        const countN = Math.round((endN - startN) / step);
+
+        if (countE <= 60 && countN <= 60 && countE >= 1 && countN >= 1) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(2, 132, 199, 0.45)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+
+          // Lignes verticales (Easting)
+          const nSteps = 6;
+          for (let e = startE; e <= endE; e += step) {
+            ctx.beginPath();
+            let started = false;
+            for (let s = 0; s <= nSteps; s++) {
+              const currN = startN + (s / nSteps) * (endN - startN);
+              const ll = MapManager.utmToLatLon(e, currN, zone, centerLat >= 0);
+              const pix = latLonToPixel(ll.lat, ll.lon);
+              if (!started) {
+                ctx.moveTo(pix.x, pix.y);
+                started = true;
+              } else {
+                ctx.lineTo(pix.x, pix.y);
+              }
+            }
+            ctx.stroke();
+
+            // Label kilométrique en bordure inférieure
+            const botLL = MapManager.utmToLatLon(e, startN, zone, centerLat >= 0);
+            const botPix = latLonToPixel(botLL.lat, botLL.lon);
+            if (botPix.x >= 25 && botPix.x <= imgWidth - 25) {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+              ctx.fillRect(botPix.x - 12, imgHeight - 16, 24, 12);
+              ctx.strokeStyle = 'rgba(2, 132, 199, 0.5)';
+              ctx.setLineDash([]);
+              ctx.strokeRect(botPix.x - 12, imgHeight - 16, 24, 12);
+              ctx.fillStyle = '#0284c7';
+              ctx.font = 'bold 9px monospace';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(Math.round(e / 1000), botPix.x, imgHeight - 10);
+              ctx.setLineDash([4, 4]);
+            }
+          }
+
+          // Lignes horizontales (Northing)
+          for (let n = startN; n <= endN; n += step) {
+            ctx.beginPath();
+            let started = false;
+            for (let s = 0; s <= nSteps; s++) {
+              const currE = startE + (s / nSteps) * (endE - startE);
+              const ll = MapManager.utmToLatLon(currE, n, zone, centerLat >= 0);
+              const pix = latLonToPixel(ll.lat, ll.lon);
+              if (!started) {
+                ctx.moveTo(pix.x, pix.y);
+                started = true;
+              } else {
+                ctx.lineTo(pix.x, pix.y);
+              }
+            }
+            ctx.stroke();
+
+            // Label kilométrique en bordure gauche
+            const leftLL = MapManager.utmToLatLon(startE, n, zone, centerLat >= 0);
+            const leftPix = latLonToPixel(leftLL.lat, leftLL.lon);
+            if (leftPix.y >= 20 && leftPix.y <= imgHeight - 20) {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+              ctx.fillRect(4, leftPix.y - 6, 28, 12);
+              ctx.strokeStyle = 'rgba(2, 132, 199, 0.5)';
+              ctx.setLineDash([]);
+              ctx.strokeRect(4, leftPix.y - 6, 28, 12);
+              ctx.fillStyle = '#0284c7';
+              ctx.font = 'bold 9px monospace';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(Math.round(n / 1000), 18, leftPix.y);
+              ctx.setLineDash([4, 4]);
+            }
+          }
+
+          ctx.restore();
+        }
+      } catch (e) {
+        console.warn("Erreur tracé carroyage UTM :", e);
+      }
+    }
+
     // Dessiner le tracé GPX avec contraste maximal absolu
     if (hike.points && hike.points.length > 0) {
       const finalTrackColor = trackColor || '#1d4ed8'; // Bleu Roi Électrique par défaut (contraste maximal sur Top 25)
@@ -1120,9 +1233,17 @@ class PDFExporter {
       ctx.fillText("Tracé GPX", 190, imgHeight - 16);
     }
 
-    // 6. Mention de copyright en bas à droite
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
-    const textWidth = ctx.measureText(attributionText).width;
+    // 6. Mention de copyright & Échelle cartographique en bas à droite
+    const metersPerPixel = (40075016.686 * Math.cos((centerLat * Math.PI) / 180)) / (256 * Math.pow(2, zoom));
+    const numericScale = Math.round(metersPerPixel * 3779.5275);
+    let scaleBadgeText = `Échelle ~ 1 : ${numericScale.toLocaleString('fr-FR')}`;
+    if (numericScale >= 21000 && numericScale <= 29000) {
+      scaleBadgeText = `Échelle 1 : 25 000 (TOP 25)`;
+    }
+    const fullAttribution = `${scaleBadgeText} • ${attributionText}`;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    const textWidth = ctx.measureText(fullAttribution).width;
     if (ctx.roundRect) {
       ctx.roundRect(imgWidth - textWidth - 22, imgHeight - 22, textWidth + 16, 16, 3);
     } else {
@@ -1131,8 +1252,8 @@ class PDFExporter {
     ctx.fill();
 
     ctx.fillStyle = '#f8fafc';
-    ctx.font = '9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillText(attributionText, imgWidth - textWidth - 14, imgHeight - 10);
+    ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(fullAttribution, imgWidth - textWidth - 14, imgHeight - 10);
 
     return {
       imgData: canvas.toDataURL('image/jpeg', 0.92),
