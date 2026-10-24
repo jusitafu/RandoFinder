@@ -44,7 +44,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/styles.css?v=62">
+  <link rel="stylesheet" href="css/styles.css?v=63">
 </head>
 <body class="h-full flex flex-col bg-slate-50 text-slate-800 antialiased select-none overflow-hidden">
 
@@ -167,6 +167,9 @@
             <button id="btn-menu-cgu" onclick="App.openCguModal(); App.closeUserDropdown();" class="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 flex items-center gap-2 text-slate-700">
               <span>📜</span> <span>Mentions Légales &amp; CGU</span>
             </button>
+            <a id="btn-menu-manual" href="Mode_d_emploi_RandoFinder.pdf" target="_blank" onclick="App.closeUserDropdown();" class="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 flex items-center gap-2 text-slate-700">
+              <span>📖</span> <span>Mode d'emploi officiel (PDF)</span>
+            </a>
             <div class="border-t border-slate-100 my-1"></div>
             <button id="btn-menu-logout" onclick="App.handleLogout(); App.closeUserDropdown();" class="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-rose-50 text-rose-600 flex items-center gap-2">
               <span>🚪</span> <span>Se déconnecter</span>
@@ -314,6 +317,12 @@
 
           <!-- FLOATING MAP TOOLS (Bottom Right of Map) -->
           <div class="absolute bottom-6 right-3.5 z-20 flex items-center gap-2">
+            <a id="btn-map-manual" href="Mode_d_emploi_RandoFinder.pdf" target="_blank"
+              class="px-3 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-emerald-700 rounded-xl shadow-lg hover:shadow-xl border border-slate-200/90 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur-md active:scale-95 group" 
+              title="Consulter ou télécharger le mode d'emploi officiel complet en PDF">
+              <span class="text-sm group-hover:scale-110 transition-transform">📖</span>
+              <span id="btn-map-manual-text" class="hidden sm:inline">Mode d'emploi</span>
+            </a>
             <button id="btn-map-legend" 
               class="px-3 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-emerald-700 rounded-xl shadow-lg hover:shadow-xl border border-slate-200/90 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur-md active:scale-95 group" 
               title="Consulter la légende des cartes (IGN Top 25, sentiers, symboles)">
@@ -752,9 +761,14 @@
                 <p class="text-xs text-slate-500">Application de gestion GPX & Cartographie Topographique &bull; JLDApps - 2026</p>
               </div>
             </div>
-            <button id="btn-open-cgu" onclick="App.openCguModal()" class="px-4 py-2 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm self-start sm:self-auto">
-              <span>📜</span> Mentions Légales &amp; CGU
-            </button>
+            <div class="flex items-center gap-2 self-start sm:self-auto">
+              <a href="Mode_d_emploi_RandoFinder.pdf" target="_blank" class="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm">
+                <span>📖</span> Mode d'emploi (PDF)
+              </a>
+              <button id="btn-open-cgu" onclick="App.openCguModal()" class="px-4 py-2 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm">
+                <span>📜</span> Mentions Légales &amp; CGU
+              </button>
+            </div>
           </div>
         </div>
 
@@ -2260,15 +2274,15 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
   <div id="toast" class="opacity-0 translate-y-4 pointer-events-none fixed bottom-5 right-5 z-[10001] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all transform duration-300 bg-slate-900 text-white"></div>
 
   <!-- Scripts -->
-  <script src="js/config.js?v=62"></script>
-  <script src="js/auth-manager.js?v=62"></script>
-  <script src="js/gpx-parser.js?v=62"></script>
-  <script src="js/sample-data.js?v=62"></script>
-  <script src="js/storage.js?v=62"></script>
-  <script src="js/elevation-profile.js?v=62"></script>
-  <script src="js/map-manager.js?v=62"></script>
-  <script src="js/pdf-exporter.js?v=62"></script>
-  <script src="js/app.js?v=62"></script>
+  <script src="js/config.js?v=63"></script>
+  <script src="js/auth-manager.js?v=63"></script>
+  <script src="js/gpx-parser.js?v=63"></script>
+  <script src="js/sample-data.js?v=63"></script>
+  <script src="js/storage.js?v=63"></script>
+  <script src="js/elevation-profile.js?v=63"></script>
+  <script src="js/map-manager.js?v=63"></script>
+  <script src="js/pdf-exporter.js?v=63"></script>
+  <script src="js/app.js?v=63"></script>
 </body>
 </html>
 
