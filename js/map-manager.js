@@ -852,11 +852,11 @@ class MapManager {
     if (zoom < 8) return; // Trop dézoomé pour afficher la grille
 
     // Intervalle métrique adapté selon le zoom
-    let step = 1000; // 1 km par défaut (authentique Top 25)
+    let step = 1000; // 1 km officiel (Top 25)
     if (zoom <= 8) step = 20000;
-    else if (zoom <= 10) step = 10000;
-    else if (zoom <= 12) step = 5000;
-    else step = 1000; // Zoom >= 13 : Carroyage 1 km officiel
+    else if (zoom <= 9) step = 10000;
+    else if (zoom <= 11) step = 2000;
+    else step = 1000; // Zoom >= 12 : Carroyage kilométrique 1 km officiel TOP 25
 
     const bounds = this.map.getBounds();
     const sw = bounds.getSouthWest();
@@ -895,24 +895,35 @@ class MapManager {
         const ll = MapManager.utmToLatLon(e, currN, zone, center.lat >= 0);
         linePts.push([ll.lat, ll.lon]);
       }
+
+      // 1. Liseré sous-jacent blanc pour contraste maximal sur forêts, reliefs et rochers
       L.polyline(linePts, {
-        color: '#0284c7', // Bleu Top 25
-        weight: 1,
-        opacity: 0.55,
-        dashArray: '3, 4',
+        color: '#ffffff',
+        weight: 3.5,
+        opacity: 0.8,
         interactive: false
       }).addTo(this.utmGridLayer);
 
-      // Étiquette kilométrique
+      // 2. Ligne principale continue Bleu Cartographique TOP 25
+      L.polyline(linePts, {
+        color: '#0284c7', // Bleu Cyan officiel TOP 25
+        weight: 1.8,
+        opacity: 0.95,
+        interactive: false
+      }).addTo(this.utmGridLayer);
+
+      // Étiquette kilométrique en haut et en bas
       const km = Math.round(e / 1000);
-      const botPt = linePts[0];
       const icon = L.divIcon({
         className: 'utm-grid-label',
         html: `<span>${km}</span>`,
-        iconSize: [26, 14],
-        iconAnchor: [13, 7]
+        iconSize: [32, 18],
+        iconAnchor: [16, 9]
       });
-      L.marker(botPt, { icon, interactive: false }).addTo(this.utmGridLayer);
+      L.marker(linePts[0], { icon, interactive: false }).addTo(this.utmGridLayer);
+      if (linePts.length > 3) {
+        L.marker(linePts[linePts.length - 1], { icon, interactive: false }).addTo(this.utmGridLayer);
+      }
     }
 
     // Lignes horizontales de carroyage (Northing constant)
@@ -923,24 +934,35 @@ class MapManager {
         const ll = MapManager.utmToLatLon(currE, n, zone, center.lat >= 0);
         linePts.push([ll.lat, ll.lon]);
       }
+
+      // 1. Liseré sous-jacent blanc pour contraste maximal
       L.polyline(linePts, {
-        color: '#0284c7',
-        weight: 1,
-        opacity: 0.55,
-        dashArray: '3, 4',
+        color: '#ffffff',
+        weight: 3.5,
+        opacity: 0.8,
         interactive: false
       }).addTo(this.utmGridLayer);
 
-      // Étiquette kilométrique
+      // 2. Ligne principale continue Bleu Cartographique TOP 25
+      L.polyline(linePts, {
+        color: '#0284c7',
+        weight: 1.8,
+        opacity: 0.95,
+        interactive: false
+      }).addTo(this.utmGridLayer);
+
+      // Étiquette kilométrique à gauche et à droite
       const km = Math.round(n / 1000);
-      const leftPt = linePts[0];
       const icon = L.divIcon({
         className: 'utm-grid-label',
         html: `<span>${km}</span>`,
-        iconSize: [36, 14],
-        iconAnchor: [18, 7]
+        iconSize: [42, 18],
+        iconAnchor: [21, 9]
       });
-      L.marker(leftPt, { icon, interactive: false }).addTo(this.utmGridLayer);
+      L.marker(linePts[0], { icon, interactive: false }).addTo(this.utmGridLayer);
+      if (linePts.length > 3) {
+        L.marker(linePts[linePts.length - 1], { icon, interactive: false }).addTo(this.utmGridLayer);
+      }
     }
   }
 

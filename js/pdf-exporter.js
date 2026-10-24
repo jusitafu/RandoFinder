@@ -989,9 +989,50 @@ class PDFExporter {
 
         if (countE <= 60 && countN <= 60 && countE >= 1 && countN >= 1) {
           ctx.save();
-          ctx.strokeStyle = 'rgba(2, 132, 199, 0.45)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
+
+          // 1. Liseré sous-jacent blanc pour contraste maximal sur forêts, reliefs et rochers
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([]);
+
+          for (let e = startE; e <= endE; e += step) {
+            ctx.beginPath();
+            let started = false;
+            for (let s = 0; s <= nSteps; s++) {
+              const currN = startN + (s / nSteps) * (endN - startN);
+              const ll = MapManager.utmToLatLon(e, currN, zone, centerLat >= 0);
+              const pix = latLonToPixel(ll.lat, ll.lon);
+              if (!started) {
+                ctx.moveTo(pix.x, pix.y);
+                started = true;
+              } else {
+                ctx.lineTo(pix.x, pix.y);
+              }
+            }
+            ctx.stroke();
+          }
+
+          for (let n = startN; n <= endN; n += step) {
+            ctx.beginPath();
+            let started = false;
+            for (let s = 0; s <= nSteps; s++) {
+              const currE = startE + (s / nSteps) * (endE - startE);
+              const ll = MapManager.utmToLatLon(currE, n, zone, centerLat >= 0);
+              const pix = latLonToPixel(ll.lat, ll.lon);
+              if (!started) {
+                ctx.moveTo(pix.x, pix.y);
+                started = true;
+              } else {
+                ctx.lineTo(pix.x, pix.y);
+              }
+            }
+            ctx.stroke();
+          }
+
+          // 2. Lignes principales Bleu Cartographique TOP 25
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([]);
 
           // Lignes verticales (Easting)
           const nSteps = 6;
@@ -1015,17 +1056,16 @@ class PDFExporter {
             const botLL = MapManager.utmToLatLon(e, startN, zone, centerLat >= 0);
             const botPix = latLonToPixel(botLL.lat, botLL.lon);
             if (botPix.x >= 25 && botPix.x <= imgWidth - 25) {
-              ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-              ctx.fillRect(botPix.x - 12, imgHeight - 16, 24, 12);
-              ctx.strokeStyle = 'rgba(2, 132, 199, 0.5)';
-              ctx.setLineDash([]);
-              ctx.strokeRect(botPix.x - 12, imgHeight - 16, 24, 12);
-              ctx.fillStyle = '#0284c7';
-              ctx.font = 'bold 9px monospace';
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+              ctx.fillRect(botPix.x - 14, imgHeight - 17, 28, 14);
+              ctx.strokeStyle = '#0284c7';
+              ctx.lineWidth = 1.2;
+              ctx.strokeRect(botPix.x - 14, imgHeight - 17, 28, 14);
+              ctx.fillStyle = '#0369a1';
+              ctx.font = 'bold 10px monospace';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
               ctx.fillText(Math.round(e / 1000), botPix.x, imgHeight - 10);
-              ctx.setLineDash([4, 4]);
             }
           }
 
@@ -1050,17 +1090,16 @@ class PDFExporter {
             const leftLL = MapManager.utmToLatLon(startE, n, zone, centerLat >= 0);
             const leftPix = latLonToPixel(leftLL.lat, leftLL.lon);
             if (leftPix.y >= 20 && leftPix.y <= imgHeight - 20) {
-              ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-              ctx.fillRect(4, leftPix.y - 6, 28, 12);
-              ctx.strokeStyle = 'rgba(2, 132, 199, 0.5)';
-              ctx.setLineDash([]);
-              ctx.strokeRect(4, leftPix.y - 6, 28, 12);
-              ctx.fillStyle = '#0284c7';
-              ctx.font = 'bold 9px monospace';
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+              ctx.fillRect(3, leftPix.y - 7, 32, 14);
+              ctx.strokeStyle = '#0284c7';
+              ctx.lineWidth = 1.2;
+              ctx.strokeRect(3, leftPix.y - 7, 32, 14);
+              ctx.fillStyle = '#0369a1';
+              ctx.font = 'bold 10px monospace';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillText(Math.round(n / 1000), 18, leftPix.y);
-              ctx.setLineDash([4, 4]);
+              ctx.fillText(Math.round(n / 1000), 19, leftPix.y);
             }
           }
 
