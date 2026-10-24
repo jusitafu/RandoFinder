@@ -380,8 +380,57 @@ class MapManager {
     }
   }
 
+  isInsideFrance(lat, lon) {
+    if (typeof lat !== 'number' || typeof lon !== 'number') return true;
+    // Métropole + Corse
+    if (lat >= 41.3 && lat <= 51.2 && lon >= -5.2 && lon <= 9.6) return true;
+    // DOM-TOM
+    if (lat >= 14.3 && lat <= 16.6 && lon >= -61.9 && lon <= -60.7) return true; // Antilles
+    if (lat >= -21.4 && lat <= -20.8 && lon >= 55.1 && lon <= 55.9) return true; // Réunion
+    if (lat >= 2.1 && lat <= 5.8 && lon >= -54.7 && lon <= -51.6) return true; // Guyane
+    if (lat >= -13.0 && lat <= -12.6 && lon >= 45.0 && lon <= 45.3) return true; // Mayotte
+    return false;
+  }
+
+  setBaseLayer(key) {
+    if (!this.map || !this.baseLayers) return;
+    let targetLayer = null;
+    let targetKey = key;
+    for (const [name, layer] of Object.entries(this.baseLayers)) {
+      const lower = name.toLowerCase();
+      if (key === 'opentopo' && lower.includes('opentopo')) { targetLayer = layer; break; }
+      if (key === 'igntop25' && (lower.includes('top 25') || lower.includes('top25'))) { targetLayer = layer; break; }
+      if (key === 'ignplan' && lower.includes('plan')) { targetLayer = layer; break; }
+      if (key === 'osmfr' && (lower.includes('france') || lower.includes('openstreetmap'))) { targetLayer = layer; break; }
+      if (key === 'satellite' && lower.includes('satellite')) { targetLayer = layer; break; }
+    }
+    if (targetLayer && !this.map.hasLayer(targetLayer)) {
+      for (const [_, l] of Object.entries(this.baseLayers)) {
+        if (this.map.hasLayer(l)) this.map.removeLayer(l);
+      }
+      this.map.addLayer(targetLayer);
+      this.currentBaseLayer = targetKey;
+    }
+  }
+
   setSearchOrigin(lat, lon, name = 'Lieu sélectionné', autoZoom = false) {
     this.searchOrigin = { lat, lon, name };
+
+    // Si le lieu est hors de France (ex: Rome, Tokyo, Madrid, New York, Aoste, Genève)
+    // et que le fond de carte actif est IGN (qui ne couvre que la France),
+    // basculer automatiquement sur OpenTopoMap (Relief mondial) pour afficher le relief et la topographie
+    if (!this.isInsideFrance(lat, lon)) {
+      if (this.currentBaseLayer === 'igntop25' || this.currentBaseLayer === 'ignplan') {
+        this.setBaseLayer('opentopo');
+        this._autoSwitchedForeign = true;
+      }
+    } else {
+      if (this._autoSwitchedForeign && this.currentBaseLayer === 'opentopo') {
+        this.setBaseLayer('igntop25');
+        this._autoSwitchedForeign = false;
+      }
+    }
+
     this.updateSearchRadiusVisuals(autoZoom);
     if (this.onSearchOriginChangeCallback) {
       this.onSearchOriginChangeCallback(this.searchOrigin);

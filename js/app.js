@@ -2076,122 +2076,233 @@ class AppController {
     }
 
     const hasDigits = /\d/.test(cleanQuery);
-    let results = [];
 
-    // 1. BASE ADRESSE NATIONALE (BAN) - ULTRA-RAPIDE POUR LA FRANCE (~150-300 ms)
-    try {
-      const bUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(cleanQuery)}&limit=7`;
-      const banController = new AbortController();
-      const banTimer = setTimeout(() => banController.abort(), 1500);
+    // Fonction d'aide pour générer l'émoji du drapeau national (ISO 3166-1 alpha-2)
+    const getCountryFlag = (code) => {
+      if (!code || typeof code !== 'string' || code.length !== 2) return '';
+      try {
+        const cp = code.toUpperCase().split('').map(c => 127397 + c.charCodeAt(0));
+        return String.fromCodePoint(...cp);
+      } catch (e) {
+        return '';
+      }
+    };
 
-      // Combiner le signal externe et le timeout
-      const onAbort = () => banController.abort();
-      if (signal) signal.addEventListener('abort', onAbort, { once: true });
+    // 1. RECHERCHE MONDIALE DE TOUTES LES VILLES DU MONDE (Open-Meteo Geocoding API - 3M+ villes, sans clé, temps de réponse <100ms)
+    const openMeteoPromise = (async () => {
+      try {
+        const omController = new AbortController();
+        const omTimer = setTimeout(() => omController.abort(), 2500);
+        const onAbort = () => omController.abort();
+        if (signal) signal.addEventListener('abort', onAbort, { once: true });
 
-      const bRes = await fetch(bUrl, { signal: banController.signal });
-      clearTimeout(banTimer);
-      if (signal) signal.removeEventListener('abort', onAbort);
+        const u = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanQuery)}&count=10&language=fr&format=json`;
+        const res = await fetch(u, { signal: omController.signal });
+        clearTimeout(omTimer);
+        if (signal) signal.removeEventListener('abort', onAbort);
 
-      if (bRes.ok) {
-        const bData = await bRes.json();
-        const banItems = (bData.features || [])
-          .filter(f => f.properties && (f.properties.score > 0.40 || (hasDigits && f.properties.type === 'housenumber')))
-          .map(f => {
-            const props = f.properties || {};
-            const type = props.type || 'locality';
-            let icon = '📍';
-            let typeLabel = 'Lieu';
-            if (type === 'housenumber') {
-              icon = '🏠';
-              typeLabel = 'Adresse';
-            } else if (type === 'street') {
-              icon = '🛣️';
-              typeLabel = 'Rue';
-            } else if (type === 'municipality') {
-              icon = '🏙️';
-              typeLabel = 'Ville';
-            }
+        if (res.ok) {
+          const data = await res.json();
+          return (data.results || []).map(r => {
+            const flag = getCountryFlag(r.country_code);
+            const country = r.country || '';
+            const admin = r.admin1 || r.admin2 || '';
+            const subParts = [admin, country].filter(Boolean);
+            const subtitle = subParts.join(', ');
+            const isCapital = r.feature_code === 'PPLC';
+            const isPeak = ['PK', 'MT', 'HLL', 'VLC'].includes(r.feature_code);
 
-            const title = props.name || props.label;
-            const subtitle = [props.postcode, props.city, props.context].filter(Boolean).join(', ');
+            const icon = isPeak ? '⛰️' : (isCapital ? '🏛️' : '🏙️');
+            let typeLabel = 'Ville';
+            if (isPeak) typeLabel = 'Sommet';
+            else if (isCapital) typeLabel = country ? `Capitale • ${country}` : 'Capitale';
+            else if (country) typeLabel = `Ville • ${country}`;
+
+            return {
+              lat: r.latitude,
+              lon: r.longitude,
+              title: r.name,
+              subtitle: subtitle,
+              shortName: r.name,
+              displayName: subtitle ? `${r.name} (${subtitle})` : r.name,
+              icon: flag ? `${flag} ${icon}` : icon,
+              typeLabel: typeLabel,
+              country: country,
+              countryCode: r.country_code,
+              population: r.population || 0,
+              isAddress: false,
+              isCity: true,
+              isCapital: isCapital,
+              score: (isCapital ? 220 : 120) + (r.population ? Math.min(100, Math.log10(r.population) * 15) : 0)
+            };
+          });
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') console.warn("Erreur Open-Meteo Geocoding :", e);
+      }
+      return [];
+    })();
+
+    // 2. BASE ADRESSE NATIONALE (BAN) POUR ADRESSES ET RUES DE FRANCE
+    const banPromise = (async () => {
+      try {
+        const banController = new AbortController();
+        const banTimer = setTimeout(() => banController.abort(), 2000);
+        const onAbort = () => banController.abort();
+        if (signal) signal.addEventListener('abort', onAbort, { once: true });
+
+        const bUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(cleanQuery)}&limit=6`;
+        const bRes = await fetch(bUrl, { signal: banController.signal });
+        clearTimeout(banTimer);
+        if (signal) signal.removeEventListener('abort', onAbort);
+
+        if (bRes.ok) {
+          const bData = await bRes.json();
+          return (bData.features || [])
+            .filter(f => f.properties && (f.properties.score > 0.35 || (hasDigits && f.properties.type === 'housenumber')))
+            .map(f => {
+              const props = f.properties || {};
+              const type = props.type || 'locality';
+              let icon = '📍';
+              let typeLabel = 'Lieu';
+              let score = 50;
+              if (type === 'housenumber') {
+                icon = '🏠';
+                typeLabel = 'Adresse';
+                score = hasDigits ? 280 : 70;
+              } else if (type === 'street') {
+                icon = '🛣️';
+                typeLabel = 'Rue';
+                score = hasDigits ? 220 : 80;
+              } else if (type === 'municipality') {
+                icon = '🏙️';
+                typeLabel = 'Ville • France';
+                score = 130;
+              }
+
+              const title = props.name || props.label;
+              const subtitle = [props.postcode, props.city, props.context].filter(Boolean).join(', ');
+
+              return {
+                lat: f.geometry.coordinates[1],
+                lon: f.geometry.coordinates[0],
+                title: title,
+                subtitle: subtitle,
+                shortName: props.label || title,
+                displayName: subtitle ? `${title} (${subtitle})` : title,
+                icon: `🇫🇷 ${icon}`,
+                typeLabel: typeLabel,
+                country: 'France',
+                countryCode: 'FR',
+                isAddress: type === 'housenumber',
+                isCity: type === 'municipality',
+                isCapital: false,
+                score: score
+              };
+            });
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') console.warn("Erreur BAN :", e);
+      }
+      return [];
+    })();
+
+    // 3. PHOTON / KOMOOT (OPENSTREETMAP MONDIAL - Sommets, Parcs, Villes et Lieux mondiaux)
+    const photonPromise = (async () => {
+      try {
+        const phController = new AbortController();
+        const phTimer = setTimeout(() => phController.abort(), 2200);
+        const onAbort = () => phController.abort();
+        if (signal) signal.addEventListener('abort', onAbort, { once: true });
+
+        const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanQuery)}&limit=6&lang=fr`;
+        const pRes = await fetch(pUrl, { signal: phController.signal });
+        clearTimeout(phTimer);
+        if (signal) signal.removeEventListener('abort', onAbort);
+
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          return (pData.features || []).map(f => {
+            const p = f.properties || {};
+            const flag = getCountryFlag(p.countrycode);
+            const isPeak = p.osm_value === 'peak' || p.osm_key === 'natural';
+            const isCity = ['city', 'town', 'village', 'capital'].includes(p.osm_value);
+            const icon = isPeak ? '⛰️' : (isCity ? '🏙️' : '📍');
+            const sub = [p.state, p.country].filter(Boolean).join(', ');
 
             return {
               lat: f.geometry.coordinates[1],
               lon: f.geometry.coordinates[0],
-              title: title,
-              subtitle: subtitle,
-              shortName: props.label || title,
-              displayName: subtitle ? `${title} (${subtitle})` : title,
-              icon: icon,
-              typeLabel: typeLabel,
-              isAddress: type === 'housenumber'
-            };
-          });
-        results.push(...banItems);
-      }
-    } catch (e) {
-      if (e.name !== 'AbortError') console.warn("Erreur BAN :", e);
-    }
-
-    // SI LA BAN A TROUVÉ DES RÉSULTATS : RETOUR IMMÉDIAT (Économise 10 secondes d'attente !)
-    if (results.length > 0) {
-      if (hasDigits) {
-        results.sort((a, b) => (b.isAddress ? 1 : 0) - (a.isAddress ? 1 : 0));
-      }
-      this.placesCache.set(normKey, results);
-      return results;
-    }
-
-    // 2. FALLBACK MONDIAL (Nominatim OpenStreetMap) UNIQUEMENT SI 0 RÉSULTAT EN FRANCE
-    try {
-      const nUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(cleanQuery)}&limit=6`;
-      const nController = new AbortController();
-      const nTimer = setTimeout(() => nController.abort(), 1800);
-
-      const onAbortN = () => nController.abort();
-      if (signal) signal.addEventListener('abort', onAbortN, { once: true });
-
-      const nRes = await fetch(nUrl, { 
-        headers: { 'Accept-Language': 'fr' },
-        signal: nController.signal 
-      });
-      clearTimeout(nTimer);
-      if (signal) signal.removeEventListener('abort', onAbortN);
-
-      if (nRes.ok) {
-        const nData = await nRes.json();
-        if (nData && nData.length > 0) {
-          results = nData.map(p => {
-            const addr = p.address || {};
-            const hasNum = Boolean(addr.house_number);
-            const street = addr.road ? (hasNum ? `${addr.house_number} ${addr.road}` : addr.road) : '';
-            const title = street || (p.display_name || '').split(',')[0];
-            const subParts = [addr.city || addr.town || addr.village, addr.state, addr.country].filter(Boolean);
-            const subtitle = subParts.join(', ') || p.display_name;
-
-            return {
-              lat: parseFloat(p.lat),
-              lon: parseFloat(p.lon),
-              title: title,
-              subtitle: subtitle,
-              shortName: title,
-              displayName: subtitle ? `${title} (${subtitle})` : title,
-              icon: hasNum ? '🏠' : '📍',
-              typeLabel: hasNum ? 'Adresse' : 'Lieu',
-              isAddress: hasNum
+              title: p.name,
+              subtitle: sub,
+              shortName: p.name,
+              displayName: sub ? `${p.name} (${sub})` : p.name,
+              icon: flag ? `${flag} ${icon}` : icon,
+              typeLabel: isPeak ? 'Sommet' : (p.country ? `Lieu • ${p.country}` : 'Lieu'),
+              country: p.country,
+              countryCode: p.countrycode,
+              isAddress: Boolean(p.housenumber),
+              isCity: isCity,
+              isCapital: p.osm_value === 'capital',
+              score: isPeak ? 95 : (isCity ? 85 : 45)
             };
           });
         }
+      } catch (e) {
+        if (e.name !== 'AbortError') console.warn("Erreur Photon :", e);
       }
-    } catch (e) {
-      if (e.name !== 'AbortError') console.warn("Erreur Nominatim fallback :", e);
-    }
+      return [];
+    })();
 
-    if (results.length > 0) {
-      this.placesCache.set(normKey, results);
-    }
+    // Exécution parallèle des sources
+    const [omSettled, banSettled, phSettled] = await Promise.allSettled([
+      openMeteoPromise,
+      banPromise,
+      photonPromise
+    ]);
 
-    return results;
+    const omItems = (omSettled.status === 'fulfilled' && omSettled.value) ? omSettled.value : [];
+    const banItems = (banSettled.status === 'fulfilled' && banSettled.value) ? banSettled.value : [];
+    const phItems = (phSettled.status === 'fulfilled' && phSettled.value) ? phSettled.value : [];
+
+    const candidates = [...omItems, ...banItems, ...phItems];
+
+    // Attribution des scores de pertinence textuelle
+    const qLower = normKey;
+    candidates.forEach(item => {
+      const tLower = (item.title || '').toLowerCase();
+      if (tLower === qLower) {
+        item.score += 500; // Correspondance exacte du nom (ex: "Rome" -> Rome, Italie)
+      } else if (tLower.startsWith(qLower)) {
+        item.score += 250;
+      } else if (tLower.includes(qLower)) {
+        item.score += 50;
+      }
+      if (hasDigits && item.isAddress) {
+        item.score += 300;
+      }
+    });
+
+    // Tri par score de pertinence décroissant
+    candidates.sort((a, b) => b.score - a.score);
+
+    // Déduplication géographique
+    const combined = [];
+    candidates.forEach(p => {
+      if (!p.title || isNaN(p.lat) || isNaN(p.lon)) return;
+      const exists = combined.some(c => {
+        const sameTitle = c.title.toLowerCase() === p.title.toLowerCase();
+        const distKm = GPXParser.haversineDistance(c.lat, c.lon, p.lat, p.lon);
+        return (sameTitle && distKm < 50) || distKm < 8;
+      });
+      if (!exists) {
+        combined.push(p);
+      }
+    });
+
+    const finalResults = combined.slice(0, 10);
+    this.placesCache.set(normKey, finalResults);
+    return finalResults;
   }
 
   renderPlacesResults(places, query) {
@@ -2201,8 +2312,8 @@ class AppController {
     resultsContainer.innerHTML = '';
     if (!places || places.length === 0) {
       resultsContainer.innerHTML = `
-        <div class="p-3 text-xs text-slate-500 text-center flex items-center justify-center gap-1.5">
-          <span>🔍</span> Aucun lieu ou adresse trouvé pour "<b>${this.escapeHtml(query)}</b>"
+        <div class="p-3.5 text-xs text-slate-500 text-center flex items-center justify-center gap-2">
+          <span>🌍</span> Aucun lieu trouvé dans le monde pour "<b>${this.escapeHtml(query)}</b>"
         </div>`;
       resultsContainer.classList.remove('hidden');
       return;
@@ -2213,14 +2324,18 @@ class AppController {
       const item = document.createElement('div');
       item.className = 'px-3.5 py-2.5 hover:bg-emerald-50 cursor-pointer transition border-b border-slate-100 last:border-b-0 flex items-start gap-3 text-left group';
       
+      const isCap = place.isCapital || (place.typeLabel && place.typeLabel.includes('Capitale'));
+      const isCity = place.isCity || (place.typeLabel && place.typeLabel.includes('Ville'));
+      const isPeak = place.typeLabel && (place.typeLabel.includes('Sommet') || place.typeLabel.includes('Massif'));
+
       const badgeColor = place.isAddress 
         ? 'bg-amber-100 text-amber-800 border-amber-200'
-        : place.typeLabel === 'Ville'
+        : isCap
+        ? 'bg-purple-100 text-purple-800 border-purple-200 font-bold'
+        : isCity
         ? 'bg-sky-100 text-sky-800 border-sky-200'
-        : place.typeLabel === 'Rue'
-        ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
-        : place.typeLabel === 'Nature' || place.typeLabel === 'Massif' || place.typeLabel === 'Sommet'
-        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+        : isPeak
+        ? 'bg-emerald-100 text-emerald-800 border-emerald-200 font-bold'
         : 'bg-slate-100 text-slate-700 border-slate-200';
 
       item.innerHTML = `
@@ -2228,21 +2343,20 @@ class AppController {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
             <span class="font-semibold text-xs sm:text-sm text-slate-800 truncate group-hover:text-emerald-700">${this.escapeHtml(place.title)}</span>
-            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${badgeColor} select-none whitespace-nowrap">${place.typeLabel || 'Lieu'}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full border ${badgeColor} select-none whitespace-nowrap">${place.typeLabel || 'Lieu'}</span>
           </div>
           ${place.subtitle ? `<div class="text-[11px] text-slate-500 truncate mt-0.5">${this.escapeHtml(place.subtitle)}</div>` : ''}
         </div>
       `;
       
       item.addEventListener('click', () => {
-        this.applySelectedPlace(place.lat, place.lon, place.title, place.isAddress);
+        this.applySelectedPlace(place.lat, place.lon, place.displayName || place.title, place.isAddress);
       });
       resultsContainer.appendChild(item);
     });
   }
 
   async searchPlaces(query) {
-    // Annuler la requête réseau précédente si l'utilisateur continue de taper
     if (this.placesAbortController) {
       this.placesAbortController.abort();
     }
@@ -2253,22 +2367,34 @@ class AppController {
     if (iconEl) iconEl.innerHTML = '<span class="animate-spin inline-block">⏳</span>';
 
     try {
+      // 1. Afficher d'abord immédiatement les lieux locaux si correspondance (0 ms)
+      const localMatches = this.getLocalPlaceMatches(query);
+      if (localMatches.length > 0) {
+        this.renderPlacesResults(localMatches, query);
+      }
+
+      // 2. Recherche mondiale (Open-Meteo + BAN + Photon)
       const places = await this.fetchPlacesList(query, signal);
       
-      // Fusionner avec les pré-suggestions locales
-      const localMatches = this.getLocalPlaceMatches(query);
-      const combined = [...localMatches];
-      (places || []).forEach(p => {
+      // Fusionner avec les suggestions locales si pertinentes
+      const combined = [...places];
+      (localMatches || []).forEach(local => {
         const exists = combined.some(c => 
-          (c.title && c.title.toLowerCase() === p.title.toLowerCase()) ||
-          (Math.abs(c.lat - p.lat) < 0.005 && Math.abs(c.lon - p.lon) < 0.005)
+          (c.title && c.title.toLowerCase() === local.title.toLowerCase()) ||
+          (Math.abs(c.lat - local.lat) < 0.05 && Math.abs(c.lon - local.lon) < 0.05)
         );
-        if (!exists) combined.push(p);
+        if (!exists) {
+          if (local.title.toLowerCase() === query.toLowerCase().trim()) {
+            combined.unshift(local);
+          } else {
+            combined.push(local);
+          }
+        }
       });
 
       this.renderPlacesResults(combined, query);
     } catch (e) {
-      if (e.name !== 'AbortError') console.warn("Erreur recherche lieu :", e);
+      if (e.name !== 'AbortError') console.warn("Erreur recherche lieu mondial :", e);
     } finally {
       if (iconEl) iconEl.textContent = '📍';
     }
@@ -2284,8 +2410,8 @@ class AppController {
     }
     this.applyFiltersAndRender(false);
     
-    // Zoom sur le lieu : niveau rue pour une adresse (16), niveau ville sinon (13)
-    const zoom = (isAddress || /\d/.test(label || '')) ? 16 : 13;
+    // Zoom sur le lieu : niveau rue pour une adresse (16), niveau ville sinon (12)
+    const zoom = (isAddress || /\d/.test(label || '')) ? 16 : 12;
     const zoomToPlace = () => {
       const m = window.MapManagerInstance && window.MapManagerInstance.map;
       if (m) m.setView([lat, lon], zoom);
@@ -2295,13 +2421,19 @@ class AppController {
   }
 
   async searchAndSelectFirstPlace(query) {
-    const places = await this.fetchPlacesList(query);
-    if (places && places.length > 0) {
-      const p = places[0];
-      this.applySelectedPlace(p.lat, p.lon, p.title, p.isAddress);
-      this.showToast(`Point de référence défini : ${p.displayName}`, "success");
-    } else {
-      this.showToast(`Aucun lieu mondial trouvé pour "${query}"`, "error");
+    const iconEl = document.getElementById('location-search-icon');
+    if (iconEl) iconEl.innerHTML = '<span class="animate-spin inline-block">⏳</span>';
+    try {
+      const places = await this.fetchPlacesList(query);
+      if (places && places.length > 0) {
+        const p = places[0];
+        this.applySelectedPlace(p.lat, p.lon, p.displayName || p.title, p.isAddress);
+        this.showToast(`Point de référence défini : ${p.displayName || p.title}`, "success");
+      } else {
+        this.showToast(`Aucun lieu mondial trouvé pour "${query}"`, "error");
+      }
+    } finally {
+      if (iconEl) iconEl.textContent = '📍';
     }
   }
 
