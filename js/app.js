@@ -4087,12 +4087,13 @@ class AppController {
     this.updateSupabaseUsersStatusBadge();
 
     // Feedback clair avec identifiants pour transmission au membre
-    const credsSummary = `Compte créé avec succès !\n\n👤 Identifiant : ${createdUsername}\n🔑 Mot de passe temporaire : ${createdPwd}\n\n(Ces identifiants sont enregistrés. Le membre pourra se connecter et changer son mot de passe.)`;
+    let credsSummary = `Compte créé avec succès !\n\n👤 Identifiant : ${createdUsername}\n🔑 Mot de passe temporaire : ${createdPwd}\n\n(Ces identifiants sont enregistrés. Le membre pourra se connecter et changer son mot de passe.)`;
     
     if (res.cloudSynced) {
       this.showToast(`✅ Utilisateur « ${createdUsername} » créé et synchronisé sur le Cloud !`, "success");
     } else {
-      this.showToast(`💾 Utilisateur « ${createdUsername} » enregistré en local sur cet appareil.`, "info");
+      this.showToast(`⚠️ Utilisateur « ${createdUsername} » enregistré en LOCAL uniquement sur cet appareil.`, "warning");
+      credsSummary += `\n\n⚠️ ATTENTION (Mode Local) :\nLa table Supabase Cloud n'étant pas encore active, ce compte n'est enregistré que sur CET appareil. Pour qu'il fonctionne sur d'autres téléphones ou ordinateurs, exécutez le script SQL dans Supabase (ou utilisez le bouton "Exporter les comptes").`;
     }
 
     setTimeout(() => {
@@ -4246,11 +4247,15 @@ class AppController {
   async testAndSyncSupabaseUsers() {
     if (typeof AuthManager === 'undefined') return;
     this.showToast("Vérification de la table Supabase app_users...", "info");
-    const ok = await AuthManager.syncFromSupabase();
-    if (ok) {
-      this.showToast("✅ Synchronisation réussie avec la table Cloud Supabase !", "success");
+    const res = await AuthManager.syncFromSupabase();
+    if (res && res.success) {
+      this.showToast(`✅ Cloud connecté ! ${res.count} compte(s) synchronisé(s) avec Supabase.`, "success");
+    } else if (res && res.reason === 'table_not_found') {
+      this.showToast("⚠️ Table app_users inexistante sur Supabase. Cliquez sur « Copier le script SQL » puis « Ouvrir Supabase SQL Editor ».", "warning");
+    } else if (res && res.reason === 'network_error') {
+      this.showToast("⚠️ Projet Supabase inaccessible ou en pause. Rendez-vous sur supabase.com pour cliquer sur « Restore project ».", "warning");
     } else {
-      this.showToast("ℹ️ Table app_users non trouvée sur Supabase. Mode local actif.", "info");
+      this.showToast("ℹ️ Mode local actif (comptes enregistrés sur cet appareil).", "info");
     }
     this.updateSupabaseUsersStatusBadge();
     this.renderUsersTable();
@@ -4261,11 +4266,11 @@ class AppController {
     if (!badge || typeof AuthManager === 'undefined') return;
 
     if (AuthManager.isSupabaseAvailable) {
-      badge.textContent = '🟢 Cloud Supabase Connecté';
-      badge.className = 'px-2 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300';
+      badge.textContent = '🟢 Cloud Supabase Connecté (Multi-appareils)';
+      badge.className = 'px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300';
     } else {
-      badge.textContent = '💾 Stockage Local Actif';
-      badge.className = 'px-2 py-0.5 rounded-full font-bold text-[10px] bg-slate-200 text-slate-700';
+      badge.textContent = '💾 Stockage Local (Cet appareil uniquement)';
+      badge.className = 'px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 border border-amber-300';
     }
   }
 

@@ -496,65 +496,70 @@ class AuthManager {
    */
   static async syncFromSupabase() {
     const { url, key } = this.getSupabaseConfig();
-    if (!url || !key) return false;
+    if (!url || !key) return { success: false, reason: 'config_missing' };
 
-    const apiUrl = `${url}/rest/v1/app_users?select=*`;
-    const resp = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (resp.status === 404) {
-      // Table non existante pour le moment, fallback local transparent
-      this.isSupabaseAvailable = false;
-      return false;
-    }
-
-    if (!resp.ok) {
-      this.isSupabaseAvailable = false;
-      return false;
-    }
-
-    const cloudRows = await resp.json();
-    if (Array.isArray(cloudRows)) {
-      this.isSupabaseAvailable = true;
-
-      // Fusion : les comptes distants font foi
-      const mergedMap = new Map();
-      
-      // Charge d'abord le local
-      this.users.forEach(u => mergedMap.set(u.username.toLowerCase(), u));
-      
-      // Remplace/Ajoute avec les données du cloud
-      cloudRows.forEach(row => {
-        mergedMap.set(row.username.toLowerCase(), {
-          id: row.id,
-          username: row.username,
-          password_hash: row.password_hash,
-          role: row.role || 'user',
-          can_upload: Boolean(row.can_upload),
-          can_edit: Boolean(row.can_edit),
-          created_at: row.created_at || new Date().toISOString(),
-          updated_at: row.updated_at || new Date().toISOString()
-        });
+    try {
+      const apiUrl = `${url}/rest/v1/app_users?select=*`;
+      const resp = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': key,
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      this.users = Array.from(mergedMap.values());
-
-      // S'assurer que le compte admin existe
-      if (!this.users.some(u => u.username === 'admin')) {
-        this.users.unshift(this.DEFAULT_ADMIN);
-        await this.pushUserToSupabase(this.DEFAULT_ADMIN);
+      if (resp.status === 404) {
+        // Table non existante pour le moment, fallback local transparent
+        this.isSupabaseAvailable = false;
+        return { success: false, reason: 'table_not_found' };
       }
 
-      this.saveToLocalStorage();
-      return true;
+      if (!resp.ok) {
+        this.isSupabaseAvailable = false;
+        return { success: false, reason: 'http_error', status: resp.status };
+      }
+
+      const cloudRows = await resp.json();
+      if (Array.isArray(cloudRows)) {
+        this.isSupabaseAvailable = true;
+
+        // Fusion : les comptes distants font foi
+        const mergedMap = new Map();
+        
+        // Charge d'abord le local
+        this.users.forEach(u => mergedMap.set(u.username.toLowerCase(), u));
+        
+        // Remplace/Ajoute avec les données du cloud
+        cloudRows.forEach(row => {
+          mergedMap.set(row.username.toLowerCase(), {
+            id: row.id,
+            username: row.username,
+            password_hash: row.password_hash,
+            role: row.role || 'user',
+            can_upload: Boolean(row.can_upload),
+            can_edit: Boolean(row.can_edit),
+            created_at: row.created_at || new Date().toISOString(),
+            updated_at: row.updated_at || new Date().toISOString()
+          });
+        });
+
+        this.users = Array.from(mergedMap.values());
+
+        // S'assurer que le compte admin existe
+        if (!this.users.some(u => u.username === 'admin')) {
+          this.users.unshift(this.DEFAULT_ADMIN);
+          await this.pushUserToSupabase(this.DEFAULT_ADMIN);
+        }
+
+        this.saveToLocalStorage();
+        return { success: true, count: cloudRows.length };
+      }
+      return { success: false, reason: 'invalid_format' };
+    } catch (e) {
+      this.isSupabaseAvailable = false;
+      return { success: false, reason: 'network_error', message: e.message };
     }
-    return false;
   }
 
   /**
@@ -679,6 +684,8 @@ CREATE TABLE IF NOT EXISTS public.app_users (
 
 -- Activation de Row Level Security (RLS) permissive pour l'app
 ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read-write for app_users" ON public.app_users;
 
 CREATE POLICY "Allow public read-write for app_users"
   ON public.app_users
