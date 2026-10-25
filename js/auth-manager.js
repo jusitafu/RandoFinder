@@ -667,10 +667,8 @@ class AuthManager {
    */
   static getSupabaseTableSQL() {
     return `-- ===============================================================
--- RandoFinder - Création de la table des utilisateurs sur Supabase
--- À exécuter dans le menu "SQL Editor" de votre tableau de bord Supabase
+-- 1. TABLE DES UTILISATEURS (Comptes, mots de passe cryptés, droits)
 -- ===============================================================
-
 CREATE TABLE IF NOT EXISTS public.app_users (
   id text PRIMARY KEY,
   username text UNIQUE NOT NULL,
@@ -682,22 +680,81 @@ CREATE TABLE IF NOT EXISTS public.app_users (
   updated_at timestamp with time zone DEFAULT now()
 );
 
--- Activation de Row Level Security (RLS) permissive pour l'app
 ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Allow public read-write for app_users" ON public.app_users;
-
 CREATE POLICY "Allow public read-write for app_users"
-  ON public.app_users
-  FOR ALL
-  TO anon, authenticated
-  USING (true)
-  WITH CHECK (true);
+  ON public.app_users FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);
 
--- Insertion de l'administrateur initial par défaut si absent
 INSERT INTO public.app_users (id, username, password_hash, role, can_upload, can_edit)
 VALUES ('user_admin', 'admin', '43b8058a90e45ee18f465adfea6bcfad03871c8ca6f736381b95669265c95715', 'admin', true, true)
 ON CONFLICT (username) DO NOTHING;
+
+-- ===============================================================
+-- 2. TABLE DES RANDONNÉES SANARYENS (Base active officielle)
+-- ===============================================================
+CREATE TABLE IF NOT EXISTS public.randonnees_sanaryens (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  distance_km numeric,
+  elevation_gain numeric,
+  elevation_loss numeric DEFAULT 0,
+  min_elevation numeric DEFAULT 0,
+  max_elevation numeric DEFAULT 0,
+  start_lat numeric,
+  start_lon numeric,
+  estimated_duration text,
+  notes text,
+  gpx_url text,
+  raw_gpx text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+ALTER TABLE public.randonnees_sanaryens ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read-write for randonnees_sanaryens" ON public.randonnees_sanaryens;
+CREATE POLICY "Allow public read-write for randonnees_sanaryens"
+  ON public.randonnees_sanaryens FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);
+
+-- ===============================================================
+-- 3. TABLE DES RANDONNÉES JLDAPPS (Base historique sanctuarisée)
+-- ===============================================================
+CREATE TABLE IF NOT EXISTS public.randonnees (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  distance_km numeric,
+  elevation_gain numeric,
+  elevation_loss numeric DEFAULT 0,
+  min_elevation numeric DEFAULT 0,
+  max_elevation numeric DEFAULT 0,
+  start_lat numeric,
+  start_lon numeric,
+  estimated_duration text,
+  notes text,
+  gpx_url text,
+  raw_gpx text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+ALTER TABLE public.randonnees ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read-write for randonnees" ON public.randonnees;
+CREATE POLICY "Allow public read-write for randonnees"
+  ON public.randonnees FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);
+
+-- ===============================================================
+-- 4. BUCKET DE STOCKAGE DES FICHIERS GPX
+-- ===============================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('traces-gpx', 'traces-gpx', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Allow public uploads on traces-gpx" ON storage.objects;
+CREATE POLICY "Allow public uploads on traces-gpx"
+  ON storage.objects FOR ALL TO anon, authenticated
+  USING (bucket_id = 'traces-gpx') WITH CHECK (bucket_id = 'traces-gpx');
 `;
   }
 }

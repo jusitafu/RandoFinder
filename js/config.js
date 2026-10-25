@@ -7,10 +7,10 @@
 
 window.APP_CONFIG = {
   // URL de l'instance Cloud Supabase du club
-  supabaseUrl: 'https://qguseukrgsczgviuloxr.supabase.co',
+  supabaseUrl: 'https://lotoulcfncyphxarttyk.supabase.co',
 
   // Clé publique (Publishable Key) autorisée pour les navigateurs
-  supabaseKey: 'sb_publishable_iy3fFv7Qo5Rc9D3gcNhXsA_72y1_j44',
+  supabaseKey: 'sb_publishable_JcANA4Rpdo0qI-8PwKWH6w_CUbWQeYp',
 
   // Bucket de stockage public pour les fichiers GPX
   storageBucket: 'traces-gpx',
