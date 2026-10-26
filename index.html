@@ -90,7 +90,7 @@
 
   <!-- Custom CSS -->
 
-  <link rel="stylesheet" href="css/styles.css?v=75">
+  <link rel="stylesheet" href="css/styles.css?v=76">
 
 </head>
 
@@ -2146,50 +2146,32 @@
 
           </div>
 
-          <div>
-
-            <h3 class="text-sm sm:text-base font-bold text-white leading-tight">Légende des Cartes Topographiques</h3>
-
-            <p class="text-xs text-slate-400 mt-0.5">Guide des sentiers balisés, courbes de niveau, falaises et symboles essentiels</p>
-
+                    <div>
+            <h3 id="map-legend-modal-title" class="text-sm sm:text-base font-bold text-white leading-tight">Légende des Cartes Topographiques</h3>
+            <p id="map-legend-modal-subtitle" class="text-xs text-slate-400 mt-0.5">Guide des sentiers balisés, courbes de niveau, falaises et symboles essentiels</p>
           </div>
-
         </div>
-
         <button id="btn-close-map-legend-modal" class="text-slate-400 hover:text-white p-1 rounded-lg transition text-lg cursor-pointer">✕</button>
-
       </div>
 
-
-
       <!-- Navigation Tabs -->
-
-      <div class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 pt-3 flex-shrink-0 overflow-x-auto">
-
+      <div id="map-legend-tabs-bar" class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 pt-3 flex-shrink-0 overflow-x-auto">
         <button type="button" id="tab-legend-btn-ign" onclick="App.switchLegendTab('ign')"
-
           class="tab-legend-btn px-4 py-2 text-xs font-bold border-b-2 border-emerald-600 text-emerald-700 cursor-pointer flex items-center gap-1.5 transition">
-
           <span>🗺️</span> <span>IGN Top 25 (France)</span>
-
         </button>
-
         <button type="button" id="tab-legend-btn-opentopo" onclick="App.switchLegendTab('opentopo')"
-
           class="tab-legend-btn px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 border-b-2 border-transparent cursor-pointer flex items-center gap-1.5 transition">
-
           <span>⛰️</span> <span>OpenTopoMap (Mondial)</span>
-
         </button>
-
         <button type="button" id="tab-legend-btn-osm" onclick="App.switchLegendTab('osm')"
-
           class="tab-legend-btn px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 border-b-2 border-transparent cursor-pointer flex items-center gap-1.5 transition">
-
           <span>📍</span> <span>OpenStreetMap</span>
-
         </button>
-
+        <button type="button" id="tab-legend-btn-satellite" onclick="App.switchLegendTab('satellite')"
+          class="tab-legend-btn px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 border-b-2 border-transparent cursor-pointer flex items-center gap-1.5 transition">
+          <span>🛰️</span> <span>Circuits GPX & Satellite</span>
+        </button>
       </div>
 
 
@@ -2199,6 +2181,168 @@
       <div class="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 text-slate-700 text-xs sm:text-sm">
 
         
+
+                <!-- PANE SATELLITE & CIRCUITS GPX -->
+        <div id="legend-pane-satellite" class="hidden space-y-5">
+          <div class="bg-indigo-50/90 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 bg-indigo-600 text-white rounded-md text-[11px] font-bold uppercase tracking-wider">Vue Satellite / Orthophotographie</span>
+                <span class="text-xs text-indigo-700 font-medium">Photographie aérienne de la Terre</span>
+              </div>
+              <h4 class="font-bold text-indigo-950 text-sm mt-1.5">Légende des Circuits GPX & Repères RandoFinder</h4>
+              <p class="text-xs text-indigo-800 mt-0.5">
+                Une photo satellite montre la réalité optique brute du terrain : elle ne comporte aucun symbole cartographique abstrait (pas de courbes de niveau dessinées, pas de balisages de sentiers peints). Seuls les circuits et repères ci-dessous s'y superposent :
+              </p>
+            </div>
+            <div id="satellite-toggle-topo-container" class="flex-shrink-0">
+              <button type="button" onclick="App.showTopoTabsInSatelliteMode()" 
+                class="px-3.5 py-2 bg-white hover:bg-slate-50 text-indigo-950 border border-indigo-300 rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer hover:border-indigo-400">
+                <span>🗺️</span> <span>Voir la légende Topo IGN Top 25</span> <span>↗</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <!-- 1. Difficultés & Épingles de Départ -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Niveaux de Difficulté (Épingles de départ)
+              </h5>
+              <p class="text-[11px] text-slate-500">Chaque circuit est repéré sur la carte par une épingle pointée sur son parking / point de départ :</p>
+              <div class="space-y-3 text-xs">
+                
+                <div class="flex items-start gap-3">
+                  <div class="w-7 h-7 bg-emerald-600 text-white rounded-full flex items-center justify-center font-black text-xs border-2 border-white shadow-md flex-shrink-0">▲</div>
+                  <div>
+                    <span class="font-bold text-emerald-900">Niveau Facile (Vert) :</span>
+                    <span class="text-slate-600 block">Dénivelé inférieur à 350 m et distance &le; 12 km. Randonnée accessible à tous, idéale en famille.</span>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  <div class="w-7 h-7 bg-amber-500 text-white rounded-full flex items-center justify-center font-black text-xs border-2 border-white shadow-md flex-shrink-0">▲</div>
+                  <div>
+                    <span class="font-bold text-amber-900">Niveau Moyen (Orange) :</span>
+                    <span class="text-slate-600 block">Dénivelé de 350 m à 700 m ou distance de 12 à 18 km. Randonneur régulier, quelques pentes soutenues ou sentiers caillouteux.</span>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  <div class="w-7 h-7 bg-rose-600 text-white rounded-full flex items-center justify-center font-black text-xs border-2 border-white shadow-md flex-shrink-0">▲</div>
+                  <div>
+                    <span class="font-bold text-rose-900">Niveau Sportif (Rouge) :</span>
+                    <span class="text-slate-600 block">Dénivelé &ge; 700 m ou distance &gt; 18 km. Effort physique soutenu, dénivelés importants et sentiers exigeants.</span>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  <div class="w-7 h-7 bg-red-600 text-white rounded-full flex items-center justify-center font-black text-xs border-2 border-white shadow-lg ring-4 ring-red-400 flex-shrink-0 scale-105">▲</div>
+                  <div>
+                    <span class="font-bold text-red-900">Circuit Sélectionné (Halo Rouge) :</span>
+                    <span class="text-slate-600 block">Épingle agrandie avec halo rouge clignotant indiquant la randonnée actuellement active.</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- 2. Tracé GPS & Balises -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Tracé GPS Haute Visibilité & Balises
+              </h5>
+              <p class="text-[11px] text-slate-500">Affiché sur la carte dès le survol ou la sélection d'une fiche :</p>
+              <div class="space-y-3 text-xs">
+                
+                <div class="flex items-start gap-3">
+                  <div class="w-9 h-3 bg-blue-600 border-2 border-white outline outline-1 outline-slate-900 rounded-full mt-1 flex-shrink-0 shadow-sm"></div>
+                  <div>
+                    <span class="font-bold text-slate-900">Trace GPS Bleu Roi Électrique :</span>
+                    <span class="text-slate-600 block">Tracé bordé d'un halo blanc pur et d'une ombre sombre pour ressortir nettement aussi bien sur la forêt sombre que sur la roche calcaire.</span>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  <div class="w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center font-black text-[10px] border-2 border-white shadow flex-shrink-0 mt-0.5">D</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Point de Départ (Pastille « D ») :</span>
+                    <span class="text-slate-600 block">Départ exact du parcours pédestre (premier point GPS enregistré).</span>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  <div class="w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center font-black text-[10px] border-2 border-white shadow flex-shrink-0 mt-0.5">A</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Point d'Arrivée (Pastille « A ») :</span>
+                    <span class="text-slate-600 block">Présente uniquement sur les parcours linéaires (traversées). En boucle, le départ et l'arrivée sont confondus.</span>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  <div class="w-5 h-5 bg-sky-500 text-white rounded-full flex items-center justify-center font-black text-[10px] border-2 border-white shadow flex-shrink-0 mt-0.5">●</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Curseur d'altitude interactif :</span>
+                    <span class="text-slate-600 block">Pastille bleue qui se déplace en direct sur la trace lorsque vous glissez la souris sur le profil altimétrique.</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- 3. Mesures de distance & Carroyage UTM -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span> Mesures de Distance & Carroyage UTM
+              </h5>
+              <div class="space-y-3 text-xs">
+                
+                <div class="flex items-start gap-3">
+                  <div class="w-7 h-7 border-2 border-sky-500 bg-sky-500/10 rounded flex items-center justify-center text-[10px] font-black text-sky-700 flex-shrink-0">1k</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Carroyage kilométrique UTM (1 km &times; 1 km) :</span>
+                    <span class="text-slate-600 block">Chaque carreau mesure exactement 1 000 m de côté (visible aux zooms de randonnée &ge; 1:50 000). Permet d'évaluer instantanément les distances réelles.</span>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                  <div class="w-7 h-7 rounded-full border-2 border-dashed border-sky-600 bg-sky-100 flex items-center justify-center text-[11px] flex-shrink-0">⭕</div>
+                  <div>
+                    <span class="font-bold text-slate-900">Cercle de rayon de recherche :</span>
+                    <span class="text-slate-600 block">Délimite la zone géographique explorée autour du point de recherche sélectionné.</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- 4. Conseils de Lecture de la Photo Aérienne -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-slate-700"></span> Repérage sur la Photo Aérienne
+              </h5>
+              <div class="space-y-2.5 text-xs text-slate-600">
+                <div class="flex items-start gap-2">
+                  <span>🛣️</span>
+                  <div><strong class="text-slate-800">Pistes DFCI & Voies forestières :</strong> larges bandes claires très nettes à travers les massifs boisés.</div>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span>🧗</span>
+                  <div><strong class="text-slate-800">Falaises & Escarpements :</strong> facilement repérables par leurs ombres nettes portées et la texture rocheuse blanche/grise.</div>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span>💡</span>
+                  <div>
+                    <strong class="text-slate-800">Complémentarité :</strong> Pour afficher les courbes de niveau au mètre près, les sentiers étroits masqués sous les arbres, les sources et le balisage GR&reg;, basculez sur la carte <strong class="text-emerald-700 cursor-pointer underline" onclick="App.showTopoTabsInSatelliteMode()">IGN Top 25</strong> !
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
 
         <!-- PANE 1 : IGN TOP 25 -->
 
@@ -4580,23 +4724,23 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
 
   <!-- Scripts -->
 
-  <script src="js/config.js?v=75"></script>
+  <script src="js/config.js?v=76"></script>
 
-  <script src="js/auth-manager.js?v=75"></script>
+  <script src="js/auth-manager.js?v=76"></script>
 
-  <script src="js/gpx-parser.js?v=75"></script>
+  <script src="js/gpx-parser.js?v=76"></script>
 
-  <script src="js/sample-data.js?v=75"></script>
+  <script src="js/sample-data.js?v=76"></script>
 
-  <script src="js/storage.js?v=75"></script>
+  <script src="js/storage.js?v=76"></script>
 
-  <script src="js/elevation-profile.js?v=75"></script>
+  <script src="js/elevation-profile.js?v=76"></script>
 
-  <script src="js/map-manager.js?v=75"></script>
+  <script src="js/map-manager.js?v=76"></script>
 
-  <script src="js/pdf-exporter.js?v=75"></script>
+  <script src="js/pdf-exporter.js?v=76"></script>
 
-  <script src="js/app.js?v=75"></script>
+  <script src="js/app.js?v=76"></script>
 
 </body>
 

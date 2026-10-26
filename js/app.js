@@ -117,6 +117,7 @@ class AppController {
         window.MapManagerInstance.onHikeSelectCallback = (hike) => this.handleHikeSelect(hike);
         window.MapManagerInstance.onSearchOriginChangeCallback = (origin) => this.handleOriginChange(origin);
         window.MapManagerInstance.onMapBackgroundClickCallback = () => this.deselectHike();
+        window.MapManagerInstance.onBaseLayerChangeCallback = (layerKey) => this.handleBaseLayerChange(layerKey);
 
         // Synchronisation bidirectionnelle : Le zoom/dézoom de la carte à la souris ajuste le curseur de rayon
         window.MapManagerInstance.onMapZoomChangeCallback = (zoom) => {
@@ -3339,13 +3340,70 @@ class AppController {
   }
 
   // =========================================================================
-  // MAP LEGEND MODAL (IGN TOP 25 / OPENTOPOMAP / OSM)
+  // MAP LEGEND MODAL (IGN TOP 25 / OPENTOPOMAP / OSM / SATELLITE & GPX)
   // =========================================================================
-  openMapLegendModal(tab = 'ign') {
+  handleBaseLayerChange(layerKey) {
+    const btnLegend = document.getElementById('btn-map-legend');
+    const btnLegendText = document.getElementById('btn-map-legend-text');
+    if (!btnLegend) return;
+
+    if (layerKey === 'satellite') {
+      btnLegend.title = "Consulter la légende des circuits GPX et repères (Vue Satellite)";
+      if (btnLegendText) btnLegendText.textContent = "Légende GPX";
+    } else {
+      btnLegend.title = "Consulter la légende des cartes (IGN Top 25, sentiers, symboles)";
+      if (btnLegendText) btnLegendText.textContent = "Légende";
+    }
+  }
+
+  openMapLegendModal(requestedTab = null) {
     const modal = document.getElementById('map-legend-modal');
     if (!modal) return;
+
+    const currentLayer = (window.MapManagerInstance && typeof window.MapManagerInstance.getCurrentBaseLayerKey === 'function')
+      ? window.MapManagerInstance.getCurrentBaseLayerKey()
+      : 'igntop25';
+
+    let tab = requestedTab;
+    if (!tab) {
+      if (currentLayer === 'satellite') {
+        tab = 'satellite';
+      } else if (currentLayer === 'opentopo') {
+        tab = 'opentopo';
+      } else if (currentLayer === 'osmfr') {
+        tab = 'osm';
+      } else {
+        tab = 'ign';
+      }
+    }
+
+    const titleEl = document.getElementById('map-legend-modal-title');
+    const subEl = document.getElementById('map-legend-modal-subtitle');
+    const tabsBar = document.getElementById('map-legend-tabs-bar');
+
+    if (tab === 'satellite' && currentLayer === 'satellite') {
+      if (titleEl) titleEl.textContent = 'Légende des Circuits GPX & Repères (Vue Satellite)';
+      if (subEl) subEl.textContent = 'Niveaux de difficulté, codes couleur des tracés et repérage sur photo aérienne';
+      // En mode satellite : afficher uniquement la légende GPX (masquer la barre des onglets topo)
+      if (tabsBar) tabsBar.classList.add('hidden');
+    } else {
+      if (titleEl) titleEl.textContent = 'Légende des Cartes Topographiques';
+      if (subEl) subEl.textContent = 'Guide des sentiers balisés, courbes de niveau, falaises et symboles essentiels';
+      if (tabsBar) tabsBar.classList.remove('hidden');
+    }
+
     this.switchLegendTab(tab);
     modal.classList.remove('hidden');
+  }
+
+  showTopoTabsInSatelliteMode() {
+    const tabsBar = document.getElementById('map-legend-tabs-bar');
+    if (tabsBar) tabsBar.classList.remove('hidden');
+    const titleEl = document.getElementById('map-legend-modal-title');
+    const subEl = document.getElementById('map-legend-modal-subtitle');
+    if (titleEl) titleEl.textContent = 'Légende des Cartes Topographiques';
+    if (subEl) subEl.textContent = 'Guide des sentiers balisés, courbes de niveau, falaises et symboles essentiels';
+    this.switchLegendTab('ign');
   }
 
   closeMapLegendModal() {
@@ -3354,7 +3412,7 @@ class AppController {
   }
 
   switchLegendTab(tabKey) {
-    const tabs = ['ign', 'opentopo', 'osm'];
+    const tabs = ['satellite', 'ign', 'opentopo', 'osm'];
     tabs.forEach(t => {
       const btn = document.getElementById(`tab-legend-btn-${t}`);
       const pane = document.getElementById(`legend-pane-${t}`);

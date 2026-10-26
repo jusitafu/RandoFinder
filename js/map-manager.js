@@ -130,6 +130,10 @@ class MapManager {
       else if (name.includes('opentopo')) this.currentBaseLayer = 'opentopo';
       else if (name.includes('france') || name.includes('openstreetmap')) this.currentBaseLayer = 'osmfr';
       else if (name.includes('satellite')) this.currentBaseLayer = 'satellite';
+
+      if (typeof this.onBaseLayerChangeCallback === 'function') {
+        this.onBaseLayerChangeCallback(this.currentBaseLayer);
+      }
     });
 
     // Map Click Listener (Background click deselects or sets search origin)
@@ -430,6 +434,9 @@ class MapManager {
       }
       this.map.addLayer(targetLayer);
       this.currentBaseLayer = targetKey;
+      if (typeof this.onBaseLayerChangeCallback === 'function') {
+        this.onBaseLayerChangeCallback(this.currentBaseLayer);
+      }
     }
   }
 
