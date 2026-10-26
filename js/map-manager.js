@@ -923,14 +923,13 @@ class MapManager {
     this.utmGridLayer.clearLayers();
 
     const zoom = this.map.getZoom();
-    if (zoom < 8) return; // Trop dézoomé pour afficher la grille
+    // Le carroyage kilométrique officiel TOP 25 (1 km x 1 km) est actif aux échelles de randonnée
+    // (zoom >= 13, soit échelle 1:50 000 et 1:25 000 TOP 25).
+    // Aux échelles régionales ou départementales (zoom < 13, échelle > 1:100 000), il est masqué
+    // pour éviter tout quadrillage serré et illisible.
+    if (zoom < 13) return;
 
-    // Intervalle métrique adapté selon le zoom
-    let step = 1000; // 1 km officiel (Top 25)
-    if (zoom <= 8) step = 20000;
-    else if (zoom <= 9) step = 10000;
-    else if (zoom <= 11) step = 2000;
-    else step = 1000; // Zoom >= 12 : Carroyage kilométrique 1 km officiel TOP 25
+    const step = 1000; // Strictement 1 km x 1 km officiel TOP 25
 
     const bounds = this.map.getBounds();
     const sw = bounds.getSouthWest();
