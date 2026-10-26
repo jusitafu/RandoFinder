@@ -3467,6 +3467,8 @@ class AppController {
     const layoutStyle = pdfStyleEl ? pdfStyleEl.value : 'overlay';
     const incProfile = document.getElementById('opt-pdf-profile').checked;
     const incNotes = document.getElementById('opt-pdf-notes').checked;
+    const incUtmEl = document.getElementById('opt-pdf-utm');
+    const incUtm = incUtmEl ? incUtmEl.checked : true;
 
     this.closeDownloadModal();
 
@@ -3503,7 +3505,8 @@ class AppController {
           orientation: pdfOrientation,
           layoutStyle: layoutStyle,
           includeProfile: incProfile,
-          includeNotes: incNotes
+          includeNotes: incNotes,
+          showUtmGrid: incUtm
         });
         const styleLabel = pdfOrientation === 'landscape' ? (layoutStyle === 'overlay' ? ' • Panoramique' : ' • 2 Colonnes') : '';
         this.showToast(`Fiche PDF (${pdfFormat.toUpperCase()} ${pdfOrientation === 'landscape' ? 'Paysage' : 'Portrait'}${styleLabel}) téléchargée !`, "success");

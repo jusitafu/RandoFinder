@@ -989,6 +989,7 @@ class PDFExporter {
 
         if (countE <= 60 && countN <= 60 && countE >= 1 && countN >= 1) {
           ctx.save();
+          const nSteps = 6;
 
           // 1. Liseré sous-jacent blanc pour contraste maximal sur forêts, reliefs et rochers
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
@@ -1035,7 +1036,6 @@ class PDFExporter {
           ctx.setLineDash([]);
 
           // Lignes verticales (Easting)
-          const nSteps = 6;
           for (let e = startE; e <= endE; e += step) {
             ctx.beginPath();
             let started = false;
@@ -1052,20 +1052,39 @@ class PDFExporter {
             }
             ctx.stroke();
 
-            // Label kilométrique en bordure inférieure
+            // Label kilométrique en bordure supérieure (toujours dégagée) et inférieure
             const botLL = MapManager.utmToLatLon(e, startN, zone, centerLat >= 0);
             const botPix = latLonToPixel(botLL.lat, botLL.lon);
-            if (botPix.x >= 25 && botPix.x <= imgWidth - 25) {
+            if (botPix.x >= 30 && botPix.x <= imgWidth - 30) {
+              const labelText = String(Math.round(e / 1000));
+              ctx.font = 'bold 12px monospace';
+              const textW = ctx.measureText(labelText).width;
+              const boxW = Math.max(textW + 10, 32);
+              const boxH = 16;
+
+              // Bordure haute (invariablement visible)
               ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-              ctx.fillRect(botPix.x - 14, imgHeight - 17, 28, 14);
+              ctx.fillRect(botPix.x - boxW / 2, 4, boxW, boxH);
               ctx.strokeStyle = '#0284c7';
               ctx.lineWidth = 1.2;
-              ctx.strokeRect(botPix.x - 14, imgHeight - 17, 28, 14);
+              ctx.strokeRect(botPix.x - boxW / 2, 4, boxW, boxH);
               ctx.fillStyle = '#0369a1';
-              ctx.font = 'bold 10px monospace';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillText(Math.round(e / 1000), botPix.x, imgHeight - 10);
+              ctx.fillText(labelText, botPix.x, 4 + boxH / 2);
+
+              // Bordure basse (si non recouverte par les badges d'angle)
+              if (botPix.x > 280 && botPix.x < imgWidth - 250) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.fillRect(botPix.x - boxW / 2, imgHeight - boxH - 4, boxW, boxH);
+                ctx.strokeStyle = '#0284c7';
+                ctx.lineWidth = 1.2;
+                ctx.strokeRect(botPix.x - boxW / 2, imgHeight - boxH - 4, boxW, boxH);
+                ctx.fillStyle = '#0369a1';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(labelText, botPix.x, imgHeight - boxH / 2 - 4);
+              }
             }
           }
 
@@ -1089,17 +1108,21 @@ class PDFExporter {
             // Label kilométrique en bordure gauche
             const leftLL = MapManager.utmToLatLon(startE, n, zone, centerLat >= 0);
             const leftPix = latLonToPixel(leftLL.lat, leftLL.lon);
-            if (leftPix.y >= 20 && leftPix.y <= imgHeight - 20) {
+            if (leftPix.y >= 30 && leftPix.y <= imgHeight - 30) {
+              const labelText = String(Math.round(n / 1000));
+              ctx.font = 'bold 12px monospace';
+              const textW = ctx.measureText(labelText).width;
+              const boxW = Math.max(textW + 10, 42);
+              const boxH = 16;
               ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-              ctx.fillRect(3, leftPix.y - 7, 32, 14);
+              ctx.fillRect(4, leftPix.y - boxH / 2, boxW, boxH);
               ctx.strokeStyle = '#0284c7';
               ctx.lineWidth = 1.2;
-              ctx.strokeRect(3, leftPix.y - 7, 32, 14);
+              ctx.strokeRect(4, leftPix.y - boxH / 2, boxW, boxH);
               ctx.fillStyle = '#0369a1';
-              ctx.font = 'bold 10px monospace';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillText(Math.round(n / 1000), 19, leftPix.y);
+              ctx.fillText(labelText, 4 + boxW / 2, leftPix.y);
             }
           }
 
