@@ -42,6 +42,8 @@ class MapManager {
     // Carroyage UTM & HUD
     this.utmGridLayer = null;
     this._lastCoords = null;
+    this._cursorRafId = null;
+    this._pendingCursorLatLng = null;
   }
 
   init() {
@@ -146,19 +148,12 @@ class MapManager {
     });
 
     // Map Zoom & Pan Listeners : mise à jour dynamique du Carroyage UTM et de l'Échelle
-    this.map.on('move', () => {
-      this.updateCursorCoords(null);
-    });
-
     this.map.on('moveend zoomend', () => {
       if (this.map.hasLayer(this.utmGridLayer)) {
         this.renderUtmGrid();
       }
       this.updateMapHud();
       this.updateCursorCoords(null);
-      if (this.onMapZoomChangeCallback) {
-        this.onMapZoomChangeCallback(this.map.getZoom());
-      }
     });
 
     this.map.on('overlayadd', (e) => {
@@ -1071,9 +1066,18 @@ class MapManager {
   }
 
   /**
-   * Mise à jour des coordonnées GPS et UTM du curseur en direct
+   * Mise à jour des coordonnées GPS et UTM du curseur en direct (optimisé requestAnimationFrame)
    */
   updateCursorCoords(latlng) {
+    this._pendingCursorLatLng = latlng;
+    if (this._cursorRafId) return;
+    this._cursorRafId = requestAnimationFrame(() => {
+      this._cursorRafId = null;
+      this._renderCursorCoords(this._pendingCursorLatLng);
+    });
+  }
+
+  _renderCursorCoords(latlng) {
     const wgsEl = document.getElementById('map-hud-wgs84');
     const utmEl = document.getElementById('map-hud-utm');
     if (!wgsEl || !utmEl) return;

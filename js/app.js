@@ -107,29 +107,6 @@ class AppController {
         window.MapManagerInstance.onHikeSelectCallback = (hike) => this.handleHikeSelect(hike);
         window.MapManagerInstance.onSearchOriginChangeCallback = (origin) => this.handleOriginChange(origin);
         window.MapManagerInstance.onMapBackgroundClickCallback = () => this.deselectHike();
-
-        // Écouteur de zoom carte (molette de la souris sur la carte)
-        window.MapManagerInstance.onMapZoomChangeCallback = (zoom) => {
-          if (zoom <= 5) {
-            // Vue continentale ou mondiale : bascule automatique sur Monde entier
-            if (window.MapManagerInstance.searchRadiusKm < 20000) {
-              this.setRadiusStep(RADIUS_STEPS.length - 1, false);
-            }
-          } else {
-            // Expansion adaptative selon l'étendue visible
-            const origin = window.MapManagerInstance.searchOrigin;
-            const bounds = window.MapManagerInstance.map.getBounds();
-            if (origin && bounds) {
-              const d1 = GPXParser.haversineDistance(origin.lat, origin.lon, bounds.getNorthEast().lat, bounds.getNorthEast().lng);
-              const d2 = GPXParser.haversineDistance(origin.lat, origin.lon, bounds.getSouthWest().lat, bounds.getSouthWest().lng);
-              const visibleRadius = Math.max(d1, d2);
-              if (visibleRadius > window.MapManagerInstance.searchRadiusKm) {
-                const stepIdx = this.getStepIndexForKm(visibleRadius);
-                this.setRadiusStep(stepIdx, false);
-              }
-            }
-          }
-        };
       }
     } catch (e) {
       console.error("Erreur map init :", e);
@@ -189,8 +166,8 @@ class AppController {
       const supaKeyInput = document.getElementById('supabase-key');
       const supaAutoSyncChk = document.getElementById('chk-auto-sync-supabase');
 
-      const defaultSupaUrl = (window.APP_CONFIG && window.APP_CONFIG.supabaseUrl) || 'https://qguseukrgsczgviuloxr.supabase.co';
-      const defaultSupaKey = (window.APP_CONFIG && window.APP_CONFIG.supabaseKey) || 'sb_publishable_iy3fFv7Qo5Rc9D3gcNhXsA_72y1_j44';
+      const defaultSupaUrl = (window.APP_CONFIG && window.APP_CONFIG.supabaseUrl) || 'https://lotoulcfncyphxarttyk.supabase.co';
+      const defaultSupaKey = (window.APP_CONFIG && window.APP_CONFIG.supabaseKey) || 'sb_publishable_JcANA4Rpdo0qI-8PwKWH6w_CUbWQeYp';
       const savedSupaUrl = localStorage.getItem('sanary_supabase_url') || defaultSupaUrl;
       const savedSupaKey = localStorage.getItem('sanary_supabase_key') || defaultSupaKey;
       const savedSupaAutoSync = localStorage.getItem('sanary_supabase_autosync') !== 'false'; // true par défaut
@@ -235,6 +212,10 @@ class AppController {
 
     if (radiusSlider) {
       radiusSlider.addEventListener('input', (e) => {
+        const stepIdx = parseInt(e.target.value, 10);
+        this.setRadiusStep(stepIdx, false);
+      });
+      radiusSlider.addEventListener('change', (e) => {
         const stepIdx = parseInt(e.target.value, 10);
         this.setRadiusStep(stepIdx, true);
       });
