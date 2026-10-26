@@ -663,18 +663,21 @@ class StorageManager {
 
     // Si la table interrogée correspond à la base active, actualiser memoryHikes
     if (targetDbId === this.getActiveDatabaseId()) {
-      const customLocal = (this.memoryHikes || []).filter(h => !cloudHikes.some(c => c.id === h.id || c.name === h.name) && !this.isFakeHike(h));
-      this.memoryHikes = [...cloudHikes, ...customLocal];
-      this.saveToLocalStorage();
+      // Sécurité anti-effacement : Si le Cloud renvoie 0 résultat, ne jamais écraser les randonnées locales existantes !
+      if (cloudHikes.length > 0) {
+        const customLocal = (this.memoryHikes || []).filter(h => !cloudHikes.some(c => c.id === h.id || c.name === h.name) && !this.isFakeHike(h));
+        this.memoryHikes = [...cloudHikes, ...customLocal];
+        this.saveToLocalStorage();
 
-      if (this.db && this.db.objectStoreNames.contains(this.storeName)) {
-        try {
-          const tx = this.db.transaction([this.storeName], 'readwrite');
-          const store = tx.objectStore(this.storeName);
-          for (const h of this.memoryHikes) {
-            store.put(h);
-          }
-        } catch (e) {}
+        if (this.db && this.db.objectStoreNames.contains(this.storeName)) {
+          try {
+            const tx = this.db.transaction([this.storeName], 'readwrite');
+            const store = tx.objectStore(this.storeName);
+            for (const h of this.memoryHikes) {
+              store.put(h);
+            }
+          } catch (e) {}
+        }
       }
     }
 
