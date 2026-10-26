@@ -360,7 +360,7 @@ class StorageManager {
    */
   static getDatabaseCounts() {
     let countSanaryens = 0;
-    let countJldapps = 139; // 139 randonnées historiques de la base JLDApps par défaut
+    let countJldapps = 240; // 240 randonnées du catalogue officiel JLDApps par défaut
 
     try {
       const rawSanary = localStorage.getItem('sanary_hikes_sanaryens');
