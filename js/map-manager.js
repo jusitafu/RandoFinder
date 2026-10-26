@@ -146,11 +146,16 @@ class MapManager {
     });
 
     // Map Zoom & Pan Listeners : mise à jour dynamique du Carroyage UTM et de l'Échelle
+    this.map.on('move', () => {
+      this.updateCursorCoords(null);
+    });
+
     this.map.on('moveend zoomend', () => {
       if (this.map.hasLayer(this.utmGridLayer)) {
         this.renderUtmGrid();
       }
       this.updateMapHud();
+      this.updateCursorCoords(null);
       if (this.onMapZoomChangeCallback) {
         this.onMapZoomChangeCallback(this.map.getZoom());
       }
@@ -935,6 +940,30 @@ class MapManager {
     const countN = Math.round((endN - startN) / step);
     if (countE > 60 || countN > 60 || countE < 1 || countN < 1) return;
 
+    // Marges de sécurité intérieures pour que les étiquettes restent en permanence
+    // visibles dans l'écran (cadre topographique permanent façon carte IGN papier),
+    // dégagées de l'en-tête (55px), du filtre haut et du HUD bas (48px)
+    const size = this.map.getSize();
+    const padTop = 55;
+    const padBottom = 48;
+    const padLeft = 28;
+    const padRight = 28;
+
+    const visTopLat = this.map.containerPointToLatLng([size.x / 2, padTop]).lat;
+    const visBottomLat = this.map.containerPointToLatLng([size.x / 2, size.y - padBottom]).lat;
+    const visLeftLon = this.map.containerPointToLatLng([padLeft, size.y / 2]).lng;
+    const visRightLon = this.map.containerPointToLatLng([size.x - padRight, size.y / 2]).lng;
+
+    const utmVisTop = MapManager.latLonToUtm(visTopLat, center.lng);
+    const utmVisBottom = MapManager.latLonToUtm(visBottomLat, center.lng);
+    const utmVisLeft = MapManager.latLonToUtm(center.lat, visLeftLon);
+    const utmVisRight = MapManager.latLonToUtm(center.lat, visRightLon);
+
+    const safeBottomN = utmVisBottom.northing;
+    const safeTopN = utmVisTop.northing;
+    const safeLeftE = utmVisLeft.easting;
+    const safeRightE = utmVisRight.easting;
+
     // Lignes verticales de carroyage (Easting constant)
     const nSteps = 6;
     for (let e = startE; e <= endE; e += step) {
@@ -961,7 +990,7 @@ class MapManager {
         interactive: false
       }).addTo(this.utmGridLayer);
 
-      // Étiquette kilométrique en haut et en bas
+      // Étiquette kilométrique en haut et en bas (ancrées en permanence sur les bords visibles de l'écran)
       const km = Math.round(e / 1000);
       const icon = L.divIcon({
         className: 'utm-grid-label',
@@ -969,10 +998,10 @@ class MapManager {
         iconSize: [32, 18],
         iconAnchor: [16, 9]
       });
-      L.marker(linePts[0], { icon, interactive: false }).addTo(this.utmGridLayer);
-      if (linePts.length > 3) {
-        L.marker(linePts[linePts.length - 1], { icon, interactive: false }).addTo(this.utmGridLayer);
-      }
+      const ptBottom = MapManager.utmToLatLon(e, safeBottomN, zone, center.lat >= 0);
+      const ptTop = MapManager.utmToLatLon(e, safeTopN, zone, center.lat >= 0);
+      L.marker([ptBottom.lat, ptBottom.lon], { icon, interactive: false }).addTo(this.utmGridLayer);
+      L.marker([ptTop.lat, ptTop.lon], { icon, interactive: false }).addTo(this.utmGridLayer);
     }
 
     // Lignes horizontales de carroyage (Northing constant)
@@ -1000,7 +1029,7 @@ class MapManager {
         interactive: false
       }).addTo(this.utmGridLayer);
 
-      // Étiquette kilométrique à gauche et à droite
+      // Étiquette kilométrique à gauche et à droite (ancrées en permanence sur les bords visibles de l'écran)
       const km = Math.round(n / 1000);
       const icon = L.divIcon({
         className: 'utm-grid-label',
@@ -1008,10 +1037,10 @@ class MapManager {
         iconSize: [42, 18],
         iconAnchor: [21, 9]
       });
-      L.marker(linePts[0], { icon, interactive: false }).addTo(this.utmGridLayer);
-      if (linePts.length > 3) {
-        L.marker(linePts[linePts.length - 1], { icon, interactive: false }).addTo(this.utmGridLayer);
-      }
+      const ptLeft = MapManager.utmToLatLon(safeLeftE, n, zone, center.lat >= 0);
+      const ptRight = MapManager.utmToLatLon(safeRightE, n, zone, center.lat >= 0);
+      L.marker([ptLeft.lat, ptLeft.lon], { icon, interactive: false }).addTo(this.utmGridLayer);
+      L.marker([ptRight.lat, ptRight.lon], { icon, interactive: false }).addTo(this.utmGridLayer);
     }
   }
 
