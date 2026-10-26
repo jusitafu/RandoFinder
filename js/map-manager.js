@@ -44,6 +44,7 @@ class MapManager {
     this._lastCoords = null;
     this._cursorRafId = null;
     this._pendingCursorLatLng = null;
+    this._isProgrammaticZoom = false;
   }
 
   init() {
@@ -147,13 +148,32 @@ class MapManager {
       }
     });
 
-    // Map Zoom & Pan Listeners : mise à jour dynamique du Carroyage UTM et de l'Échelle
-    this.map.on('moveend zoomend', () => {
+    // Déplacement de la carte (pan/glisser) : mise à jour UTM & HUD sans altérer le curseur de rayon
+    this.map.on('moveend', () => {
       if (this.map.hasLayer(this.utmGridLayer)) {
         this.renderUtmGrid();
       }
       this.updateMapHud();
       this.updateCursorCoords(null);
+    });
+
+    // Zoom/Dézoom de la carte (molette de la souris, boutons +/-)
+    this.map.on('zoomend', () => {
+      if (this.map.hasLayer(this.utmGridLayer)) {
+        this.renderUtmGrid();
+      }
+      this.updateMapHud();
+      this.updateCursorCoords(null);
+
+      // Si le zoom a été déclenché par le curseur ou la sélection d'une rando, ne pas reboucler
+      if (this._isProgrammaticZoom) {
+        this._isProgrammaticZoom = false;
+        return;
+      }
+
+      if (this.onMapZoomChangeCallback) {
+        this.onMapZoomChangeCallback(this.map.getZoom());
+      }
     });
 
     this.map.on('overlayadd', (e) => {
@@ -440,6 +460,7 @@ class MapManager {
   zoomToLocation(lat, lon, zoom = null) {
     if (!this.map) return;
     this.map.invalidateSize();
+    this._isProgrammaticZoom = true;
     const targetZoom = (zoom !== null) 
       ? zoom 
       : ((this.map.getMaxZoom && this.map.getMaxZoom() !== Infinity) ? this.map.getMaxZoom() : 19);
@@ -501,17 +522,20 @@ class MapManager {
       }).addTo(this.map);
 
       if (autoZoom && this.searchCircle) {
+        this._isProgrammaticZoom = true;
         this.map.fitBounds(this.searchCircle.getBounds(), { padding: [30, 30], maxZoom: 14 });
       }
     } else {
       // Rayon Continental / Mondial (>= 2500 km et jusqu'à 20 000 km / Monde entier)
       if (autoZoom) {
+        this._isProgrammaticZoom = true;
         this.fitBoundsToAllMarkers();
       }
     }
   }
 
   fitBoundsToAllMarkers() {
+    this._isProgrammaticZoom = true;
     if (this.markersLayer && this.markersLayer.getLayers().length > 0) {
       try {
         this.map.fitBounds(this.markersLayer.getBounds(), { padding: [40, 40], maxZoom: 6 });
@@ -722,6 +746,7 @@ class MapManager {
 
     // 3. Centrage fluide sur le tracé ou le point de départ de la randonnée
     if (fitBounds && hike) {
+      this._isProgrammaticZoom = true;
       let b = hike.bounds;
       if (!b && hike.points && hike.points.length > 0) {
         b = L.latLngBounds(hike.points.map(p => [p.lat, p.lon]));

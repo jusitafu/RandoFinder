@@ -47,8 +47,18 @@ class AppController {
   }
 
   getStepIndexForKm(km) {
-    const idx = RADIUS_STEPS.findIndex(s => s >= km);
-    return idx === -1 ? RADIUS_STEPS.length - 1 : idx;
+    if (!km || km <= RADIUS_STEPS[0]) return 0;
+    if (km >= RADIUS_STEPS[RADIUS_STEPS.length - 1]) return RADIUS_STEPS.length - 1;
+    let bestIdx = 0;
+    let minDiff = Infinity;
+    for (let i = 0; i < RADIUS_STEPS.length; i++) {
+      const diff = Math.abs(RADIUS_STEPS[i] - km);
+      if (diff < minDiff) {
+        minDiff = diff;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
   }
 
   setRadiusStep(stepIndex, autoZoomMap = true) {
@@ -107,6 +117,31 @@ class AppController {
         window.MapManagerInstance.onHikeSelectCallback = (hike) => this.handleHikeSelect(hike);
         window.MapManagerInstance.onSearchOriginChangeCallback = (origin) => this.handleOriginChange(origin);
         window.MapManagerInstance.onMapBackgroundClickCallback = () => this.deselectHike();
+
+        // Synchronisation bidirectionnelle : Le zoom/dézoom de la carte à la souris ajuste le curseur de rayon
+        window.MapManagerInstance.onMapZoomChangeCallback = (zoom) => {
+          if (!window.MapManagerInstance || !window.MapManagerInstance.map) return;
+          if (zoom <= 3) {
+            // Vue continentale / mondiale : Monde entier (20 000 km)
+            const lastStep = RADIUS_STEPS.length - 1;
+            const slider = document.getElementById('radius-slider');
+            if (slider && parseInt(slider.value, 10) !== lastStep) {
+              this.setRadiusStep(lastStep, false);
+            }
+            return;
+          }
+
+          const bounds = window.MapManagerInstance.map.getBounds();
+          const center = bounds.getCenter();
+          const northEdge = L.latLng(bounds.getNorth(), center.lng);
+          const visibleRadiusKm = GPXParser.haversineDistance(center.lat, center.lng, northEdge.lat, northEdge.lng);
+
+          const stepIdx = this.getStepIndexForKm(visibleRadiusKm);
+          const slider = document.getElementById('radius-slider');
+          if (slider && parseInt(slider.value, 10) !== stepIdx) {
+            this.setRadiusStep(stepIdx, false); // autoZoomMap = false pour ne pas contrarier la molette
+          }
+        };
       }
     } catch (e) {
       console.error("Erreur map init :", e);
