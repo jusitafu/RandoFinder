@@ -682,6 +682,27 @@ class AppController {
       btnCloseMapLegend.addEventListener('click', () => this.closeMapLegendModal());
     }
 
+    // Interception absolue des soumissions de formulaires (anti-rechargement / anti-POST sur Mac et mobiles)
+    const formLogin = document.getElementById('form-login');
+    if (formLogin) {
+      formLogin.addEventListener('submit', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleLoginSubmit();
+        return false;
+      });
+    }
+
+    const formChangePwd = document.getElementById('form-change-password');
+    if (formChangePwd) {
+      formChangePwd.addEventListener('submit', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleChangePasswordSubmit();
+        return false;
+      });
+    }
+
     // Click on empty space in table container deselects
     const tableCol = document.getElementById('table-column');
     if (tableCol) {

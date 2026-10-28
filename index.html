@@ -90,7 +90,7 @@
 
   <!-- Custom CSS -->
 
-  <link rel="stylesheet" href="css/styles.css?v=77">
+  <link rel="stylesheet" href="css/styles.css?v=78">
 
 </head>
 
@@ -3348,7 +3348,7 @@
 
   <!-- ========================================================================= -->
 
-  <div id="login-lock-modal" class="fixed inset-0 z-[10000] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="login-lock-modal" class="fixed inset-0 z-[10000] bg-slate-950/90 flex items-center justify-center p-4">
 
     <div class="bg-white rounded-3xl shadow-2xl max-w-md sm:max-w-lg w-full overflow-hidden border border-slate-700 animate-in fade-in zoom-in-95 duration-200">
 
@@ -3378,7 +3378,7 @@
 
       <!-- Login Form compatible Google Password Manager -->
 
-      <form id="form-login" action="#" method="post" autocomplete="on" class="p-6 space-y-4" onsubmit="event.preventDefault(); App.handleLoginSubmit();">
+      <form id="form-login" onsubmit="event.preventDefault(); return App.handleLoginSubmit();" autocomplete="on" class="p-6 space-y-4">
 
         <!-- Error Banner -->
 
@@ -3404,9 +3404,9 @@
 
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">👤</span>
 
-            <input type="text" id="login-username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" value="" placeholder="Votre identifiant..." required
+            <input type="text" id="login-username" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" value="" placeholder="Votre identifiant..." required
 
-              class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+              class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-base sm:text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
 
           </div>
 
@@ -3426,9 +3426,7 @@
 
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">🔑</span>
 
-            <input type="password" id="login-password" name="password" autocomplete="current-password" value="" placeholder="Votre mot de passe..." required
-
-              class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+            <input type="password" id="login-password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" value="" placeholder="Votre mot de passe..." required class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-base sm:text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
 
             <button type="button" class="pwd-eye-btn absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer" title="Afficher/Masquer le mot de passe" onclick="App.togglePasswordVisibility('login-password', this)">
 
@@ -3666,7 +3664,7 @@
 
 
 
-      <form id="form-change-password" action="#" method="post" autocomplete="on" class="p-6 space-y-4" onsubmit="event.preventDefault(); App.handleChangePasswordSubmit();">
+      <form id="form-change-password" onsubmit="event.preventDefault(); return App.handleChangePasswordSubmit();" autocomplete="on" class="p-6 space-y-4">
 
         <!-- Hidden username for Google Password Manager -->
 
@@ -4730,23 +4728,23 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
 
   <!-- Scripts -->
 
-  <script src="js/config.js?v=77"></script>
+  <script src="js/config.js?v=78"></script>
 
-  <script src="js/auth-manager.js?v=77"></script>
+  <script src="js/auth-manager.js?v=78"></script>
 
-  <script src="js/gpx-parser.js?v=77"></script>
+  <script src="js/gpx-parser.js?v=78"></script>
 
-  <script src="js/sample-data.js?v=77"></script>
+  <script src="js/sample-data.js?v=78"></script>
 
-  <script src="js/storage.js?v=77"></script>
+  <script src="js/storage.js?v=78"></script>
 
-  <script src="js/elevation-profile.js?v=77"></script>
+  <script src="js/elevation-profile.js?v=78"></script>
 
-  <script src="js/map-manager.js?v=77"></script>
+  <script src="js/map-manager.js?v=78"></script>
 
-  <script src="js/pdf-exporter.js?v=77"></script>
+  <script src="js/pdf-exporter.js?v=78"></script>
 
-  <script src="js/app.js?v=77"></script>
+  <script src="js/app.js?v=78"></script>
 
 </body>
 
