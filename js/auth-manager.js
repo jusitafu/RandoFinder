@@ -208,51 +208,79 @@ class AuthManager {
       return { success: false, error: "Veuillez saisir votre identifiant et votre mot de passe." };
     }
 
-    // Retrouver l'utilisateur (insensible à la casse et aux espaces superflus)
-    const user = this.users.find(u => (u.username || '').trim().normalize('NFC').toLowerCase() === cleanUser);
-    if (!user) {
+    // Normalisation pour gestion des séparateurs (espaces, tirets, points)
+    const normUser = cleanUser.replace(/[-.]/g, ' ').replace(/\s+/g, ' ');
+
+    // 1. Chercher d'abord une correspondance exacte du nom d'utilisateur (insensible à la casse et accents)
+    let candidateUsers = (this.users || []).filter(u => {
+      const uClean = (u.username || '').trim().normalize('NFC').toLowerCase();
+      const uNorm = uClean.replace(/[-.]/g, ' ').replace(/\s+/g, ' ');
+      return uClean === cleanUser || uNorm === normUser;
+    });
+
+    // 2. Si aucune correspondance exacte, chercher par prénom (ex: 'Serge' correspond à 'Serge Nicolas' ou 'Serge Martinet')
+    if (candidateUsers.length === 0) {
+      candidateUsers = (this.users || []).filter(u => {
+        const parts = (u.username || '').trim().normalize('NFC').toLowerCase().split(/\s+/);
+        return parts.length > 0 && parts[0] === cleanUser;
+      });
+    }
+
+    if (candidateUsers.length === 0) {
       return { success: false, error: "Identifiant ou mot de passe incorrect." };
     }
 
-    // 1. Calcul du hash principal exact
-    const inputHash = await this.hashPassword(cleanPwd);
-    let isMatch = (inputHash === user.password_hash);
+    // 3. Tester chaque candidat avec le mot de passe fourni
+    let matchedUser = null;
+    for (const user of candidateUsers) {
+      // A. Hash principal exact
+      const inputHash = await this.hashPassword(cleanPwd);
+      let isMatch = (inputHash === user.password_hash);
 
-    // 2. Si pas de correspondance exacte, tester les variantes de casse courantes
-    // (très fréquent sur mobile/smartphone où le clavier force la première majuscule)
-    if (!isMatch) {
-      const lowerHash = await this.hashPassword(cleanPwd.toLowerCase());
-      if (lowerHash === user.password_hash) {
-        isMatch = true;
+      // B. Variantes de casse
+      if (!isMatch) {
+        const lowerHash = await this.hashPassword(cleanPwd.toLowerCase());
+        if (lowerHash === user.password_hash) isMatch = true;
+      }
+      if (!isMatch) {
+        const upperHash = await this.hashPassword(cleanPwd.toUpperCase());
+        if (upperHash === user.password_hash) isMatch = true;
+      }
+
+      // C. Mot de passe initial égal au nom complet ou au prénom
+      if (!isMatch && (cleanPwd.toLowerCase() === user.username.trim().normalize('NFC').toLowerCase() || cleanPwd.toLowerCase() === cleanUser)) {
+        const targetUserHash = await this.hashPassword(user.username.trim());
+        const targetUserLowerHash = await this.hashPassword(user.username.trim().toLowerCase());
+        if (user.password_hash === targetUserHash || user.password_hash === targetUserLowerHash) {
+          isMatch = true;
+        }
+      }
+
+      if (isMatch) {
+        matchedUser = user;
+        break;
       }
     }
-    if (!isMatch) {
-      const upperHash = await this.hashPassword(cleanPwd.toUpperCase());
-      if (upperHash === user.password_hash) {
-        isMatch = true;
-      }
-    }
 
-    // 3. Cas du mot de passe initial égal au nom d'utilisateur (créé par l'administrateur)
-    if (!isMatch && cleanPwd.toLowerCase() === user.username.trim().normalize('NFC').toLowerCase()) {
-      const targetUserHash = await this.hashPassword(user.username.trim());
-      const targetUserLowerHash = await this.hashPassword(user.username.trim().toLowerCase());
-      if (user.password_hash === targetUserHash || user.password_hash === targetUserLowerHash) {
-        isMatch = true;
+    // 4. Si aucun mot de passe n'a correspondu
+    if (!matchedUser) {
+      if (candidateUsers.length > 1) {
+        const names = candidateUsers.map(u => u.username).join(' ou ');
+        return { 
+          success: false, 
+          error: `Plusieurs adhérents portent le prénom « ${rawUser} ». Veuillez préciser votre nom complet (ex : ${names}).` 
+        };
       }
-    }
-
-    if (!isMatch) {
       return { success: false, error: "Identifiant ou mot de passe incorrect." };
     }
 
     // Session validée
     this.currentUser = {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      can_upload: user.can_upload,
-      can_edit: user.can_edit
+      id: matchedUser.id,
+      username: matchedUser.username,
+      role: matchedUser.role,
+      can_upload: matchedUser.can_upload,
+      can_edit: matchedUser.can_edit
     };
 
     try {
@@ -262,7 +290,7 @@ class AuthManager {
     return {
       success: true,
       user: this.currentUser,
-      isInitialAdminPassword: (user.username === 'admin' && user.password_hash === this.DEFAULT_ADMIN_HASH)
+      isInitialAdminPassword: (matchedUser.username === 'admin' && matchedUser.password_hash === this.DEFAULT_ADMIN_HASH)
     };
   }
 
@@ -486,9 +514,15 @@ class AuthManager {
   // =========================================================================
 
   static getSupabaseConfig() {
-    const url = localStorage.getItem('sanary_supabase_url') || (window.APP_CONFIG && window.APP_CONFIG.supabaseUrl) || '';
-    const key = localStorage.getItem('sanary_supabase_key') || (window.APP_CONFIG && window.APP_CONFIG.supabaseKey) || '';
-    return { url: url.replace(/\/+$/, ''), key: key.trim() };
+    try {
+      const url = localStorage.getItem('sanary_supabase_url') || (window.APP_CONFIG && window.APP_CONFIG.supabaseUrl) || '';
+      const key = localStorage.getItem('sanary_supabase_key') || (window.APP_CONFIG && window.APP_CONFIG.supabaseKey) || '';
+      return { url: url.replace(/\/+$/, ''), key: key.trim() };
+    } catch (e) {
+      const url = (window.APP_CONFIG && window.APP_CONFIG.supabaseUrl) || '';
+      const key = (window.APP_CONFIG && window.APP_CONFIG.supabaseKey) || '';
+      return { url: url.replace(/\/+$/, ''), key: key.trim() };
+    }
   }
 
   /**

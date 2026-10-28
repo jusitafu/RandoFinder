@@ -77,7 +77,7 @@ class AppController {
   }
 
   async init() {
-    console.log("Démarrage de RandoFinder - Randonneurs Sanaryens...");
+    console.log("Démarrage de RandoFinder (v79) - Randonneurs Sanaryens...");
 
     // 0. Initialisation de l'authentification et session (Mode B2 - Accès Privé)
     if (typeof AuthManager !== 'undefined') {
