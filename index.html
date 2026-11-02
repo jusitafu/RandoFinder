@@ -90,7 +90,7 @@
 
   <!-- Custom CSS -->
 
-  <link rel="stylesheet" href="css/styles.css?v=79">
+  <link rel="stylesheet" href="css/styles.css?v=80">
 
 </head>
 
@@ -3378,7 +3378,7 @@
 
       <!-- Login Form compatible Google Password Manager -->
 
-      <form id="form-login" action="javascript:void(0);" method="dialog" novalidate onsubmit="event.preventDefault(); App.handleLoginSubmit(); return false;" autocomplete="on" class="p-6 space-y-4">
+      <form id="form-login" onsubmit="event.preventDefault(); App.handleLoginSubmit(); return false;" autocomplete="on" class="p-6 space-y-4">
 
         <!-- Error Banner -->
 
@@ -3440,7 +3440,7 @@
 
 
 
-        <button type="submit" id="btn-login-submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-900/10 transition flex items-center justify-center gap-2 cursor-pointer">
+        <button type="button" id="btn-login-submit" onclick="App.handleLoginSubmit();" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-900/10 transition flex items-center justify-center gap-2 cursor-pointer">
 
           <span>🔓</span>
 
@@ -4728,23 +4728,23 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
 
   <!-- Scripts -->
 
-  <script src="js/config.js?v=79"></script>
+  <script src="js/config.js?v=80"></script>
 
-  <script src="js/auth-manager.js?v=79"></script>
+  <script src="js/auth-manager.js?v=80"></script>
 
-  <script src="js/gpx-parser.js?v=79"></script>
+  <script src="js/gpx-parser.js?v=80"></script>
 
-  <script src="js/sample-data.js?v=79"></script>
+  <script src="js/sample-data.js?v=80"></script>
 
-  <script src="js/storage.js?v=79"></script>
+  <script src="js/storage.js?v=80"></script>
 
-  <script src="js/elevation-profile.js?v=79"></script>
+  <script src="js/elevation-profile.js?v=80"></script>
 
-  <script src="js/map-manager.js?v=79"></script>
+  <script src="js/map-manager.js?v=80"></script>
 
-  <script src="js/pdf-exporter.js?v=79"></script>
+  <script src="js/pdf-exporter.js?v=80"></script>
 
-  <script src="js/app.js?v=79"></script>
+  <script src="js/app.js?v=80"></script>
 
 </body>
 

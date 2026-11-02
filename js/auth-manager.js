@@ -357,7 +357,7 @@ class AuthManager {
     }
 
     // Autorise lettres (avec accents français), chiffres, espaces, tirets, apostrophes et underscores
-    if (!/^[\p{L}0-9\s_\-'.]{2,50}$/u.test(cleanUser)) {
+    if (!/^[a-zA-ZÀ-ÿ0-9\s_\-'.]{2,50}$/.test(cleanUser)) {
       return { 
         success: false, 
         error: "Règle non respectée : Le nom d'utilisateur peut contenir des lettres (avec accents), chiffres, espaces, tirets (-), apostrophes (') et underscores (_)." 
