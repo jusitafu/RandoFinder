@@ -683,6 +683,51 @@ class AppController {
       });
     }
 
+    // Écouteurs pour la mesure de trajet (clics successifs)
+    const btnMapMeasure = document.getElementById('btn-map-measure');
+    if (btnMapMeasure) {
+      btnMapMeasure.addEventListener('click', () => {
+        if (!window.MapManagerInstance) return;
+        window.MapManagerInstance.toggleMeasurePath();
+      });
+    }
+
+    const btnCloseMapMeasure = document.getElementById('btn-close-map-measure');
+    if (btnCloseMapMeasure) {
+      btnCloseMapMeasure.addEventListener('click', () => {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.cancelMeasurePath();
+        }
+      });
+    }
+
+    const btnMeasureUndo = document.getElementById('btn-measure-undo');
+    if (btnMeasureUndo) {
+      btnMeasureUndo.addEventListener('click', () => {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.undoLastMeasurePoint();
+        }
+      });
+    }
+
+    const btnMeasureReset = document.getElementById('btn-measure-reset');
+    if (btnMeasureReset) {
+      btnMeasureReset.addEventListener('click', () => {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.resetMeasurePath();
+        }
+      });
+    }
+
+    const btnMeasureFinish = document.getElementById('btn-measure-finish');
+    if (btnMeasureFinish) {
+      btnMeasureFinish.addEventListener('click', () => {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.finishMeasurePath();
+        }
+      });
+    }
+
     const btnMapAreaPrint = document.getElementById('btn-map-area-print');
     if (btnMapAreaPrint) {
       btnMapAreaPrint.addEventListener('click', () => {

@@ -52,6 +52,16 @@ class MapManager {
     this.bearingPointB = null;
     this.bearingLayer = null;
     this.bearingPreviewLine = null;
+
+    // Mesure d'itinéraire par clics successifs
+    this.measurePathActive = false;
+    this.measurePoints = [];
+    this.measureMarkers = [];
+    this.measurePolyline = null;
+    this.measurePreviewLine = null;
+    this.measureLayer = null;
+    this._onMeasureMouseMove = null;
+    this.measureTotalDistance = 0;
     this._onBearingMouseMove = null;
     this._onBearingKeyDown = null;
 
@@ -154,7 +164,18 @@ class MapManager {
     });
 
     // Map Click Listener (Background click deselects or sets search origin)
+    this.map.on('dblclick', (e) => {
+      if (this.measurePathActive) {
+        L.DomEvent.stop(e);
+        this.finishMeasurePath();
+      }
+    });
+
     this.map.on('click', (e) => {
+      if (this.measurePathActive) {
+        this.handleMeasureClick(e.latlng);
+        return;
+      }
       if (this.bearingMeasurementActive) {
         this.handleBearingClick(e.latlng);
         return;
@@ -243,6 +264,9 @@ class MapManager {
    * @param {Function} onCancel - Callback on cancel
    */
   startAreaSelection(onComplete, onCancel) {
+    if (this.measurePathActive) {
+      this.cancelMeasurePath();
+    }
     if (this.bearingMeasurementActive) {
       this.cancelBearingMeasurement();
     }
@@ -1298,6 +1322,9 @@ class MapManager {
     if (!this.map) return;
 
     // Désactiver les autres modes exclusifs
+    if (this.measurePathActive) {
+      this.cancelMeasurePath();
+    }
     if (this.areaSelectionActive) {
       this.cancelAreaSelection();
     }
@@ -1318,6 +1345,16 @@ class MapManager {
     }
     this.bearingLayer.clearLayers();
     this.bearingPreviewLine = null;
+
+    // Mesure d'itinéraire par clics successifs
+    this.measurePathActive = false;
+    this.measurePoints = [];
+    this.measureMarkers = [];
+    this.measurePolyline = null;
+    this.measurePreviewLine = null;
+    this.measureLayer = null;
+    this._onMeasureMouseMove = null;
+    this.measureTotalDistance = 0;
 
     // Afficher le panneau flottant
     const panel = document.getElementById('map-bearing-panel');
@@ -1399,6 +1436,16 @@ class MapManager {
     }
     this.bearingPreviewLine = null;
 
+    // Mesure d'itinéraire par clics successifs
+    this.measurePathActive = false;
+    this.measurePoints = [];
+    this.measureMarkers = [];
+    this.measurePolyline = null;
+    this.measurePreviewLine = null;
+    this.measureLayer = null;
+    this._onMeasureMouseMove = null;
+    this.measureTotalDistance = 0;
+
     const panel = document.getElementById('map-bearing-panel');
     const btn = document.getElementById('btn-map-bearing');
     const btnText = document.getElementById('btn-map-bearing-text');
@@ -1417,6 +1464,16 @@ class MapManager {
       this.bearingLayer.clearLayers();
     }
     this.bearingPreviewLine = null;
+
+    // Mesure d'itinéraire par clics successifs
+    this.measurePathActive = false;
+    this.measurePoints = [];
+    this.measureMarkers = [];
+    this.measurePolyline = null;
+    this.measurePreviewLine = null;
+    this.measureLayer = null;
+    this._onMeasureMouseMove = null;
+    this.measureTotalDistance = 0;
     this.bearingPointA = null;
     this.bearingPointB = null;
 
@@ -1487,6 +1544,16 @@ class MapManager {
       if (this.bearingPreviewLine) {
         this.bearingLayer.removeLayer(this.bearingPreviewLine);
         this.bearingPreviewLine = null;
+
+    // Mesure d'itinéraire par clics successifs
+    this.measurePathActive = false;
+    this.measurePoints = [];
+    this.measureMarkers = [];
+    this.measurePolyline = null;
+    this.measurePreviewLine = null;
+    this.measureLayer = null;
+    this._onMeasureMouseMove = null;
+    this.measureTotalDistance = 0;
       }
 
       if (this._onBearingMouseMove && this.map) {
@@ -1734,6 +1801,350 @@ class MapManager {
     if (this._lastCoords) {
       this._lastCoords.elevation = z;
     }
+  }
+
+  // ========================================================================
+  // MESURE D'ITINÉRAIRE PAR CLICS SUCCESSIFS
+  // ========================================================================
+
+  /**
+   * Active ou désactive le mode mesure de trajet
+   */
+  toggleMeasurePath() {
+    if (this.measurePathActive) {
+      this.cancelMeasurePath();
+    } else {
+      this.startMeasurePath();
+    }
+  }
+
+  /**
+   * Démarre la mesure d'itinéraire
+   */
+  startMeasurePath() {
+    if (!this.map) return;
+
+    if (this.bearingMeasurementActive) {
+      this.cancelBearingMeasurement();
+    }
+    if (this.areaSelectionActive) {
+      this.cancelAreaSelection();
+    }
+    if (this.clickModeActive) {
+      this.setClickMode(false);
+    }
+
+    this.measurePathActive = true;
+    this.measurePoints = [];
+    this.measureMarkers = [];
+    this.measureTotalDistance = 0;
+
+    this.map.doubleClickZoom.disable();
+    L.DomUtil.addClass(this.map.getContainer(), 'measure-selection-cursor');
+
+    if (!this.measureLayer) {
+      this.measureLayer = L.layerGroup().addTo(this.map);
+    }
+    this.measureLayer.clearLayers();
+    this.measurePolyline = null;
+    this.measurePreviewLine = null;
+
+    const panel = document.getElementById('map-measure-panel');
+    const btn = document.getElementById('btn-map-measure');
+    const btnText = document.getElementById('btn-map-measure-text');
+    const instrText = document.getElementById('map-measure-instruction-text');
+    const totalDistEl = document.getElementById('map-measure-total-dist');
+    const countEl = document.getElementById('map-measure-points-count');
+    const lastSegEl = document.getElementById('map-measure-last-seg');
+    const lastBearingEl = document.getElementById('map-measure-last-bearing');
+
+    if (panel) panel.classList.remove('hidden');
+    if (btn) {
+      btn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-400');
+      btn.classList.remove('bg-white/95', 'text-slate-800');
+    }
+    if (btnText) btnText.textContent = 'En mesure...';
+    if (instrText) instrText.textContent = 'Cliquez sur la carte pour poser le 1er point.';
+    if (totalDistEl) totalDistEl.textContent = '0.00 km';
+    if (countEl) countEl.textContent = '0';
+    if (lastSegEl) lastSegEl.textContent = '-- m';
+    if (lastBearingEl) lastBearingEl.textContent = '--°';
+
+    this._onMeasureMouseMove = (e) => {
+      if (!this.measurePathActive || this.measurePoints.length === 0) return;
+      const lastPoint = this.measurePoints[this.measurePoints.length - 1];
+      const previewPoints = [lastPoint, e.latlng];
+
+      if (!this.measurePreviewLine) {
+        this.measurePreviewLine = L.polyline(previewPoints, {
+          color: '#818cf8',
+          weight: 3,
+          dashArray: '5, 6',
+          opacity: 0.85,
+          interactive: false,
+          className: 'measure-preview-line pointer-events-none'
+        }).addTo(this.measureLayer);
+      } else {
+        this.measurePreviewLine.setLatLngs(previewPoints);
+      }
+
+      // Preview distance dynamique en direct
+      const segDist = lastPoint.distanceTo(e.latlng);
+      const liveTotal = this.measureTotalDistance + segDist;
+      if (totalDistEl) {
+        totalDistEl.textContent = liveTotal >= 1000 
+          ? (liveTotal / 1000).toFixed(2) + ' km' 
+          : Math.round(liveTotal) + ' m';
+      }
+    };
+    this.map.on('mousemove', this._onMeasureMouseMove);
+  }
+
+  /**
+   * Traite un clic sur la carte pendant la mesure
+   */
+  handleMeasureClick(latlng) {
+    if (!this.measurePathActive) return;
+
+    this.measurePoints.push(latlng);
+    const idx = this.measurePoints.length;
+
+    // Marqueur numéroté
+    const isStart = (idx === 1);
+    const icon = L.divIcon({
+      className: 'measure-marker-icon',
+      html: `<div class="measure-marker-badge ${isStart ? 'marker-start' : ''}">${idx}</div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+    const marker = L.marker(latlng, { icon: icon, interactive: false }).addTo(this.measureLayer);
+    this.measureMarkers.push(marker);
+
+    // Calculs de distance
+    let lastSegDist = 0;
+    let lastBearing = null;
+    if (idx > 1) {
+      const prev = this.measurePoints[idx - 2];
+      lastSegDist = prev.distanceTo(latlng);
+      this.measureTotalDistance += lastSegDist;
+      const deg = MapManager.calculateBearing(prev.lat, prev.lng, latlng.lat, latlng.lng);
+      lastBearing = { azimuthDeg: Math.round(deg), compass: MapManager.getCompassDirection(deg) };
+    } else {
+      this.measureTotalDistance = 0;
+    }
+
+    // Mise à jour du tracé polyline
+    if (!this.measurePolyline) {
+      this.measurePolyline = L.polyline(this.measurePoints, {
+        color: '#6366f1',
+        weight: 4,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round',
+        interactive: false
+      }).addTo(this.measureLayer);
+    } else {
+      this.measurePolyline.setLatLngs(this.measurePoints);
+    }
+
+    // Mise à jour de l'interface
+    const instrText = document.getElementById('map-measure-instruction-text');
+    const totalDistEl = document.getElementById('map-measure-total-dist');
+    const countEl = document.getElementById('map-measure-points-count');
+    const lastSegEl = document.getElementById('map-measure-last-seg');
+    const lastBearingEl = document.getElementById('map-measure-last-bearing');
+
+    if (instrText) {
+      instrText.textContent = `Point ${idx} posé. Cliquez pour continuer ou double-cliquez pour terminer.`;
+    }
+    if (totalDistEl) {
+      totalDistEl.textContent = this.measureTotalDistance >= 1000 
+        ? (this.measureTotalDistance / 1000).toFixed(2) + ' km' 
+        : Math.round(this.measureTotalDistance) + ' m';
+    }
+    if (countEl) countEl.textContent = idx.toString();
+    if (lastSegEl) {
+      lastSegEl.textContent = idx > 1 
+        ? (lastSegDist >= 1000 ? (lastSegDist / 1000).toFixed(2) + ' km' : Math.round(lastSegDist) + ' m')
+        : '-- m';
+    }
+    if (lastBearingEl && lastBearing !== null) {
+      lastBearingEl.textContent = `${lastBearing.azimuthDeg}° (${lastBearing.compass})`;
+    }
+  }
+
+  /**
+   * Annule le dernier point posé
+   */
+  undoLastMeasurePoint() {
+    if (!this.measurePathActive || this.measurePoints.length === 0) return;
+
+    this.measurePoints.pop();
+    const lastMarker = this.measureMarkers.pop();
+    if (lastMarker && this.measureLayer) {
+      this.measureLayer.removeLayer(lastMarker);
+    }
+
+    // Recalcul de la distance totale
+    this.measureTotalDistance = 0;
+    for (let i = 1; i < this.measurePoints.length; i++) {
+      this.measureTotalDistance += this.measurePoints[i - 1].distanceTo(this.measurePoints[i]);
+    }
+
+    if (this.measurePolyline) {
+      this.measurePolyline.setLatLngs(this.measurePoints);
+    }
+
+    const idx = this.measurePoints.length;
+    const countEl = document.getElementById('map-measure-points-count');
+    const totalDistEl = document.getElementById('map-measure-total-dist');
+    const instrText = document.getElementById('map-measure-instruction-text');
+    const lastSegEl = document.getElementById('map-measure-last-seg');
+    const lastBearingEl = document.getElementById('map-measure-last-bearing');
+
+    if (countEl) countEl.textContent = idx.toString();
+    if (totalDistEl) {
+      totalDistEl.textContent = this.measureTotalDistance >= 1000 
+        ? (this.measureTotalDistance / 1000).toFixed(2) + ' km' 
+        : Math.round(this.measureTotalDistance) + ' m';
+    }
+    if (instrText) {
+      instrText.textContent = idx === 0 
+        ? 'Cliquez sur la carte pour poser le 1er point.'
+        : `Point ${idx} actif. Cliquez pour continuer.`;
+    }
+    if (lastSegEl) {
+      if (idx > 1) {
+        const seg = this.measurePoints[idx - 2].distanceTo(this.measurePoints[idx - 1]);
+        lastSegEl.textContent = seg >= 1000 ? (seg / 1000).toFixed(2) + ' km' : Math.round(seg) + ' m';
+      } else {
+        lastSegEl.textContent = '-- m';
+      }
+    }
+    if (lastBearingEl) {
+      if (idx > 1) {
+        const pA = this.measurePoints[idx - 2];
+        const pB = this.measurePoints[idx - 1];
+        const deg = MapManager.calculateBearing(pA.lat, pA.lng, pB.lat, pB.lng);
+        lastBearingEl.textContent = `${Math.round(deg)}° (${MapManager.getCompassDirection(deg)})`;
+      } else {
+        lastBearingEl.textContent = '--°';
+      }
+    }
+  }
+
+  /**
+   * Efface le tracé en cours pour recommencer à zéro
+   */
+  resetMeasurePath() {
+    this.measurePoints = [];
+    this.measureMarkers = [];
+    this.measureTotalDistance = 0;
+    if (this.measureLayer) {
+      this.measureLayer.clearLayers();
+    }
+    this.measurePolyline = null;
+    this.measurePreviewLine = null;
+
+    const totalDistEl = document.getElementById('map-measure-total-dist');
+    const countEl = document.getElementById('map-measure-points-count');
+    const lastSegEl = document.getElementById('map-measure-last-seg');
+    const lastBearingEl = document.getElementById('map-measure-last-bearing');
+    const instrText = document.getElementById('map-measure-instruction-text');
+
+    if (totalDistEl) totalDistEl.textContent = '0.00 km';
+    if (countEl) countEl.textContent = '0';
+    if (lastSegEl) lastSegEl.textContent = '-- m';
+    if (lastBearingEl) lastBearingEl.textContent = '--°';
+    if (instrText) instrText.textContent = 'Tracé effacé. Cliquez pour poser le 1er point.';
+  }
+
+  /**
+   * Fige le tracé terminé
+   */
+  finishMeasurePath() {
+    if (this.measurePreviewLine && this.measureLayer) {
+      this.measureLayer.removeLayer(this.measurePreviewLine);
+      this.measurePreviewLine = null;
+    }
+    if (this._onMeasureMouseMove && this.map) {
+      this.map.off('mousemove', this._onMeasureMouseMove);
+      this._onMeasureMouseMove = null;
+    }
+    if (this.map) {
+      this.map.doubleClickZoom.enable();
+      L.DomUtil.removeClass(this.map.getContainer(), 'measure-selection-cursor');
+    }
+
+    const instrText = document.getElementById('map-measure-instruction-text');
+    const totalDistEl = document.getElementById('map-measure-total-dist');
+    if (instrText) {
+      instrText.textContent = `✔ Tracé terminé (${this.measurePoints.length} points).`;
+    }
+    if (totalDistEl) {
+      totalDistEl.textContent = this.measureTotalDistance >= 1000 
+        ? (this.measureTotalDistance / 1000).toFixed(2) + ' km' 
+        : Math.round(this.measureTotalDistance) + ' m';
+    }
+  }
+
+  /**
+   * Annule et ferme le mode mesure
+   */
+  cancelMeasurePath() {
+    this.finishMeasurePath();
+    this.measurePathActive = false;
+    this.measurePoints = [];
+    this.measureMarkers = [];
+    this.measureTotalDistance = 0;
+
+    if (this.measureLayer) {
+      this.measureLayer.clearLayers();
+    }
+    this.measurePolyline = null;
+    this.measurePreviewLine = null;
+
+    if (this.map) {
+      this.map.doubleClickZoom.enable();
+      L.DomUtil.removeClass(this.map.getContainer(), 'measure-selection-cursor');
+    }
+
+    const panel = document.getElementById('map-measure-panel');
+    const btn = document.getElementById('btn-map-measure');
+    const btnText = document.getElementById('btn-map-measure-text');
+    if (panel) panel.classList.add('hidden');
+    if (btn) {
+      btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-400');
+      btn.classList.add('bg-white/95', 'text-slate-800');
+    }
+    if (btnText) btnText.textContent = 'Mesurer';
+  }
+
+  /**
+   * Interroge l'API WFS IGN graphe_scan25 pour obtenir la date et le titre de la feuille papier
+   */
+  async fetchIgnSheetInfo(lat, lon) {
+    try {
+      const delta = 0.01;
+      const url = `https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAME=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25.GRAPHE-MOSAIQUAGE:graphe_scan25&BBOX=${lat - delta},${lon - delta},${lat + delta},${lon + delta},urn:ogc:def:crs:EPSG::4326&OUTPUTFORMAT=application/json`;
+      const resp = await fetch(url);
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      if (data && data.features && data.features.length > 0) {
+        const props = data.features[0].properties;
+        return {
+          titre: props.titre,
+          numero: props.numero,
+          anneeEdition: props.annee_edition,
+          dateScan: props.date_int_scan,
+          dateMajThematique: props.date_int_a || props.thema_a,
+          numDep: props.num_dep
+        };
+      }
+    } catch (e) {
+      console.warn('Erreur lecture feuille IGN:', e);
+    }
+    return null;
   }
 }
 

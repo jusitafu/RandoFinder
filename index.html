@@ -184,7 +184,7 @@
 
           <span class="text-[10px] sm:text-[11px] text-slate-400 font-medium tracking-wide mt-0.5 hidden sm:inline-block">
 
-            Sanary-sur-Mer &bull; Var (84)
+            Sanary-sur-Mer &bull; Var (85)
 
           </span>
 
@@ -665,6 +665,68 @@
             </div>
           </div>
 
+          <!-- FLOATING PATH MEASURE TOOL BOX (clics successifs) -->
+          <div id="map-measure-panel" class="hidden absolute top-3 sm:top-4 right-2 sm:right-16 z-30 bg-slate-900/95 text-white p-3 sm:p-4 rounded-2xl shadow-2xl border border-indigo-500/50 backdrop-blur-md w-[calc(100%-1rem)] sm:w-80 max-w-sm animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="text-base text-indigo-400">📏</span>
+                <span class="text-xs font-bold text-white uppercase tracking-wider">Mesure de trajet</span>
+              </div>
+              <button id="btn-close-map-measure" class="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs transition cursor-pointer" title="Fermer la boîte mesure">✕</button>
+            </div>
+
+            <!-- Instructions -->
+            <div id="map-measure-instruction" class="text-[11px] text-slate-300 mb-2.5 flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/60">
+              <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+              <span id="map-measure-instruction-text">Cliquez sur la carte pour poser le 1er point.</span>
+            </div>
+
+            <!-- Results -->
+            <div id="map-measure-results" class="space-y-2">
+              <!-- Main Total Distance Display -->
+              <div class="bg-gradient-to-br from-indigo-950/80 to-slate-800/90 p-2.5 rounded-xl border border-indigo-500/40 flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block">Distance totale</span>
+                  <div class="flex items-baseline gap-1.5">
+                    <span id="map-measure-total-dist" class="text-2xl font-black text-white font-mono">0.00 km</span>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Points</span>
+                  <span id="map-measure-points-count" class="text-lg font-bold text-indigo-300 font-mono">0</span>
+                </div>
+              </div>
+
+              <!-- Secondary Details: Dernier tronçon & Cap -->
+              <div class="grid grid-cols-2 gap-2 text-center text-[10px]">
+                <div class="bg-slate-800/80 p-2 rounded-xl border border-slate-700/60">
+                  <span class="text-slate-400 block mb-0.5">Dernier tronçon</span>
+                  <span id="map-measure-last-seg" class="font-bold text-slate-200 font-mono text-xs">-- m</span>
+                </div>
+                <div class="bg-slate-800/80 p-2 rounded-xl border border-slate-700/60">
+                  <span class="text-slate-400 block mb-0.5">Cap tronçon</span>
+                  <span id="map-measure-last-bearing" class="font-bold text-indigo-300 font-mono text-xs">--°</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-800">
+              <button id="btn-measure-undo" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer" title="Supprimer le dernier point cliqué">
+                <span>↶</span>
+                <span>Annuler</span>
+              </button>
+              <button id="btn-measure-reset" class="flex-1 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer" title="Effacer tout le tracé">
+                <span>🗑️</span>
+                <span>Effacer</span>
+              </button>
+              <button id="btn-measure-finish" class="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer shadow-sm" title="Terminer le tracé">
+                <span>✔</span>
+                <span>Terminer</span>
+              </button>
+            </div>
+          </div>
+
 
 
           <!-- FLOATING CARTOGRAPHY HUD (Bottom Left of Map: Dynamic Scale, GPS WGS84 & UTM Coordinates) -->
@@ -761,6 +823,12 @@
               title="Mesurer le cap (azimut) et la distance entre 2 points en 2 clics">
               <span class="text-sm group-hover:scale-110 transition-transform">🧭</span>
               <span id="btn-map-bearing-text">Cap</span>
+            </button>
+            <button id="btn-map-measure" 
+              class="px-3.5 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-indigo-600 rounded-xl shadow-lg hover:shadow-xl border border-slate-200/90 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer backdrop-blur-md active:scale-95 group" 
+              title="Mesurer un trajet par clics successifs (distance, segments et cap)">
+              <span class="text-sm group-hover:scale-110 transition-transform">📏</span>
+              <span id="btn-map-measure-text">Mesurer</span>
             </button>
           </div>
 
