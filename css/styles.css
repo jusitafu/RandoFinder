@@ -174,7 +174,28 @@ html, body {
   transform: scale(0.92);
 }
 
+/* Curseur flèche pointu (précision topographique) sur la carte au lieu de la main */
+#map-view,
+#map-view .leaflet-container,
+#map-view .leaflet-grab,
+#map-view .leaflet-interactive {
+  cursor: default !important;
+}
+
+#map-view.leaflet-dragging,
+#map-view.leaflet-dragging .leaflet-grab,
+#map-view.leaflet-dragging .leaflet-interactive,
+#map-view .leaflet-dragging,
+#map-view .leaflet-dragging .leaflet-grab,
+#map-view .leaflet-dragging .leaflet-interactive {
+  cursor: grabbing !important;
+}
+
 /* Curseur réticule pour la sélection de zone à imprimer en 2 clics */
+#map-view.area-selection-cursor,
+#map-view.area-selection-cursor .leaflet-container,
+#map-view.area-selection-cursor .leaflet-grab,
+#map-view.area-selection-cursor .leaflet-interactive,
 .area-selection-cursor,
 .area-selection-cursor .leaflet-container,
 .area-selection-cursor .leaflet-grab,
@@ -182,8 +203,11 @@ html, body {
   cursor: crosshair !important;
 }
 
-
 /* Curseur réticule pour la mesure de cap entre 2 points */
+#map-view.bearing-selection-cursor,
+#map-view.bearing-selection-cursor .leaflet-container,
+#map-view.bearing-selection-cursor .leaflet-grab,
+#map-view.bearing-selection-cursor .leaflet-interactive,
 .bearing-selection-cursor,
 .bearing-selection-cursor .leaflet-container,
 .bearing-selection-cursor .leaflet-grab,
