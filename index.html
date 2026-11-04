@@ -90,7 +90,7 @@
 
   <!-- Custom CSS -->
 
-  <link rel="stylesheet" href="css/styles.css?v=80">
+  <link rel="stylesheet" href="css/styles.css?v=81">
 
 </head>
 
@@ -584,12 +584,85 @@
 
             </div>
 
+          
+
+
             <button id="btn-cancel-map-selection" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-bold border border-slate-600 transition cursor-pointer" title="Annuler la sélection (Touche Échap)">
 
               ✕ Annuler
 
             </button>
 
+          </div>
+
+          <!-- FLOATING BEARING / CAP TOOL BOX -->
+          <div id="map-bearing-panel" class="hidden absolute top-3 sm:top-4 right-2 sm:right-16 z-30 bg-slate-900/95 text-white p-3 sm:p-4 rounded-2xl shadow-2xl border border-emerald-500/50 backdrop-blur-md w-[calc(100%-1rem)] sm:w-80 max-w-sm animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="text-base text-emerald-400">🧭</span>
+                <span class="text-xs font-bold text-white uppercase tracking-wider">Mesure de Cap (Azimut)</span>
+              </div>
+              <button id="btn-close-map-bearing" class="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs transition cursor-pointer" title="Fermer la boîte cap">✕</button>
+            </div>
+
+            <!-- Instructions -->
+            <div id="map-bearing-instruction" class="text-[11px] text-slate-300 mb-2.5 flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/60">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="map-bearing-instruction-text">Cliquez sur le point de départ (A).</span>
+            </div>
+
+            <!-- Results -->
+            <div id="map-bearing-results" class="space-y-2">
+              <!-- Main Azimuth Display -->
+              <div class="bg-gradient-to-br from-emerald-950/80 to-slate-800/90 p-2.5 rounded-xl border border-emerald-500/40 flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">Cap A → B</span>
+                  <div class="flex items-baseline gap-1.5">
+                    <span id="map-bearing-val" class="text-2xl font-black text-white font-mono">--°</span>
+                    <span id="map-bearing-compass" class="text-xs font-bold text-emerald-400"></span>
+                  </div>
+                </div>
+                <!-- Compass Rose Arrow -->
+                <div class="w-11 h-11 rounded-full bg-slate-900/90 border border-emerald-400/40 flex items-center justify-center shadow-inner relative" title="Direction du cap">
+                  <div id="map-bearing-arrow" class="w-8 h-8 transition-transform duration-150 flex items-center justify-center select-none" style="transform: rotate(0deg);">
+                    <svg class="w-7 h-7 drop-shadow" viewBox="0 0 24 24" fill="none">
+                      <polygon points="12,2 15.5,12 12,9.5 8.5,12" fill="#ef4444" stroke="#dc2626" stroke-width="0.5"/>
+                      <polygon points="12,22 15.5,12 12,9.5 8.5,12" fill="#94a3b8" stroke="#64748b" stroke-width="0.5"/>
+                      <circle cx="12" cy="12" r="1.5" fill="#ffffff" stroke="#0f172a" stroke-width="0.8"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Secondary Details: Reverse Bearing & Distance -->
+              <div class="grid grid-cols-2 gap-2 text-center text-[10px]">
+                <div class="bg-slate-800/80 p-2 rounded-xl border border-slate-700/60">
+                  <span class="text-slate-400 block mb-0.5">Cap retour (B → A)</span>
+                  <span id="map-bearing-reverse" class="font-bold text-slate-200 font-mono text-xs">--°</span>
+                </div>
+                <div class="bg-slate-800/80 p-2 rounded-xl border border-slate-700/60">
+                  <span class="text-slate-400 block mb-0.5">Distance directe</span>
+                  <span id="map-bearing-distance" class="font-bold text-emerald-300 font-mono text-xs">-- km</span>
+                </div>
+              </div>
+
+              <!-- Coords Summary -->
+              <div id="map-bearing-coords" class="hidden text-[9px] font-mono text-slate-400 bg-slate-950/70 p-2 rounded-xl border border-slate-800/80 space-y-1">
+                <div class="truncate"><span class="text-emerald-400 font-bold">Point A :</span> <span id="map-bearing-coord-a">--</span></div>
+                <div class="truncate"><span class="text-rose-400 font-bold">Point B :</span> <span id="map-bearing-coord-b">--</span></div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-2 mt-3 pt-2 border-t border-slate-800">
+              <button id="btn-restart-map-bearing" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm">
+                <span>🔄</span>
+                <span>Nouvelle mesure</span>
+              </button>
+              <button id="btn-cancel-map-bearing" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer">
+                Effacer
+              </button>
+            </div>
           </div>
 
 
@@ -604,11 +677,15 @@
 
             title="Cliquer pour copier les coordonnées GPS & UTM dans le presse-papier">
 
-            <span class="flex items-center gap-1 text-emerald-400 font-bold whitespace-nowrap" id="map-hud-scale">
-
-              <span>🔍</span> <span>Échelle : 1 : 25 000</span>
-
-            </span>
+            <div id="map-hud-scale-box" class="flex items-center gap-1 text-emerald-400 font-bold whitespace-nowrap cursor-default" onclick="event.stopPropagation();">
+              <span class="text-xs">🔍</span>
+              <label for="map-hud-scale-input" class="text-slate-300 font-semibold cursor-pointer">Échelle ~ 1 :</label>
+              <input type="text" id="map-hud-scale-input" 
+                value="25 000" 
+                class="bg-slate-800/90 hover:bg-slate-800 text-emerald-300 font-mono font-bold px-1.5 py-0.5 rounded-lg border border-slate-700/80 hover:border-emerald-500/60 focus:border-emerald-400 focus:bg-slate-950 focus:text-white focus:outline-none w-16 sm:w-20 text-center text-[10px] sm:text-[11px] transition-all cursor-text shadow-inner"
+                title="Saisissez la valeur après 1 : (ex : 25000) et appuyez sur Entrée pour ajuster la carte"
+                placeholder="25000">
+            </div>
 
             <span class="text-slate-600 hidden sm:inline">|</span>
 
@@ -654,7 +731,7 @@
 
               title="Consulter la légende des cartes (IGN Top 25, sentiers, symboles)">
 
-              <span class="text-sm group-hover:scale-110 transition-transform">🧭</span>
+              <span class="text-sm group-hover:scale-110 transition-transform">🗺️</span>
 
               <span id="btn-map-legend-text">Légende</span>
 
@@ -671,10 +748,13 @@
               <span id="btn-map-area-print-text">Imprimer une zone</span>
 
             </button>
-
+            <button id="btn-map-bearing" 
+              class="px-3.5 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-emerald-700 rounded-xl shadow-lg hover:shadow-xl border border-slate-200/90 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer backdrop-blur-md active:scale-95 group" 
+              title="Mesurer le cap (azimut) et la distance entre 2 points en 2 clics">
+              <span class="text-sm group-hover:scale-110 transition-transform">🧭</span>
+              <span id="btn-map-bearing-text">Cap</span>
+            </button>
           </div>
-
-
 
           <!-- Difficulty Legend on map -->
 
@@ -694,7 +774,7 @@
 
           <!-- FLOATING / BOTTOM PREVIEW PANEL (Hover or Select) -->
 
-          <div id="hike-preview-panel" class="hidden absolute bottom-3 left-3 right-3 sm:right-auto sm:max-w-md bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl p-3.5 z-20 space-y-2 select-text">
+          <div id="hike-preview-panel" class="hidden absolute bottom-11 sm:bottom-12 left-2 sm:left-3 right-3 sm:right-auto sm:max-w-md bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl p-3.5 z-20 space-y-2 select-text">
 
             
 
@@ -4728,23 +4808,23 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
 
   <!-- Scripts -->
 
-  <script src="js/config.js?v=80"></script>
+  <script src="js/config.js?v=81"></script>
 
-  <script src="js/auth-manager.js?v=80"></script>
+  <script src="js/auth-manager.js?v=81"></script>
 
-  <script src="js/gpx-parser.js?v=80"></script>
+  <script src="js/gpx-parser.js?v=81"></script>
 
-  <script src="js/sample-data.js?v=80"></script>
+  <script src="js/sample-data.js?v=81"></script>
 
-  <script src="js/storage.js?v=80"></script>
+  <script src="js/storage.js?v=81"></script>
 
-  <script src="js/elevation-profile.js?v=80"></script>
+  <script src="js/elevation-profile.js?v=81"></script>
 
-  <script src="js/map-manager.js?v=80"></script>
+  <script src="js/map-manager.js?v=81"></script>
 
-  <script src="js/pdf-exporter.js?v=80"></script>
+  <script src="js/pdf-exporter.js?v=81"></script>
 
-  <script src="js/app.js?v=80"></script>
+  <script src="js/app.js?v=81"></script>
 
 </body>
 

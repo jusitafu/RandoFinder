@@ -630,6 +630,47 @@ class AppController {
     }
 
     // Map Area Print Extract (2-click selection mode)
+    
+    // Mesure de Cap (Azimut) entre 2 points
+    const btnMapBearing = document.getElementById('btn-map-bearing');
+    if (btnMapBearing) {
+      btnMapBearing.addEventListener('click', () => {
+        if (!window.MapManagerInstance) return;
+        if (window.MapManagerInstance.bearingMeasurementActive) {
+          window.MapManagerInstance.cancelBearingMeasurement();
+        } else {
+          window.MapManagerInstance.startBearingMeasurement();
+        }
+      });
+    }
+
+    const btnCloseMapBearing = document.getElementById('btn-close-map-bearing');
+    if (btnCloseMapBearing) {
+      btnCloseMapBearing.addEventListener('click', () => {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.cancelBearingMeasurement();
+        }
+      });
+    }
+
+    const btnRestartMapBearing = document.getElementById('btn-restart-map-bearing');
+    if (btnRestartMapBearing) {
+      btnRestartMapBearing.addEventListener('click', () => {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.startBearingMeasurement();
+        }
+      });
+    }
+
+    const btnCancelMapBearing = document.getElementById('btn-cancel-map-bearing');
+    if (btnCancelMapBearing) {
+      btnCancelMapBearing.addEventListener('click', () => {
+        if (window.MapManagerInstance) {
+          window.MapManagerInstance.clearBearingVisuals();
+        }
+      });
+    }
+
     const btnMapAreaPrint = document.getElementById('btn-map-area-print');
     if (btnMapAreaPrint) {
       btnMapAreaPrint.addEventListener('click', () => {

@@ -45,6 +45,15 @@ class MapManager {
     this._cursorRafId = null;
     this._pendingCursorLatLng = null;
     this._isProgrammaticZoom = false;
+
+    // Mesure de Cap / Azimut (2 clics entre Point A et Point B)
+    this.bearingMeasurementActive = false;
+    this.bearingPointA = null;
+    this.bearingPointB = null;
+    this.bearingLayer = null;
+    this.bearingPreviewLine = null;
+    this._onBearingMouseMove = null;
+    this._onBearingKeyDown = null;
   }
 
   init() {
@@ -102,7 +111,9 @@ class MapManager {
       zoom: 11,
       maxZoom: 19,
       layers: [ignTop25],
-      zoomControl: true
+      zoomControl: true,
+      zoomSnap: 0,
+      zoomDelta: 1
     });
 
     this.utmGridLayer = L.layerGroup();
@@ -138,6 +149,10 @@ class MapManager {
 
     // Map Click Listener (Background click deselects or sets search origin)
     this.map.on('click', (e) => {
+      if (this.bearingMeasurementActive) {
+        this.handleBearingClick(e.latlng);
+        return;
+      }
       if (this.areaSelectionActive) {
         this.handleAreaSelectionClick(e.latlng);
         return;
@@ -207,6 +222,7 @@ class MapManager {
         this.renderUtmGrid();
         this.updateMapHud();
         this.updateCursorCoords(null);
+        this.setupScaleInputListeners();
       }
     }, 250);
   }
@@ -221,6 +237,9 @@ class MapManager {
    * @param {Function} onCancel - Callback on cancel
    */
   startAreaSelection(onComplete, onCancel) {
+    if (this.bearingMeasurementActive) {
+      this.cancelBearingMeasurement();
+    }
     this.areaSelectionActive = true;
     this.areaSelectionCorner1 = null;
     this.areaSelectionOnComplete = onComplete;
@@ -396,6 +415,12 @@ class MapManager {
   }
 
   setClickMode(active) {
+    if (active && this.bearingMeasurementActive) {
+      this.cancelBearingMeasurement();
+    }
+    if (active && this.areaSelectionActive) {
+      this.cancelAreaSelection();
+    }
     this.clickModeActive = active;
     const mapEl = document.getElementById(this.containerId);
     if (mapEl) {
@@ -1083,17 +1108,21 @@ class MapManager {
   }
 
   /**
-   * Mise à jour du bandeau HUD sur la carte (Échelle dynamique)
+   * Mise à jour du bandeau HUD sur la carte (Échelle dynamique & saisissable)
    */
   updateMapHud() {
-    const scaleEl = document.getElementById('map-hud-scale');
-    if (!scaleEl || !this.map) return;
+    if (!this.map) return;
+    this.setupScaleInputListeners();
+    const scaleInput = document.getElementById('map-hud-scale-input');
     const scale = this.getNumericScaleRatio();
-    let label = `Échelle ~ 1 : ${scale.toLocaleString('fr-FR')}`;
-    if (scale >= 21000 && scale <= 29000) {
-      label = `Échelle 1 : 25 000 (TOP 25)`;
+    if (scaleInput && document.activeElement !== scaleInput) {
+      scaleInput.value = scale.toLocaleString('fr-FR');
+      if (scale >= 22000 && scale <= 28000) {
+        scaleInput.title = `Échelle 1 : ${scale.toLocaleString('fr-FR')} (proche TOP 25). Saisissez une valeur et appuyez sur Entrée pour ajuster la carte.`;
+      } else {
+        scaleInput.title = `Échelle 1 : ${scale.toLocaleString('fr-FR')}. Saisissez une valeur et appuyez sur Entrée pour ajuster la carte.`;
+      }
     }
-    scaleEl.innerHTML = `<span>🔍</span> <span>${label}</span>`;
   }
 
   /**
@@ -1152,6 +1181,418 @@ class MapManager {
       prompt("Coordonnées GPS & UTM :", text);
     }
   }
+  // =========================================================================
+  // SAISIE DE L'ÉCHELLE NUMÉRIQUE
+  // =========================================================================
+
+  /**
+   * Configuration de la saisie manuelle de l'échelle dans le HUD
+   */
+  setupScaleInputListeners() {
+    const scaleInput = document.getElementById('map-hud-scale-input');
+    if (!scaleInput || scaleInput._hasScaleListeners) return;
+    scaleInput._hasScaleListeners = true;
+
+    scaleInput.addEventListener('focus', () => {
+      setTimeout(() => {
+        try { scaleInput.select(); } catch (_) {}
+      }, 50);
+    });
+
+    scaleInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.applyScaleFromInput();
+        scaleInput.blur();
+      } else if (e.key === 'Escape') {
+        scaleInput.blur();
+        this.updateMapHud();
+      }
+    });
+
+    scaleInput.addEventListener('blur', () => {
+      this.applyScaleFromInput();
+    });
+  }
+
+  /**
+   * Applique l'échelle saisie par l'utilisateur (seule la valeur après 1 : est attendue)
+   */
+  applyScaleFromInput() {
+    const scaleInput = document.getElementById('map-hud-scale-input');
+    if (!scaleInput || !this.map) return;
+    let raw = (scaleInput.value || '').trim();
+    if (raw.includes(':')) {
+      raw = raw.split(':')[1];
+    }
+    const cleaned = raw.replace(/\s+/g, '').replace(/\./g, '').replace(/,/g, '');
+    const val = parseInt(cleaned, 10);
+    if (isNaN(val) || val < 500 || val > 50000000) {
+      this.updateMapHud();
+      return;
+    }
+    this.setScaleRatio(val);
+  }
+
+  /**
+   * Ajuste le niveau de zoom de la carte pour correspondre exactement à l'échelle numérique 1 : targetScale
+   * @param {number} targetScale - Ex: 25000 pour 1:25 000
+   */
+  setScaleRatio(targetScale) {
+    if (!this.map || !targetScale || targetScale <= 0) return;
+    const center = this.map.getCenter();
+    const lat = center.lat;
+    // Formule inverse exacte de l'échelle Leaflet au centre de la carte (standard 96 DPI = 3779.5275 px/m)
+    const K = (40075016.686 * Math.cos((lat * Math.PI) / 180) * 3779.5275) / 256;
+    const targetZoom = Math.log2(K / targetScale);
+
+    const minZoom = this.map.getMinZoom() || 1;
+    const maxZoom = this.map.getMaxZoom() || 19;
+    const clampedZoom = Math.max(minZoom, Math.min(maxZoom, targetZoom));
+
+    this._isProgrammaticZoom = true;
+    this.map.setZoom(clampedZoom, { animate: false });
+    this.updateMapHud();
+
+    if (window.App && typeof window.App.showToast === 'function') {
+      window.App.showToast(`🔍 Échelle ajustée à 1 : ${Math.round(targetScale).toLocaleString('fr-FR')}`, "info");
+    }
+  }
+
+  // =========================================================================
+  // OUTIL MESURE DE CAP (AZIMUT) ENTRE 2 POINTS
+  // =========================================================================
+
+  /**
+   * Active le mode de mesure de cap entre 2 points
+   */
+  startBearingMeasurement() {
+    if (!this.map) return;
+
+    // Désactiver les autres modes exclusifs
+    if (this.areaSelectionActive) {
+      this.cancelAreaSelection();
+    }
+    if (this.clickModeActive) {
+      this.setClickMode(false);
+    }
+
+    this.bearingMeasurementActive = true;
+    this.bearingPointA = null;
+    this.bearingPointB = null;
+
+    // Curseur réticule
+    L.DomUtil.addClass(this.map.getContainer(), 'bearing-selection-cursor');
+
+    // Calque dédié pour la ligne et les marqueurs A/B
+    if (!this.bearingLayer) {
+      this.bearingLayer = L.layerGroup().addTo(this.map);
+    }
+    this.bearingLayer.clearLayers();
+    this.bearingPreviewLine = null;
+
+    // Afficher le panneau flottant
+    const panel = document.getElementById('map-bearing-panel');
+    const btn = document.getElementById('btn-map-bearing');
+    const btnText = document.getElementById('btn-map-bearing-text');
+    const instrText = document.getElementById('map-bearing-instruction-text');
+    const valEl = document.getElementById('map-bearing-val');
+    const compassEl = document.getElementById('map-bearing-compass');
+    const revEl = document.getElementById('map-bearing-reverse');
+    const distEl = document.getElementById('map-bearing-distance');
+    const coordsBox = document.getElementById('map-bearing-coords');
+    const arrowEl = document.getElementById('map-bearing-arrow');
+
+    if (panel) panel.classList.remove('hidden');
+    if (btn) {
+      btn.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-400');
+    }
+    if (btnText) btnText.textContent = 'Cap (actif)';
+    if (instrText) instrText.textContent = 'Étape 1 sur 2 : Cliquez sur la carte pour poser le point A (départ).';
+    if (valEl) valEl.textContent = '--°';
+    if (compassEl) compassEl.textContent = '';
+    if (revEl) revEl.textContent = '--°';
+    if (distEl) distEl.textContent = '-- km';
+    if (coordsBox) coordsBox.classList.add('hidden');
+    if (arrowEl) arrowEl.style.transform = 'rotate(0deg)';
+
+    // Suivi de la souris pour la ligne en temps réel vers le curseur
+    this._onBearingMouseMove = (e) => {
+      if (!this.bearingMeasurementActive || !this.bearingPointA || this.bearingPointB) return;
+      const currentPoint = e.latlng;
+
+      if (!this.bearingPreviewLine) {
+        this.bearingPreviewLine = L.polyline([this.bearingPointA, currentPoint], {
+          color: '#10b981',
+          weight: 3,
+          dashArray: '6, 6',
+          opacity: 0.85
+        }).addTo(this.bearingLayer);
+      } else {
+        this.bearingPreviewLine.setLatLngs([this.bearingPointA, currentPoint]);
+      }
+
+      this.updateBearingDisplay(this.bearingPointA, currentPoint, true);
+    };
+    this.map.on('mousemove', this._onBearingMouseMove);
+
+    // Échap pour annuler
+    this._onBearingKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        this.cancelBearingMeasurement();
+      }
+    };
+    window.addEventListener('keydown', this._onBearingKeyDown);
+  }
+
+  /**
+   * Ferme le panneau et réinitialise l'outil Cap
+   */
+  cancelBearingMeasurement() {
+    this.bearingMeasurementActive = false;
+    this.bearingPointA = null;
+    this.bearingPointB = null;
+
+    if (this.map) {
+      L.DomUtil.removeClass(this.map.getContainer(), 'bearing-selection-cursor');
+      if (this._onBearingMouseMove) {
+        this.map.off('mousemove', this._onBearingMouseMove);
+        this._onBearingMouseMove = null;
+      }
+    }
+
+    if (this._onBearingKeyDown) {
+      window.removeEventListener('keydown', this._onBearingKeyDown);
+      this._onBearingKeyDown = null;
+    }
+
+    if (this.bearingLayer) {
+      this.bearingLayer.clearLayers();
+    }
+    this.bearingPreviewLine = null;
+
+    const panel = document.getElementById('map-bearing-panel');
+    const btn = document.getElementById('btn-map-bearing');
+    const btnText = document.getElementById('btn-map-bearing-text');
+    if (panel) panel.classList.add('hidden');
+    if (btn) {
+      btn.classList.remove('bg-emerald-50', 'text-emerald-700', 'border-emerald-400');
+    }
+    if (btnText) btnText.textContent = 'Cap';
+  }
+
+  /**
+   * Efface le tracé actuel pour recommencer immédiatement une mesure
+   */
+  clearBearingVisuals() {
+    if (this.bearingLayer) {
+      this.bearingLayer.clearLayers();
+    }
+    this.bearingPreviewLine = null;
+    this.bearingPointA = null;
+    this.bearingPointB = null;
+
+    const instrText = document.getElementById('map-bearing-instruction-text');
+    const valEl = document.getElementById('map-bearing-val');
+    const compassEl = document.getElementById('map-bearing-compass');
+    const revEl = document.getElementById('map-bearing-reverse');
+    const distEl = document.getElementById('map-bearing-distance');
+    const coordsBox = document.getElementById('map-bearing-coords');
+    const arrowEl = document.getElementById('map-bearing-arrow');
+
+    if (instrText) instrText.textContent = 'Étape 1 sur 2 : Cliquez sur la carte pour poser le point A (départ).';
+    if (valEl) valEl.textContent = '--°';
+    if (compassEl) compassEl.textContent = '';
+    if (revEl) revEl.textContent = '--°';
+    if (distEl) distEl.textContent = '-- km';
+    if (coordsBox) coordsBox.classList.add('hidden');
+    if (arrowEl) arrowEl.style.transform = 'rotate(0deg)';
+
+    if (this.map) {
+      L.DomUtil.addClass(this.map.getContainer(), 'bearing-selection-cursor');
+      if (this._onBearingMouseMove) {
+        this.map.off('mousemove', this._onBearingMouseMove);
+      }
+      this._onBearingMouseMove = (e) => {
+        if (!this.bearingMeasurementActive || !this.bearingPointA || this.bearingPointB) return;
+        const currentPoint = e.latlng;
+        if (!this.bearingPreviewLine) {
+          this.bearingPreviewLine = L.polyline([this.bearingPointA, currentPoint], {
+            color: '#10b981',
+            weight: 3,
+            dashArray: '6, 6',
+            opacity: 0.85
+          }).addTo(this.bearingLayer);
+        } else {
+          this.bearingPreviewLine.setLatLngs([this.bearingPointA, currentPoint]);
+        }
+        this.updateBearingDisplay(this.bearingPointA, currentPoint, true);
+      };
+      this.map.on('mousemove', this._onBearingMouseMove);
+    }
+  }
+
+  /**
+   * Gestion du clic sur la carte pendant la mesure de cap
+   */
+  handleBearingClick(latlng) {
+    if (!this.bearingPointA) {
+      // 1er clic : Point A
+      this.bearingPointA = latlng;
+
+      const iconA = L.divIcon({
+        className: 'bearing-marker-icon',
+        html: '<div class="bearing-marker-badge marker-a">A</div>',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      });
+      L.marker(latlng, { icon: iconA, interactive: false }).addTo(this.bearingLayer);
+
+      const instrText = document.getElementById('map-bearing-instruction-text');
+      if (instrText) {
+        instrText.textContent = 'Étape 2 sur 2 : Déplacez le curseur et cliquez pour le point B (arrivée).';
+      }
+    } else if (!this.bearingPointB) {
+      // 2e clic : Point B
+      this.bearingPointB = latlng;
+
+      if (this.bearingPreviewLine) {
+        this.bearingLayer.removeLayer(this.bearingPreviewLine);
+        this.bearingPreviewLine = null;
+      }
+
+      if (this._onBearingMouseMove && this.map) {
+        this.map.off('mousemove', this._onBearingMouseMove);
+        this._onBearingMouseMove = null;
+      }
+      if (this.map) {
+        L.DomUtil.removeClass(this.map.getContainer(), 'bearing-selection-cursor');
+      }
+
+      const iconB = L.divIcon({
+        className: 'bearing-marker-icon',
+        html: '<div class="bearing-marker-badge marker-b">B</div>',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      });
+      L.marker(latlng, { icon: iconB, interactive: false }).addTo(this.bearingLayer);
+
+      // Tracé plein A -> B
+      L.polyline([this.bearingPointA, this.bearingPointB], {
+        color: '#059669',
+        weight: 4,
+        opacity: 0.95
+      }).addTo(this.bearingLayer);
+
+      const metrics = this.updateBearingDisplay(this.bearingPointA, this.bearingPointB, false);
+
+      // Badge au milieu de la ligne
+      const midLat = (this.bearingPointA.lat + this.bearingPointB.lat) / 2;
+      const midLng = (this.bearingPointA.lng + this.bearingPointB.lng) / 2;
+      const midIcon = L.divIcon({
+        className: 'bearing-line-label',
+        html: `<span>🧭 ${metrics.bearingRound}° (${metrics.compass}) • ${metrics.distStr}</span>`,
+        iconSize: [140, 24],
+        iconAnchor: [70, 12]
+      });
+      L.marker([midLat, midLng], { icon: midIcon, interactive: false }).addTo(this.bearingLayer);
+
+      const instrText = document.getElementById('map-bearing-instruction-text');
+      if (instrText) {
+        instrText.textContent = '✅ Cap mesuré ! Cliquez sur "Nouvelle mesure" pour recommencer.';
+      }
+    }
+  }
+
+  /**
+   * Calcul géodésique et mise à jour de l'affichage du panneau Cap
+   */
+  updateBearingDisplay(pointA, pointB, isLive) {
+    const bearing = MapManager.calculateBearing(pointA.lat, pointA.lng, pointB.lat, pointB.lng);
+    const reverseBearing = (bearing + 180) % 360;
+    const compass = MapManager.getCompassDirection(bearing);
+    const bearingRound = Math.round(bearing);
+    const reverseRound = Math.round(reverseBearing);
+
+    const distKm = MapManager.haversineDistance(pointA.lat, pointA.lng, pointB.lat, pointB.lng);
+    const distMeters = distKm * 1000;
+    const distStr = distMeters < 1000 
+      ? `${Math.round(distMeters)} m` 
+      : `${distKm.toFixed(2)} km`;
+
+    const valEl = document.getElementById('map-bearing-val');
+    const compassEl = document.getElementById('map-bearing-compass');
+    const revEl = document.getElementById('map-bearing-reverse');
+    const distEl = document.getElementById('map-bearing-distance');
+    const arrowEl = document.getElementById('map-bearing-arrow');
+    const coordsBox = document.getElementById('map-bearing-coords');
+    const coordA = document.getElementById('map-bearing-coord-a');
+    const coordB = document.getElementById('map-bearing-coord-b');
+
+    if (valEl) valEl.textContent = `${bearingRound}°`;
+    if (compassEl) compassEl.textContent = `(${compass})`;
+    if (revEl) revEl.textContent = `${reverseRound}°`;
+    if (distEl) distEl.textContent = distStr;
+    if (arrowEl) arrowEl.style.transform = `rotate(${bearingRound}deg)`;
+
+    if (!isLive && coordsBox && coordA && coordB) {
+      coordsBox.classList.remove('hidden');
+      const utmA = MapManager.latLonToUtm(pointA.lat, pointA.lng);
+      const utmB = MapManager.latLonToUtm(pointB.lat, pointB.lng);
+      coordA.textContent = `${pointA.lat.toFixed(4)}°, ${pointA.lng.toFixed(4)}° • ${utmA.zone}${utmA.band} ${utmA.easting}E ${utmA.northing}N`;
+      coordB.textContent = `${pointB.lat.toFixed(4)}°, ${pointB.lng.toFixed(4)}° • ${utmB.zone}${utmB.band} ${utmB.easting}E ${utmB.northing}N`;
+    }
+
+    return { bearing, bearingRound, reverseRound, compass, distKm, distMeters, distStr };
+  }
+
+  /**
+   * Calcul du cap (azimut initial géodésique) en degrés entre 2 coordonnées WGS84
+   */
+  static calculateBearing(lat1, lon1, lat2, lon2) {
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+
+    const y = Math.sin(dLon) * Math.cos(phi2);
+    const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLon);
+
+    let brng = (Math.atan2(y, x) * 180) / Math.PI;
+    brng = (brng + 360) % 360;
+    return brng;
+  }
+
+  /**
+   * Rose des vents en français (16 divisions cardinales)
+   */
+  static getCompassDirection(deg) {
+    const directions = [
+      'N', 'NNE', 'NE', 'ENE',
+      'E', 'ESE', 'SE', 'SSE',
+      'S', 'SSO', 'SO', 'OSO',
+      'O', 'ONO', 'NO', 'NNO'
+    ];
+    const idx = Math.round(deg / 22.5) % 16;
+    return directions[idx];
+  }
+
+  /**
+   * Distance haversine géodésique en km
+   */
+  static haversineDistance(lat1, lon1, lat2, lon2) {
+    if (typeof GPXParser !== 'undefined' && GPXParser.haversineDistance) {
+      return GPXParser.haversineDistance(lat1, lon1, lat2, lon2);
+    }
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
 }
 
 window.MapManager = MapManager;
