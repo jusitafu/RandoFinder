@@ -97,14 +97,18 @@ class PDFExporter {
       const startCoord = `Départ GPS : Lat ${hike.startPoint.lat.toFixed(5)}°, Lon ${hike.startPoint.lon.toFixed(5)}° • ${hike.isLoop ? 'Boucle' : 'Traversée'}`;
       doc.text(startCoord, margin, currentY + 5 + (titleLines.length * 4.5));
 
-      // 4 Badges métriques alignés à droite
+      // 5 Badges métriques alignés à droite
+      const ibpVal = (typeof hike.ibp === 'number') ? hike.ibp : ((typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP(hike) : 50);
+      const ibpInfo = (typeof GPXParser !== 'undefined') ? GPXParser.getIBPLevel(ibpVal) : { level: 3, label: 'Peu difficile' };
+
       const badgeH = isA3 ? 14 : 11.5;
-      const colW = (metricsW - 6) / 4;
+      const colW = (metricsW - 8) / 5;
       const metricsStartX = pageWidth - margin - metricsW;
 
       const metrics = [
         { label: "DISTANCE", val: `${hike.distanceKm} km` },
         { label: "DÉNIVELÉ D+", val: `+${hike.elevationGain} m` },
+        { label: "IBP INDEX", val: `${ibpVal} (Niv. ${ibpInfo.level})` },
         { label: "ALTITUDE", val: `${hike.minElevation}m / ${hike.maxElevation}m` },
         { label: "DURÉE EST.", val: hike.estimatedDuration || "3h30" }
       ];
@@ -391,13 +395,17 @@ class PDFExporter {
       doc.text(titleLines, margin, currentY);
       currentY += (titleLines.length * (isA3 ? 7 : 5.5)) + 3;
 
-      // 3. Metrics Summary Box (Grid of 4 badges)
+      // 3. Metrics Summary Box (Grid of 5 badges)
+      const ibpVal = (typeof hike.ibp === 'number') ? hike.ibp : ((typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP(hike) : 50);
+      const ibpInfo = (typeof GPXParser !== 'undefined') ? GPXParser.getIBPLevel(ibpVal) : { level: 3, label: 'Peu difficile' };
+
       const boxH = isA3 ? 22 : 16;
-      const colW = (contentWidth - 6) / 4;
+      const colW = (contentWidth - 8) / 5;
 
       const metrics = [
         { label: "DISTANCE", val: `${hike.distanceKm} km` },
         { label: "DÉNIVELÉ D+", val: `+${hike.elevationGain} m` },
+        { label: "IBP INDEX", val: `${ibpVal} (Niv. ${ibpInfo.level})` },
         { label: "ALTITUDE", val: `${hike.minElevation}m / ${hike.maxElevation}m` },
         { label: "DURÉE ESTIMÉE", val: hike.estimatedDuration || "3h30" }
       ];

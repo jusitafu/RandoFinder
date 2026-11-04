@@ -90,7 +90,7 @@
 
   <!-- Custom CSS -->
 
-  <link rel="stylesheet" href="css/styles.css?v=87">
+  <link rel="stylesheet" href="css/styles.css?v=88">
 
 </head>
 
@@ -178,7 +178,7 @@
               2026
             </span>
             <span class="px-1.5 py-0.5 bg-emerald-100 border border-emerald-300 text-emerald-800 text-[9px] sm:text-[10px] font-extrabold rounded-md shadow-2xs">
-              v87
+              v88
             </span>
 
           </div>
@@ -839,16 +839,13 @@
 
           <!-- Difficulty Legend on map -->
 
-          <div class="absolute top-3 left-14 z-20 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl shadow-md border border-slate-200/90 text-[11px] font-semibold text-slate-700 pointer-events-none select-none">
-
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Difficulté :</span>
-
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Facile</span>
-
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Moyen</span>
-
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span> Sportif</span>
-
+          <div class="absolute top-3 left-14 z-20 hidden sm:flex items-center gap-2 bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl shadow-md border border-slate-200/90 text-[11px] font-semibold text-slate-700 pointer-events-none select-none">
+            <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1"><span>📈</span> IBP Index :</span>
+            <span class="inline-flex items-center gap-1" title="Niveau 1 : Facile (≤ 25)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#16a34a">1</span> <span class="text-[10px] font-bold text-slate-600">≤25</span></span>
+            <span class="inline-flex items-center gap-1" title="Niveau 2 : Assez facile (26 - 50)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#2563eb">2</span> <span class="text-[10px] font-bold text-slate-600">26-50</span></span>
+            <span class="inline-flex items-center gap-1" title="Niveau 3 : Peu difficile (51 - 75)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#ea580c">3</span> <span class="text-[10px] font-bold text-slate-600">51-75</span></span>
+            <span class="inline-flex items-center gap-1" title="Niveau 4 : Assez difficile (76 - 100)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#dc2626">4</span> <span class="text-[10px] font-bold text-slate-600">76-100</span></span>
+            <span class="inline-flex items-center gap-1" title="Niveau 5 : Difficile (> 100)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#0f172a">5</span> <span class="text-[10px] font-bold text-slate-600">&gt;100</span></span>
           </div>
 
 
@@ -913,7 +910,7 @@
 
             <!-- Metrics Pills -->
 
-            <div class="grid grid-cols-4 gap-1.5 text-center text-xs">
+            <div class="grid grid-cols-5 gap-1.5 text-center text-xs">
 
               <div class="bg-slate-100/90 p-1.5 rounded-lg">
 
@@ -928,6 +925,14 @@
                 <span class="text-[10px] text-emerald-600 block font-medium">Dénivelé D+</span>
 
                 <span id="preview-dplus" class="font-bold text-emerald-700"></span>
+
+              </div>
+
+              <div id="preview-ibp-box" class="p-1.5 rounded-lg border transition-colors flex flex-col justify-center items-center">
+
+                <span class="text-[10px] block font-medium opacity-80">IBP Index</span>
+
+                <span id="preview-ibp" class="font-black text-xs flex items-center justify-center gap-1"></span>
 
               </div>
 
@@ -1029,6 +1034,12 @@
 
                   </th>
 
+                  <th onclick="App.setSort('ibp')" class="p-3 cursor-pointer hover:text-emerald-700 whitespace-nowrap" title="Trier par Indice d'effort physique IBP Index (FFRandonnée)">
+
+                    IBP Index ↕
+
+                  </th>
+
                   <th class="p-3 whitespace-nowrap">
 
                     Altitudes
@@ -1089,7 +1100,7 @@
 
           <p class="text-xs sm:text-sm text-slate-500 max-w-xl mx-auto">
 
-            Glissez vos fichiers ci-dessous ou cliquez sur le cadre. Ils seront automatiquement calculés, nommés et ajoutés à votre bibliothèque.
+            Glissez vos fichiers ci-dessous ou cliquez sur le cadre. Ils seront automatiquement analysés avec calcul de l'<strong>Indice IBP Index</strong> (niveaux 1 à 5 FFRandonnée), nommés et ajoutés à votre bibliothèque.
 
           </p>
 
@@ -1755,6 +1766,25 @@
 
         </div>
 
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Indice IBP Index :</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="edit-hike-ibp" min="1" max="500" class="w-full text-sm font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-xl p-2.5 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              <button type="button" id="btn-recalc-ibp" class="px-2.5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 whitespace-nowrap" title="Recalculer selon dénivelé et distance">
+                🔄 Recalculer
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Cotation FFRandonnée :</label>
+            <div id="edit-hike-ibp-badge" class="h-10 px-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700">
+              <span id="edit-hike-ibp-square" class="w-4 h-4 rounded text-[10px] text-white flex items-center justify-center font-black" style="background:#16a34a">1</span>
+              <span id="edit-hike-ibp-label">Niveau 1 (Facile)</span>
+            </div>
+          </div>
+        </div>
+
 
 
         <div>
@@ -2321,6 +2351,10 @@
           class="tab-legend-btn px-4 py-2 text-xs font-bold border-b-2 border-emerald-600 text-emerald-700 cursor-pointer flex items-center gap-1.5 transition">
           <span>🗺️</span> <span>IGN Top 25 (France)</span>
         </button>
+        <button type="button" id="tab-legend-btn-ibp" onclick="App.switchLegendTab('ibp')"
+          class="tab-legend-btn px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 border-b-2 border-transparent cursor-pointer flex items-center gap-1.5 transition">
+          <span>📈</span> <span>Cotation FFRandonnée (IBP Index)</span>
+        </button>
         <button type="button" id="tab-legend-btn-opentopo" onclick="App.switchLegendTab('opentopo')"
           class="tab-legend-btn px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 border-b-2 border-transparent cursor-pointer flex items-center gap-1.5 transition">
           <span>⛰️</span> <span>OpenTopoMap (Mondial)</span>
@@ -2343,7 +2377,101 @@
 
         
 
-                <!-- PANE SATELLITE & CIRCUITS GPX -->
+                <!-- PANE IBP INDEX & COTATION FFRANDONNÉE -->
+        <div id="legend-pane-ibp" class="hidden space-y-5">
+          <div class="bg-emerald-50/90 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 bg-emerald-600 text-white rounded-md text-[11px] font-bold uppercase tracking-wider">Norme FFRandonnée</span>
+                <span class="text-xs text-emerald-800 font-semibold">Système d'évaluation de la difficulté de l'effort physique</span>
+              </div>
+              <h4 class="text-sm sm:text-base font-bold text-slate-900 mt-1">L'Indice IBP Index & Cotation de l'Effort (1 à 5)</h4>
+              <p class="text-xs text-slate-600 mt-0.5">Échelle officielle normalisée adoptée par la Fédération Française de la Randonnée Pédestre (FFRandonnée) pour coter l'exigence physique des itinéraires de randonnée.</p>
+            </div>
+            <a href="https://www.ibpindex.com" target="_blank" rel="noopener" class="px-3 py-1.5 bg-white hover:bg-slate-50 text-emerald-700 border border-emerald-300 rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 flex-shrink-0">
+              <span>🌐</span> Site officiel IBP Index
+            </a>
+          </div>
+
+          <!-- Official Scale Banner -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-center space-y-2">
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Échelle visuelle FFRandonnée de l'effort physique</div>
+            <div class="flex justify-center">
+              <img src="ibp_scale.png" alt="Échelle des 5 niveaux d'effort FFRandonnée / IBP Index" class="max-w-full h-auto rounded-xl border border-slate-200 shadow-xs">
+            </div>
+          </div>
+
+          <!-- 5-Level Detailed Table -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
+                <tr>
+                  <th class="p-3 w-16">Niveau</th>
+                  <th class="p-3 w-28">Indice IBP</th>
+                  <th class="p-3 w-32">Appellation</th>
+                  <th class="p-3">Caractéristiques & Profil Randonneur</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-slate-700">
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-3 font-black text-white text-center">
+                    <span class="inline-flex w-7 h-7 rounded-lg items-center justify-center font-black shadow-xs" style="background-color:#16a34a">1</span>
+                  </td>
+                  <td class="p-3 font-bold text-emerald-700">IBP ≤ 25</td>
+                  <td class="p-3 font-bold text-slate-900">Facile</td>
+                  <td class="p-3 text-slate-600">Balade ou Rando Santé. Pente très douce ou terrain plat, dénivelé minime (&lt; 150m D+), effort physique très modéré accessible à tous sans entraînement préalable.</td>
+                </tr>
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-3 font-black text-white text-center">
+                    <span class="inline-flex w-7 h-7 rounded-lg items-center justify-center font-black shadow-xs" style="background-color:#2563eb">2</span>
+                  </td>
+                  <td class="p-3 font-bold text-blue-700">IBP 26 à 50</td>
+                  <td class="p-3 font-bold text-slate-900">Assez facile</td>
+                  <td class="p-3 text-slate-600">Randonnée modérée. Dénivelé mesuré (150m à 350m D+), rythme paisible, idéale pour randonneurs occasionnels en bonne santé.</td>
+                </tr>
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-3 font-black text-white text-center">
+                    <span class="inline-flex w-7 h-7 rounded-lg items-center justify-center font-black shadow-xs" style="background-color:#ea580c">3</span>
+                  </td>
+                  <td class="p-3 font-bold text-orange-700">IBP 51 à 75</td>
+                  <td class="p-3 font-bold text-slate-900">Peu difficile</td>
+                  <td class="p-3 text-slate-600">Randonnée moyenne soutenue. Dénivelé moyen (350m à 600m D+), distance 10 à 15 km. Niveau de référence du groupe 3G des Randonneurs Sanaryens.</td>
+                </tr>
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-3 font-black text-white text-center">
+                    <span class="inline-flex w-7 h-7 rounded-lg items-center justify-center font-black shadow-xs" style="background-color:#dc2626">4</span>
+                  </td>
+                  <td class="p-3 font-bold text-red-700">IBP 76 à 100</td>
+                  <td class="p-3 font-bold text-slate-900">Assez difficile</td>
+                  <td class="p-3 text-slate-600">Randonnée sportive soutenue. Fort dénivelé (600m à 900m D+) ou distance supérieure à 16 km, demandant une bonne condition physique régulière (Groupe 4G).</td>
+                </tr>
+                <tr class="hover:bg-slate-50/80">
+                  <td class="p-3 font-black text-white text-center">
+                    <span class="inline-flex w-7 h-7 rounded-lg items-center justify-center font-black shadow-xs" style="background-color:#0f172a">5</span>
+                  </td>
+                  <td class="p-3 font-bold text-slate-900">IBP &gt; 100</td>
+                  <td class="p-3 font-bold text-slate-900">Difficile / Très soutenu</td>
+                  <td class="p-3 text-slate-600">Randonnée alpine ou parcours d'endurance très exigeant (dénivelé &gt; 900m D+, passages raides cumulés ou &gt; 20 km), réservé aux marcheurs très entraînés.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Formula & Scientific Context -->
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 space-y-2">
+            <div class="font-bold text-slate-800 flex items-center gap-1.5">
+              <span>🔬</span> Comment est calculé l'Indice IBP Index ?
+            </div>
+            <p>
+              L'indice IBP (Indice Bonhomme Poncin) est un algorithme mathématique automatisé qui analyse chaque tronçon élémentaire du tracé GPS (distance, dénivelé positif et négatif, pourcentage de pente, altitude).
+            </p>
+            <p>
+              Contrairement à une simple addition de kilomètres et de dénivelé, l'IBP applique une <strong>pondération non-linéaire exponentielle</strong> : une pente à 15% demande un effort physique bien supérieur au triple d'une pente à 5%. Les descentes très raides (&gt; 12%) sont également comptabilisées pour tenir compte de la fatigue musculaire et articulaire.
+            </p>
+          </div>
+        </div>
+
+        <!-- PANE SATELLITE & CIRCUITS GPX -->
         <div id="legend-pane-satellite" class="hidden space-y-5">
           <div class="bg-indigo-50/90 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
@@ -4889,24 +5017,24 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
 
   <!-- Scripts -->
 
-  <script src="js/config.js?v=87"></script>
+  <script src="js/config.js?v=88"></script>
 
-  <script src="js/auth-manager.js?v=87"></script>
+  <script src="js/auth-manager.js?v=88"></script>
 
-  <script src="js/gpx-parser.js?v=87"></script>
+  <script src="js/gpx-parser.js?v=88"></script>
 
-  <script src="js/sample-data.js?v=87"></script>
+  <script src="js/sample-data.js?v=88"></script>
 
-  <script src="js/storage.js?v=87"></script>
+  <script src="js/storage.js?v=88"></script>
 
-  <script src="js/elevation-profile.js?v=87"></script>
+  <script src="js/elevation-profile.js?v=88"></script>
 
-  <script src="js/screen-calib-manager.js?v=87"></script>
-  <script src="js/map-manager.js?v=87"></script>
+  <script src="js/screen-calib-manager.js?v=88"></script>
+  <script src="js/map-manager.js?v=88"></script>
 
-  <script src="js/pdf-exporter.js?v=87"></script>
+  <script src="js/pdf-exporter.js?v=88"></script>
 
-  <script src="js/app.js?v=87"></script>
+  <script src="js/app.js?v=88"></script>
 
 
   <!-- SCREEN CALIBRATION MODAL (Mesure 1 cm vrai sur écran) -->

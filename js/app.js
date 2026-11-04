@@ -1011,6 +1011,11 @@ class AppController {
       let valA = a[this.sortColumn];
       let valB = b[this.sortColumn];
 
+      if (this.sortColumn === 'ibp') {
+        valA = (typeof a.ibp === 'number') ? a.ibp : ((typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP(a) : 0);
+        valB = (typeof b.ibp === 'number') ? b.ibp : ((typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP(b) : 0);
+      }
+
       if (typeof valA === 'string') valA = valA.toLowerCase();
       if (typeof valB === 'string') valB = valB.toLowerCase();
 
@@ -1040,7 +1045,7 @@ class AppController {
     if (this.filteredHikes.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="6" class="p-8 text-center text-slate-400">
+          <td colspan="7" class="p-8 text-center text-slate-400">
             <div class="text-3xl mb-2">🔍</div>
             <div class="font-medium text-slate-700">Aucune randonnée dans ce rayon (${window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50} km)</div>
             <div class="text-xs text-slate-500 mt-1">👉 <strong>Augmentez le curseur de rayon</strong> (ex: 200 km) ou tapez une autre ville de départ pour les voir.</div>
@@ -1051,6 +1056,9 @@ class AppController {
     }
 
     this.filteredHikes.forEach(hike => {
+      const ibpVal = (typeof hike.ibp === 'number') ? hike.ibp : ((typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP(hike) : 50);
+      const ibpInfo = (typeof GPXParser !== 'undefined') ? GPXParser.getIBPLevel(ibpVal) : { level: 3, label: 'Peu difficile', color: '#ea580c' };
+
       const tr = document.createElement('tr');
       tr.dataset.hikeId = hike.id;
       tr.className = 'border-b border-slate-100 hover:bg-emerald-50/70 transition-colors cursor-pointer text-sm';
@@ -1079,6 +1087,12 @@ class AppController {
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
             +${hike.elevationGain} m
           </span>
+        </td>
+        <td class="p-3 whitespace-nowrap">
+          <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold shadow-2xs" style="background-color: ${ibpInfo.color}15; color: ${ibpInfo.color}; border: 1px solid ${ibpInfo.color}40;" title="Indice d'effort IBP : ${ibpVal} • Niveau ${ibpInfo.level} (${ibpInfo.label})">
+            <span class="w-4 h-4 rounded text-[10px] font-black text-white flex items-center justify-center" style="background-color: ${ibpInfo.color}">${ibpInfo.level}</span>
+            <span>IBP ${ibpVal}</span>
+          </div>
         </td>
         <td class="p-3 text-slate-600 whitespace-nowrap text-xs">
           ${hike.minElevation}m - ${hike.maxElevation}m
@@ -1244,6 +1258,10 @@ class AppController {
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1">
             <span class="font-medium text-emerald-700">📏 ${hike.distanceKm} km</span>
             <span class="font-medium text-emerald-700">↗️ +${hike.elevationGain}m</span>
+            <span class="inline-flex items-center gap-1 font-bold px-1.5 py-0.5 rounded text-[11px]" style="background-color:${(typeof GPXParser !== 'undefined' ? GPXParser.getIBPLevel(hike.ibp || GPXParser.calculateIBP(hike)).color : '#ea580c')}15; color:${(typeof GPXParser !== 'undefined' ? GPXParser.getIBPLevel(hike.ibp || GPXParser.calculateIBP(hike)).color : '#ea580c')}; border: 1px solid ${(typeof GPXParser !== 'undefined' ? GPXParser.getIBPLevel(hike.ibp || GPXParser.calculateIBP(hike)).color : '#ea580c')}40;">
+              <span class="w-3.5 h-3.5 rounded text-[9px] font-black text-white flex items-center justify-center" style="background-color:${(typeof GPXParser !== 'undefined' ? GPXParser.getIBPLevel(hike.ibp || GPXParser.calculateIBP(hike)).color : '#ea580c')}">${(typeof GPXParser !== 'undefined' ? GPXParser.getIBPLevel(hike.ibp || GPXParser.calculateIBP(hike)).level : 3)}</span>
+              <span>IBP ${(typeof hike.ibp === 'number') ? hike.ibp : (typeof GPXParser !== 'undefined' ? GPXParser.calculateIBP(hike) : 50)}</span>
+            </span>
             <span>⛰️ ${hike.minElevation}m - ${hike.maxElevation}m</span>
             <span>⏱️ ${hike.estimatedDuration || '3h30'}</span>
             ${hike.ajoutee_par ? `<span class="text-slate-500 font-medium">👤 Par : <strong class="text-slate-700">${hike.ajoutee_par}</strong></span>` : ''}
@@ -1311,6 +1329,27 @@ class AppController {
 
     document.getElementById('edit-hike-name').value = hike.name || '';
     document.getElementById('edit-hike-notes').value = hike.notes || '';
+    
+    const ibpInput = document.getElementById('edit-hike-ibp');
+    const ibpVal = (typeof hike.ibp === 'number') ? hike.ibp : ((typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP(hike) : 50);
+    if (ibpInput) {
+      ibpInput.value = ibpVal;
+      this.updateEditIbpBadge(ibpVal);
+      ibpInput.oninput = () => this.updateEditIbpBadge(ibpInput.value);
+    }
+    const recalcBtn = document.getElementById('btn-recalc-ibp');
+    if (recalcBtn) {
+      recalcBtn.onclick = () => {
+        if (typeof GPXParser !== 'undefined') {
+          const recalculated = GPXParser.calculateIBP(this.hikeToEdit);
+          if (ibpInput) {
+            ibpInput.value = recalculated;
+            this.updateEditIbpBadge(recalculated);
+          }
+        }
+      };
+    }
+
     modal.classList.remove('hidden');
   }
 
@@ -1318,6 +1357,21 @@ class AppController {
     const modal = document.getElementById('edit-hike-modal');
     if (modal) modal.classList.add('hidden');
     this.hikeToEdit = null;
+  }
+
+  updateEditIbpBadge(ibp) {
+    const val = parseInt(ibp, 10) || 1;
+    const lvlInfo = (typeof GPXParser !== 'undefined') ? GPXParser.getIBPLevel(val) : { level: 1, label: 'Facile', color: '#16a34a' };
+    const sq = document.getElementById('edit-hike-ibp-square');
+    const lbl = document.getElementById('edit-hike-ibp-label');
+    if (sq) {
+      sq.textContent = lvlInfo.level;
+      sq.style.backgroundColor = lvlInfo.color;
+    }
+    if (lbl) {
+      lbl.textContent = `Niveau ${lvlInfo.level} (${lvlInfo.label})`;
+      lbl.style.color = lvlInfo.color;
+    }
   }
 
   async saveEditModal() {
@@ -1333,6 +1387,19 @@ class AppController {
 
     this.hikeToEdit.name = newName;
     this.hikeToEdit.notes = newNotes;
+
+    const ibpInputEl = document.getElementById('edit-hike-ibp');
+    if (ibpInputEl) {
+      const newIbp = parseInt(ibpInputEl.value, 10);
+      if (!isNaN(newIbp) && newIbp > 0) {
+        this.hikeToEdit.ibp = newIbp;
+        if (typeof GPXParser !== 'undefined') {
+          const lvlInfo = GPXParser.getIBPLevel(newIbp);
+          this.hikeToEdit.ibpLevel = lvlInfo.level;
+          this.hikeToEdit.difficulty = lvlInfo.label;
+        }
+      }
+    }
 
     const updatedGpx = GPXParser.exportToGpxString(this.hikeToEdit);
     await StorageManager.saveHike(this.hikeToEdit, updatedGpx);
@@ -1994,6 +2061,18 @@ class AppController {
     document.getElementById('preview-alt').textContent = `${hike.minElevation}m / ${hike.maxElevation}m`;
     document.getElementById('preview-duration').textContent = hike.estimatedDuration || '3h30';
     document.getElementById('preview-notes').textContent = hike.notes || 'Aucune note enregistrée';
+
+    const ibpVal = (typeof hike.ibp === 'number') ? hike.ibp : ((typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP(hike) : 50);
+    const ibpInfo = (typeof GPXParser !== 'undefined') ? GPXParser.getIBPLevel(ibpVal) : { level: 3, label: 'Peu difficile', color: '#ea580c' };
+    const ibpBox = document.getElementById('preview-ibp-box');
+    const ibpEl = document.getElementById('preview-ibp');
+    if (ibpEl && ibpBox) {
+      ibpBox.style.backgroundColor = `${ibpInfo.color}15`;
+      ibpBox.style.borderColor = `${ibpInfo.color}40`;
+      ibpBox.style.color = ibpInfo.color;
+      ibpBox.title = `Indice IBP : ${ibpVal} • Niveau ${ibpInfo.level} (${ibpInfo.label})`;
+      ibpEl.innerHTML = `<span class="w-3.5 h-3.5 rounded text-[9px] font-black text-white flex items-center justify-center" style="background-color:${ibpInfo.color}">${ibpInfo.level}</span><span>${ibpVal}</span>`;
+    }
 
     const btnDl = document.getElementById('preview-btn-download');
     if (btnDl) {
@@ -3201,7 +3280,9 @@ class AppController {
       this.handleHikeSelect(newHikes[0]);
     }
 
-    let toastMsg = `🎉 ${newHikes.length} randonnée(s) ajoutée(s) avec succès !`;
+    let toastMsg = (newHikes.length === 1) 
+      ? `🎉 « ${newHikes[0].name} » ajoutée ! (${newHikes[0].distanceKm} km, +${newHikes[0].elevationGain}m, IBP : ${newHikes[0].ibp} - Niveau ${newHikes[0].ibpLevel})`
+      : `🎉 ${newHikes.length} randonnée(s) ajoutée(s) avec calcul de l'Indice IBP Index !`;
     if (skippedCount > 0) {
       toastMsg += ` (${skippedCount} doublon(s) ignoré(s))`;
     }
@@ -3531,7 +3612,7 @@ class AppController {
   }
 
   switchLegendTab(tabKey) {
-    const tabs = ['satellite', 'ign', 'opentopo', 'osm'];
+    const tabs = ['satellite', 'ign', 'ibp', 'opentopo', 'osm'];
     tabs.forEach(t => {
       const btn = document.getElementById(`tab-legend-btn-${t}`);
       const pane = document.getElementById(`legend-pane-${t}`);

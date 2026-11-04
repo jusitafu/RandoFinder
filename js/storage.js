@@ -274,6 +274,16 @@ class StorageManager {
     if (!this.memoryHikes || this.memoryHikes.length === 0) {
       await this.init();
     }
+    if (this.memoryHikes && typeof GPXParser !== 'undefined') {
+      for (const h of this.memoryHikes) {
+        if (typeof h.ibp !== 'number' || !h.ibpLevel) {
+          h.ibp = GPXParser.calculateIBP(h);
+          const lvlInfo = GPXParser.getIBPLevel(h.ibp);
+          h.ibpLevel = lvlInfo.level;
+          if (!h.difficulty) h.difficulty = lvlInfo.label;
+        }
+      }
+    }
     return this.memoryHikes;
   }
 
@@ -284,6 +294,16 @@ class StorageManager {
 
     if (!hike.id) {
       hike.id = 'hike_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    }
+
+    // Auto-calculate IBP if missing or updated
+    if (typeof GPXParser !== 'undefined') {
+      if (typeof hike.ibp !== 'number') {
+        hike.ibp = GPXParser.calculateIBP(hike);
+      }
+      const lvlInfo = GPXParser.getIBPLevel(hike.ibp);
+      hike.ibpLevel = lvlInfo.level;
+      if (!hike.difficulty) hike.difficulty = lvlInfo.label;
     }
 
     // 1. Update Memory Store
@@ -641,7 +661,9 @@ class StorageManager {
         filename: (row.name || 'rando').replace(/[\\/:*?"<>|]/g, '_') + '.gpx',
         startPoint: (row.start_lat && row.start_lon) ? { lat: Number(row.start_lat), lon: Number(row.start_lon) } : null,
         rawGpx: row.raw_gpx || null,
-        points: []
+        points: [],
+        ibp: (typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP({ distanceKm: Number(row.distance_km || 0), elevationGain: Number(row.elevation_gain || 0), notes: row.notes || '', name: row.name }) : null,
+        ibpLevel: (typeof GPXParser !== 'undefined') ? GPXParser.getIBPLevel(GPXParser.calculateIBP({ distanceKm: Number(row.distance_km || 0), elevationGain: Number(row.elevation_gain || 0), notes: row.notes || '', name: row.name })).level : null
       };
 
       if (this.isFakeHike(hike)) continue;
@@ -725,6 +747,16 @@ class StorageManager {
     }
 
     // 2. Upsert metadata to Supabase DB table
+    let noteWithIbp = hike.notes || '';
+    const ibpVal = hike.ibp || (typeof GPXParser !== 'undefined' ? GPXParser.calculateIBP(hike) : null);
+    if (ibpVal) {
+      if (noteWithIbp.includes('[IBP:')) {
+        noteWithIbp = noteWithIbp.replace(/\[IBP:\s*\d+\]/i, '[IBP: ' + ibpVal + ']');
+      } else {
+        noteWithIbp = ('[IBP: ' + ibpVal + '] ' + noteWithIbp).trim();
+      }
+    }
+
     const payload = [{
       id: hike.id || 'hike_' + Date.now(),
       name: hike.name,
@@ -736,7 +768,7 @@ class StorageManager {
       start_lat: hike.startPoint ? hike.startPoint.lat : null,
       start_lon: hike.startPoint ? hike.startPoint.lon : null,
       estimated_duration: hike.estimatedDuration || '3h00',
-      notes: hike.notes || '',
+      notes: noteWithIbp,
       gpx_url: publicGpxUrl,
       raw_gpx: gpxText,
       updated_at: new Date().toISOString()

@@ -264,6 +264,9 @@ class GPXParser {
       bounds: [[minLat, minLon], [maxLat, maxLon]],
       points: points,
       rawGpx: cleanText,
+      ibp: this.calculateIBP({ points, distanceKm: Math.round(totalDistanceKm * 10) / 10, elevationGain: Math.round(elevationGain), notes, name }),
+      ibpLevel: this.getIBPLevel(this.calculateIBP({ points, distanceKm: Math.round(totalDistanceKm * 10) / 10, elevationGain: Math.round(elevationGain), notes, name })).level,
+      difficulty: this.getIBPLevel(this.calculateIBP({ points, distanceKm: Math.round(totalDistanceKm * 10) / 10, elevationGain: Math.round(elevationGain), notes, name })).label,
       createdAt: new Date().toISOString()
     };
   }
@@ -659,6 +662,179 @@ class GPXParser {
       }
     });
   }
+
+  /**
+   * Calcul officiel de l'Indice IBP Index (Effort Physique FFRandonnée)
+   * Prise en compte : Distance, Dénivelé D+, Distribution non-linéaire des pentes et descentes raides
+   */
+  static calculateIBP(hikeOrPoints, elevationGain = 0, distanceKm = 0) {
+    let points = [];
+    let dPlus = elevationGain;
+    let distKm = distanceKm;
+    let notes = '';
+    let name = '';
+
+    if (Array.isArray(hikeOrPoints)) {
+      points = hikeOrPoints;
+    } else if (hikeOrPoints && typeof hikeOrPoints === 'object') {
+      // 1. Détection prioritaire si un IBP explicite existe déjà
+      if (typeof hikeOrPoints.ibp === 'number' && hikeOrPoints.ibp > 0) {
+        return Math.round(hikeOrPoints.ibp);
+      }
+      points = hikeOrPoints.points || [];
+      dPlus = Number(hikeOrPoints.elevationGain || 0);
+      distKm = Number(hikeOrPoints.distanceKm || 0);
+      notes = String(hikeOrPoints.notes || '');
+      name = String(hikeOrPoints.name || '');
+
+      // Détection dans les notes ou le nom (ex: [IBP: 64] ou IBP 64 ou IBP_64)
+      const ibpMatch = notes.match(/\[IBP:\s*(\d+)\]/i) || 
+                       notes.match(/IBP\s*[:_]?\s*(\d+)/i) || 
+                       name.match(/IBP\s*[:_]?\s*(\d+)/i);
+      if (ibpMatch) {
+        const parsed = parseInt(ibpMatch[1], 10);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    }
+
+    // 2. Calcul à partir des points GPS précis et des pourcentages de pentes
+    if (points && points.length >= 10) {
+      let totalDistM = 0;
+      let weightedClimb = 0;
+      let steepDescentM = 0;
+      let maxEle = 0;
+
+      for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const d = (p2.distFromStart && p1.distFromStart) 
+          ? (p2.distFromStart - p1.distFromStart) * 1000 
+          : GPXParser.haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon) * 1000;
+        
+        if (d <= 0.5) continue; // Filtre bruit GPS
+        totalDistM += d;
+
+        const ele1 = p1.ele || 0;
+        const ele2 = p2.ele || 0;
+        if (ele2 > maxEle) maxEle = ele2;
+
+        const dElev = ele2 - ele1;
+        const grade = (dElev / d) * 100; // pente en %
+
+        if (dElev > 0) {
+          // Pente ascendante : pondération non-linéaire selon la cotation de l'effort FFRandonnée
+          let weight = 0.055;
+          if (grade >= 1 && grade < 5) weight = 0.060;
+          else if (grade >= 5 && grade < 8) weight = 0.075;
+          else if (grade >= 8 && grade < 12) weight = 0.095;
+          else if (grade >= 12 && grade < 18) weight = 0.125;
+          else if (grade >= 18) weight = 0.160;
+          
+          weightedClimb += dElev * weight;
+        } else if (dElev < 0 && grade <= -12) {
+          // Descente très raide : effort articulaire et musculaire supplémentaire
+          steepDescentM += Math.abs(dElev) * 0.015;
+        }
+      }
+
+      let highAltitudeFactor = 1.0;
+      if (maxEle > 1500) {
+        highAltitudeFactor = 1.0 + Math.min(0.20, (maxEle - 1500) / 7500);
+      }
+
+      const calcDistKm = totalDistM > 0 ? (totalDistM / 1000) : distKm;
+      const rawIbp = (calcDistKm * 2.1 + weightedClimb + steepDescentM) * highAltitudeFactor;
+      return Math.max(1, Math.round(rawIbp));
+    }
+
+    // 3. Formule standard éprouvée en l'absence de profils GPS détaillés
+    const rawIbp = (distKm * 2.1) + (dPlus * 0.075);
+    return Math.max(1, Math.round(rawIbp));
+  }
+
+  /**
+   * Grille officielle FFRandonnée / IBP Index (Effort Physique) en 5 Couleurs
+   * 1 (Vert) : Facile (IBP <= 25)
+   * 2 (Bleu) : Assez facile (IBP 26 - 50)
+   * 3 (Orange) : Peu difficile (IBP 51 - 75)
+   * 4 (Rouge) : Assez difficile (IBP 76 - 100)
+   * 5 (Noir) : Difficile (IBP > 100)
+   */
+  static getIBPLevel(ibp) {
+    const val = Math.round(Number(ibp) || 1);
+    if (val <= 25) {
+      return {
+        level: 1,
+        color: '#16a34a', // Vert
+        bgClass: 'bg-emerald-600',
+        textClass: 'text-emerald-700',
+        badgeClass: 'bg-emerald-600 text-white',
+        borderClass: 'border-emerald-600',
+        label: 'Facile',
+        shortLabel: 'Facile',
+        desc: 'Sans difficulté physique particulière (balade, promenade, Rando Santé)',
+        range: 'IBP ≤ 25',
+        iconNum: 1
+      };
+    } else if (val <= 50) {
+      return {
+        level: 2,
+        color: '#2563eb', // Bleu
+        bgClass: 'bg-blue-600',
+        textClass: 'text-blue-700',
+        badgeClass: 'bg-blue-600 text-white',
+        borderClass: 'border-blue-600',
+        label: 'Assez facile',
+        shortLabel: 'Assez facile',
+        desc: 'Présente peu de difficulté physique (randonnée modérée accessible)',
+        range: 'IBP 26 - 50',
+        iconNum: 2
+      };
+    } else if (val <= 75) {
+      return {
+        level: 3,
+        color: '#ea580c', // Orange FFRandonnée
+        bgClass: 'bg-amber-500',
+        textClass: 'text-amber-800',
+        badgeClass: 'bg-amber-500 text-slate-900',
+        borderClass: 'border-amber-500',
+        label: 'Peu difficile',
+        shortLabel: 'Moyen',
+        desc: 'Nécessite un engagement physique mesuré (effort moyen)',
+        range: 'IBP 51 - 75',
+        iconNum: 3
+      };
+    } else if (val <= 100) {
+      return {
+        level: 4,
+        color: '#dc2626', // Rouge
+        bgClass: 'bg-rose-600',
+        textClass: 'text-rose-700',
+        badgeClass: 'bg-rose-600 text-white',
+        borderClass: 'border-rose-600',
+        label: 'Assez difficile',
+        shortLabel: 'Soutenu',
+        desc: 'Demande un engagement physique certain (randonnée soutenue)',
+        range: 'IBP 76 - 100',
+        iconNum: 4
+      };
+    } else {
+      return {
+        level: 5,
+        color: '#0f172a', // Noir
+        bgClass: 'bg-slate-900',
+        textClass: 'text-slate-900',
+        badgeClass: 'bg-slate-900 text-white',
+        borderClass: 'border-slate-900',
+        label: 'Difficile',
+        shortLabel: 'Très soutenu',
+        desc: 'Présente des difficultés physiques importantes (effort fort et soutenu)',
+        range: 'IBP > 100',
+        iconNum: 5
+      };
+    }
+  }
+
 }
 
 window.GPXParser = GPXParser;
