@@ -90,7 +90,7 @@
 
   <!-- Custom CSS -->
 
-  <link rel="stylesheet" href="css/styles.css?v=81">
+  <link rel="stylesheet" href="css/styles.css?v=82">
 
 </head>
 
@@ -685,6 +685,10 @@
                 class="bg-slate-800/90 hover:bg-slate-800 text-emerald-300 font-mono font-bold px-1.5 py-0.5 rounded-lg border border-slate-700/80 hover:border-emerald-500/60 focus:border-emerald-400 focus:bg-slate-950 focus:text-white focus:outline-none w-16 sm:w-20 text-center text-[10px] sm:text-[11px] transition-all cursor-text shadow-inner"
                 title="Saisissez la valeur après 1 : (ex : 25000) et appuyez sur Entrée pour ajuster la carte"
                 placeholder="25000">
+              <button id="btn-open-screen-calib" type="button" class="ml-0.5 px-1.5 py-0.5 rounded-md bg-slate-800/90 hover:bg-slate-700 hover:text-emerald-300 text-slate-400 border border-slate-700/70 text-[10px] transition cursor-pointer flex items-center gap-1" title="Étalonner mon écran pour avoir 1 cm vrai sur la vitre (Règle physique)">
+                <span>📏</span>
+                <span class="hidden sm:inline text-[9px] font-bold">1 cm vrai</span>
+              </button>
             </div>
 
             <span class="text-slate-600 hidden sm:inline">|</span>
@@ -4808,23 +4812,134 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
 
   <!-- Scripts -->
 
-  <script src="js/config.js?v=81"></script>
+  <script src="js/config.js?v=82"></script>
 
-  <script src="js/auth-manager.js?v=81"></script>
+  <script src="js/auth-manager.js?v=82"></script>
 
-  <script src="js/gpx-parser.js?v=81"></script>
+  <script src="js/gpx-parser.js?v=82"></script>
 
-  <script src="js/sample-data.js?v=81"></script>
+  <script src="js/sample-data.js?v=82"></script>
 
-  <script src="js/storage.js?v=81"></script>
+  <script src="js/storage.js?v=82"></script>
 
-  <script src="js/elevation-profile.js?v=81"></script>
+  <script src="js/elevation-profile.js?v=82"></script>
 
-  <script src="js/map-manager.js?v=81"></script>
+  <script src="js/screen-calib-manager.js?v=82"></script>
+  <script src="js/map-manager.js?v=82"></script>
 
-  <script src="js/pdf-exporter.js?v=81"></script>
+  <script src="js/pdf-exporter.js?v=82"></script>
 
-  <script src="js/app.js?v=81"></script>
+  <script src="js/app.js?v=82"></script>
+
+
+  <!-- SCREEN CALIBRATION MODAL (Mesure 1 cm vrai sur écran) -->
+  <div id="screen-calib-modal" class="hidden fixed inset-0 z-[10000] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
+      
+      <!-- Header -->
+      <div class="bg-slate-900 text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl font-bold shadow-inner border border-emerald-500/30">
+            📏
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white">Étalonnage de l'Écran (1 cm vrai)</h3>
+            <p class="text-[11px] text-slate-300">Ajustez la carte pour que 1 cm à la règle = l'échelle exacte</p>
+          </div>
+        </div>
+        <button id="btn-close-screen-calib" type="button" class="w-7 h-7 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-sm transition cursor-pointer" title="Fermer">✕</button>
+      </div>
+
+      <div class="p-4 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+        <!-- Explanatory note -->
+        <div class="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-200 leading-relaxed">
+          💡 En sélectionnant votre type d'écran, <strong>1 cm mesuré avec un double-décimètre posé sur votre vitre</strong> correspondra exactement à <strong>250 m</strong> sur le terrain au 1 : 25 000 (ou <strong>1,25 km</strong> au 1 : 125 000).
+        </div>
+
+        <!-- Mode selector: Preset vs Custom vs Credit Card -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Méthode de réglage :</label>
+          <div class="grid grid-cols-3 gap-2 text-center text-xs font-semibold">
+            <button type="button" id="tab-calib-preset" class="py-2 px-1 rounded-xl border-2 transition cursor-pointer border-emerald-600 bg-emerald-50 text-emerald-800 font-bold">
+              💻 Modèle d'écran
+            </button>
+            <button type="button" id="tab-calib-custom" class="py-2 px-1 rounded-xl border-2 transition cursor-pointer border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-medium">
+              ✏️ Diagonale (pouces)
+            </button>
+            <button type="button" id="tab-calib-card" class="py-2 px-1 rounded-xl border-2 transition cursor-pointer border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-medium">
+              💳 Carte bancaire
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 1: Preset dropdown -->
+        <div id="section-calib-preset" class="space-y-2">
+          <label for="select-screen-preset" class="block text-xs font-semibold text-slate-700">Sélectionnez le type ou modèle de votre écran :</label>
+          <select id="select-screen-preset" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white shadow-sm">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+
+        <!-- Section 2: Custom diagonal input -->
+        <div id="section-calib-custom" class="hidden space-y-2">
+          <label for="input-custom-diag" class="block text-xs font-semibold text-slate-700">Diagonale réelle de votre écran (en pouces) :</label>
+          <div class="flex items-center gap-2">
+            <input type="number" step="0.1" min="7" max="65" id="input-custom-diag" value="15.6" class="w-28 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold font-mono text-center text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white">
+            <span class="text-xs text-slate-500 font-medium">pouces (ex : 14, 15.6, 16, 24, 27)</span>
+          </div>
+        </div>
+
+        <!-- Section 3: Credit card visual slider -->
+        <div id="section-calib-card" class="hidden space-y-2">
+          <div class="text-[11px] text-slate-600">
+            Posez une carte bancaire ou permis sur l'écran et ajustez le curseur pour que le cadre fasse pile la même largeur (85,6 mm) :
+          </div>
+          <div class="flex justify-center py-2">
+            <div id="calib-card-box" class="h-16 bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-emerald-400 rounded-xl shadow-lg flex items-center justify-center text-emerald-300 text-xs font-bold select-none" style="width: 323px;">
+              💳 Carte bancaire (85,6 mm)
+            </div>
+          </div>
+          <input type="range" id="slider-calib-card" min="200" max="500" value="323" class="w-full accent-emerald-600 cursor-pointer">
+        </div>
+
+        <!-- Visual Verification Ruler (5 cm) -->
+        <div class="p-3.5 bg-slate-900 rounded-2xl border border-slate-800 text-center space-y-2 shadow-inner">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="font-bold text-emerald-400 flex items-center gap-1">
+              <span>📏</span> <span>Réglette témoin (5 cm réels)</span>
+            </span>
+            <span id="calib-calc-info" class="font-mono text-slate-400 text-[10px]">1 cm = -- px</span>
+          </div>
+          
+          <div class="overflow-x-auto py-2 flex justify-center">
+            <div id="calib-ruler-container" class="relative h-12 bg-amber-50 text-slate-900 border-2 border-slate-700 rounded-lg shadow-md select-none font-mono">
+              <!-- Rendered via SVG ticks -->
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-400">
+            🔎 Posez une vraie règle sur l'écran : les graduations 0 à 5 cm doivent coïncider au millimètre près.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
+        <button id="btn-reset-screen-calib" type="button" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer">
+          Réinitialiser (Défaut 96 DPI)
+        </button>
+        <div class="flex items-center gap-2">
+          <button id="btn-cancel-screen-calib" type="button" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition cursor-pointer">
+            Annuler
+          </button>
+          <button id="btn-save-screen-calib" type="button" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition cursor-pointer flex items-center gap-1.5">
+            <span>💾</span> <span>Appliquer et Mémoriser</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
 
 </body>
 

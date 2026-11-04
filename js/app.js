@@ -632,6 +632,18 @@ class AppController {
     // Map Area Print Extract (2-click selection mode)
     
     // Mesure de Cap (Azimut) entre 2 points
+    
+    // Bouton d'ouverture de l'étalonnage écran
+    const btnOpenCalib = document.getElementById('btn-open-screen-calib');
+    if (btnOpenCalib) {
+      btnOpenCalib.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.ScreenCalibManager) {
+          window.ScreenCalibManager.openModal();
+        }
+      });
+    }
+
     const btnMapBearing = document.getElementById('btn-map-bearing');
     if (btnMapBearing) {
       btnMapBearing.addEventListener('click', () => {

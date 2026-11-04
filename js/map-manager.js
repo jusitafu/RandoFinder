@@ -1103,7 +1103,9 @@ class MapManager {
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
     const metersPerPixel = (40075016.686 * Math.cos((center.lat * Math.PI) / 180)) / (256 * Math.pow(2, zoom));
-    const scale = metersPerPixel * 3779.5275;
+    const cssPxPerCm = this.getScreenCssPxPerCm();
+    // 1 cm sur écran = (cssPxPerCm * metersPerPixel) mètres sur le terrain -> en cm: x 100
+    const scale = cssPxPerCm * metersPerPixel * 100;
     return Math.round(scale);
   }
 
@@ -1117,10 +1119,24 @@ class MapManager {
     const scale = this.getNumericScaleRatio();
     if (scaleInput && document.activeElement !== scaleInput) {
       scaleInput.value = scale.toLocaleString('fr-FR');
+      const calib = this.getScreenCalibration();
+      const calibText = calib.isCalibrated ? ` • Écran étalonné : ${calib.name}` : '';
       if (scale >= 22000 && scale <= 28000) {
-        scaleInput.title = `Échelle 1 : ${scale.toLocaleString('fr-FR')} (proche TOP 25). Saisissez une valeur et appuyez sur Entrée pour ajuster la carte.`;
+        scaleInput.title = `Échelle 1 : ${scale.toLocaleString('fr-FR')} (proche TOP 25)${calibText}. Saisissez une valeur et appuyez sur Entrée pour ajuster la carte.`;
       } else {
-        scaleInput.title = `Échelle 1 : ${scale.toLocaleString('fr-FR')}. Saisissez une valeur et appuyez sur Entrée pour ajuster la carte.`;
+        scaleInput.title = `Échelle 1 : ${scale.toLocaleString('fr-FR')}${calibText}. Saisissez une valeur et appuyez sur Entrée pour ajuster la carte.`;
+      }
+    }
+
+    const btnCalib = document.getElementById('btn-open-screen-calib');
+    if (btnCalib) {
+      const calib = this.getScreenCalibration();
+      if (calib.isCalibrated) {
+        btnCalib.classList.add('text-emerald-300', 'border-emerald-400', 'bg-emerald-950/70');
+        btnCalib.title = `Écran étalonné : ${calib.name} (1 cm sur l'écran = vraie mesure terrain). Cliquez pour modifier.`;
+      } else {
+        btnCalib.classList.remove('text-emerald-300', 'border-emerald-400', 'bg-emerald-950/70');
+        btnCalib.title = "Étalonner mon écran pour avoir 1 cm vrai sur la vitre (Règle physique)";
       }
     }
   }
@@ -1242,8 +1258,9 @@ class MapManager {
     if (!this.map || !targetScale || targetScale <= 0) return;
     const center = this.map.getCenter();
     const lat = center.lat;
-    // Formule inverse exacte de l'échelle Leaflet au centre de la carte (standard 96 DPI = 3779.5275 px/m)
-    const K = (40075016.686 * Math.cos((lat * Math.PI) / 180) * 3779.5275) / 256;
+    // Formule inverse exacte tenant compte du profil d'écran étalonné (cssPxPerCm)
+    const cssPxPerCm = this.getScreenCssPxPerCm();
+    const K = (40075016.686 * Math.cos((lat * Math.PI) / 180) * cssPxPerCm * 100) / 256;
     const targetZoom = Math.log2(K / targetScale);
 
     const minZoom = this.map.getMinZoom() || 1;
@@ -1593,6 +1610,24 @@ class MapManager {
     return R * c;
   }
 
+
+  // =========================================================================
+  // METHODES D ETALONNAGE D ECRAN
+  // =========================================================================
+
+  getScreenCssPxPerCm() {
+    if (window.ScreenCalibManager && window.ScreenCalibManager.activeCalib) {
+      return window.ScreenCalibManager.activeCalib.cssPxPerCm || 37.795275;
+    }
+    return 37.795275;
+  }
+
+  getScreenCalibration() {
+    if (window.ScreenCalibManager && window.ScreenCalibManager.activeCalib) {
+      return window.ScreenCalibManager.activeCalib;
+    }
+    return { isCalibrated: false, name: 'Standard 96 DPI' };
+  }
 }
 
 window.MapManager = MapManager;
