@@ -67,6 +67,10 @@ class MapManager {
 
     // Altimétrie en direct (IGN RGE Alti® & Open-Meteo)
     this._elevationCache = new Map();
+    this._cityCache = new Map();
+    this._cityAbortCtrl = null;
+    this._cityTimeout = null;
+    this.currentCity = '';
     this._elevationDebounceTimer = null;
     this._elevationAbortCtrl = null;
     this._currentElevation = null;
@@ -1210,6 +1214,7 @@ class MapManager {
 
     // Actualisation altimétrique temporisée (IGN RGE Alti®)
     this.scheduleElevationFetch(lat, lon);
+    this.scheduleCityFetch(lat, lon);
   }
 
   /**
@@ -1219,6 +1224,7 @@ class MapManager {
     const c = this._lastCoords;
     if (!c) return;
     const altText = (c.elevation !== null && c.elevation !== undefined) ? ` • Alt. ${c.elevation} m` : '';
+    const cityText = this.currentCity ? ` • ${this.currentCity}` : '';
     const text = `GPS WGS84 : ${c.lat.toFixed(5)}°, ${c.lon.toFixed(5)}° (${c.latStr}, ${c.lonStr}${altText}) | Carroyage UTM : ${c.utm.zone}${c.utm.band} ${c.utm.easting} m E, ${c.utm.northing} m N`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
@@ -1811,6 +1817,8 @@ class MapManager {
    * Active ou désactive le mode mesure de trajet
    */
   toggleMeasurePath() {
+    if (this._lastMeasureToggle && Date.now() - this._lastMeasureToggle < 250) return;
+    this._lastMeasureToggle = Date.now();
     if (this.measurePathActive) {
       this.cancelMeasurePath();
     } else {
@@ -1840,6 +1848,8 @@ class MapManager {
     this.measureTotalDistance = 0;
 
     this.map.doubleClickZoom.disable();
+    if (this.map.getPane('markerPane')) this.map.getPane('markerPane').style.pointerEvents = 'none';
+    if (this.map.getPane('overlayPane')) this.map.getPane('overlayPane').style.pointerEvents = 'none';
     L.DomUtil.addClass(this.map.getContainer(), 'measure-selection-cursor');
 
     if (!this.measureLayer) {
@@ -2073,6 +2083,8 @@ class MapManager {
     }
     if (this.map) {
       this.map.doubleClickZoom.enable();
+      if (this.map.getPane('markerPane')) this.map.getPane('markerPane').style.pointerEvents = 'auto';
+      if (this.map.getPane('overlayPane')) this.map.getPane('overlayPane').style.pointerEvents = 'auto';
       L.DomUtil.removeClass(this.map.getContainer(), 'measure-selection-cursor');
     }
 
@@ -2106,6 +2118,8 @@ class MapManager {
 
     if (this.map) {
       this.map.doubleClickZoom.enable();
+      if (this.map.getPane('markerPane')) this.map.getPane('markerPane').style.pointerEvents = 'auto';
+      if (this.map.getPane('overlayPane')) this.map.getPane('overlayPane').style.pointerEvents = 'auto';
       L.DomUtil.removeClass(this.map.getContainer(), 'measure-selection-cursor');
     }
 
@@ -2145,6 +2159,96 @@ class MapManager {
       console.warn('Erreur lecture feuille IGN:', e);
     }
     return null;
+  }
+
+  /**
+   * Planifie la récupération du nom de la commune avec temporisation
+   */
+  scheduleCityFetch(lat, lon) {
+    if (this._cityTimeout) {
+      clearTimeout(this._cityTimeout);
+    }
+    this._cityTimeout = setTimeout(() => {
+      this.fetchCity(lat, lon);
+    }, 250);
+  }
+
+  /**
+   * Récupère le nom de la commune (API officielle découpage administratif geo.api.gouv.fr)
+   */
+  async fetchCity(lat, lon) {
+    const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+
+    if (this._cityCache.has(key)) {
+      const c = this._cityCache.get(key);
+      this._applyCityResult(c);
+      return;
+    }
+
+    if (this._cityAbortCtrl) {
+      this._cityAbortCtrl.abort();
+    }
+    this._cityAbortCtrl = new AbortController();
+
+    try {
+      let cityStr = '';
+      if (this.isInsideFrance(lat, lon)) {
+        const url = `https://geo.api.gouv.fr/communes?lat=${lat}&lon=${lon}&fields=nom,code,codeDepartement`;
+        const resp = await fetch(url, {
+          signal: this._cityAbortCtrl.signal,
+          headers: { 'Accept': 'application/json' }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (Array.isArray(data) && data.length > 0 && data[0].nom) {
+            const item = data[0];
+            cityStr = `${item.nom}${item.codeDepartement ? ` (${item.codeDepartement})` : ''}`;
+          }
+        }
+      }
+
+      if (this._cityCache.size > 500) {
+        const firstKey = this._cityCache.keys().next().value;
+        this._cityCache.delete(firstKey);
+      }
+      this._cityCache.set(key, cityStr);
+      this._applyCityResult(cityStr);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      this._applyCityResult('');
+    }
+  }
+
+  /**
+   * Met à jour l'étiquette de la commune dans le bandeau inférieur
+   */
+  _applyCityResult(cityStr) {
+    this.currentCity = cityStr || '';
+    const cityEl = document.getElementById('map-hud-city');
+    const valEl = document.getElementById('map-hud-city-val');
+    if (!cityEl || !valEl) return;
+
+    if (cityStr) {
+      valEl.textContent = cityStr;
+      cityEl.classList.remove('hidden');
+      cityEl.classList.add('flex');
+    } else {
+      cityEl.classList.add('hidden');
+      cityEl.classList.remove('flex');
+    }
+  }
+
+  /**
+   * Bascule le mode mesure de cap
+   */
+  toggleBearingMeasurement() {
+    if (this._lastBearingToggle && Date.now() - this._lastBearingToggle < 250) return;
+    this._lastBearingToggle = Date.now();
+    if (this.bearingMeasurementActive) {
+      this.cancelBearingMeasurement();
+    } else {
+      this.startBearingMeasurement();
+    }
   }
 }
 
