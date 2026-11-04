@@ -54,6 +54,12 @@ class MapManager {
     this.bearingPreviewLine = null;
     this._onBearingMouseMove = null;
     this._onBearingKeyDown = null;
+
+    // Altimétrie en direct (IGN RGE Alti® & Open-Meteo)
+    this._elevationCache = new Map();
+    this._elevationDebounceTimer = null;
+    this._elevationAbortCtrl = null;
+    this._currentElevation = null;
   }
 
   init() {
@@ -1174,8 +1180,12 @@ class MapManager {
       lon,
       latStr,
       lonStr,
-      utm
+      utm,
+      elevation: this._currentElevation
     };
+
+    // Actualisation altimétrique temporisée (IGN RGE Alti®)
+    this.scheduleElevationFetch(lat, lon);
   }
 
   /**
@@ -1184,7 +1194,8 @@ class MapManager {
   copyCurrentCoordsToClipboard() {
     const c = this._lastCoords;
     if (!c) return;
-    const text = `GPS WGS84 : ${c.lat.toFixed(5)}°, ${c.lon.toFixed(5)}° (${c.latStr}, ${c.lonStr}) | Carroyage UTM : ${c.utm.zone}${c.utm.band} ${c.utm.easting} m E, ${c.utm.northing} m N`;
+    const altText = (c.elevation !== null && c.elevation !== undefined) ? ` • Alt. ${c.elevation} m` : '';
+    const text = `GPS WGS84 : ${c.lat.toFixed(5)}°, ${c.lon.toFixed(5)}° (${c.latStr}, ${c.lonStr}${altText}) | Carroyage UTM : ${c.utm.zone}${c.utm.band} ${c.utm.easting} m E, ${c.utm.northing} m N`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
         if (window.App && window.App.showToast) {
@@ -1627,6 +1638,102 @@ class MapManager {
       return window.ScreenCalibManager.activeCalib;
     }
     return { isCalibrated: false, name: 'Standard 96 DPI' };
+  }
+
+  // =========================================================================
+  // GESTION ALTIMÉTRIQUE EN TEMPS RÉEL (IGN RGE ALTI® & FALLBACK)
+  // =========================================================================
+
+  /**
+   * Planifie l'interrogation de l'altitude avec un debounce de 200 ms
+   */
+  scheduleElevationFetch(lat, lon) {
+    if (this._elevationDebounceTimer) {
+      clearTimeout(this._elevationDebounceTimer);
+    }
+    this._elevationDebounceTimer = setTimeout(() => {
+      this.fetchElevation(lat, lon);
+    }, 200);
+  }
+
+  /**
+   * Interroge l'API altimétrique officielle IGN (ou fallback mondial)
+   */
+  async fetchElevation(lat, lon) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+
+    if (this._elevationCache.has(key)) {
+      const z = this._elevationCache.get(key);
+      this._applyElevationResult(z);
+      return;
+    }
+
+    if (this._elevationAbortCtrl) {
+      this._elevationAbortCtrl.abort();
+    }
+    this._elevationAbortCtrl = new AbortController();
+
+    try {
+      let z = null;
+
+      // 1. En France métropolitaine et DOM-TOM : API RGE Alti® Géoplateforme IGN
+      if (this.isInsideFrance(lat, lon)) {
+        try {
+          const ignUrl = `https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json?lon=${lon}&lat=${lat}&resource=ign_rge_alti_wld`;
+          const resp = await fetch(ignUrl, {
+            signal: this._elevationAbortCtrl.signal,
+            headers: { 'Accept': 'application/json' }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.elevations && data.elevations.length > 0 && typeof data.elevations[0].z === 'number') {
+              const rawZ = data.elevations[0].z;
+              if (rawZ > -9999) {
+                z = Math.round(rawZ);
+              }
+            }
+          }
+        } catch (ignErr) {
+          if (ignErr.name === 'AbortError') return;
+        }
+      }
+
+      // 2. Si hors de France ou indisponibilité : Fallback mondial Open-Meteo Elevation
+      if (z === null) {
+        try {
+          const openUrl = `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`;
+          const resp = await fetch(openUrl, { signal: this._elevationAbortCtrl.signal });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && Array.isArray(data.elevation) && data.elevation.length > 0) {
+              z = Math.round(data.elevation[0]);
+            }
+          }
+        } catch (openErr) {
+          if (openErr.name === 'AbortError') return;
+        }
+      }
+
+      if (z !== null) {
+        if (this._elevationCache.size > 600) {
+          const firstKey = this._elevationCache.keys().next().value;
+          this._elevationCache.delete(firstKey);
+        }
+        this._elevationCache.set(key, z);
+        this._applyElevationResult(z);
+      }
+    } catch (_) {}
+  }
+
+  _applyElevationResult(z) {
+    this._currentElevation = z;
+    const altiValEl = document.getElementById('map-hud-elevation-val');
+    if (altiValEl) {
+      altiValEl.textContent = `${z} m`;
+    }
+    if (this._lastCoords) {
+      this._lastCoords.elevation = z;
+    }
   }
 }
 
