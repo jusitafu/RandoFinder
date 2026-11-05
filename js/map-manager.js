@@ -2188,163 +2188,150 @@ class MapManager {
   }
 
   /**
-   * Rendu visuel des limites de la carte papier TOP 25 avec une bande translucide
+   * Rendu visuel adaptatif des limites de la carte papier TOP 25 pour toute la France
+   * - Fonctionne a tous les niveaux de zoom (zoom 3 a 19)
+   * - Epaisseur adaptee selon le niveau de zoom
+   * - Le cartouche texte est masque des lors qu il depasse la largeur de la feuille sur l ecran
    */
-  async renderPaperSheetBounds() {
-    if (!this.map || !this.map.hasLayer(this.paperSheetLayer)) return;
+  renderPaperSheetBounds() {
+    if (!this.map || !this.paperSheetLayer) return;
+    if (!this.map.hasLayer(this.paperSheetLayer)) return;
 
-    const bounds = this.map.getBounds();
-    let minLat = bounds.getSouth();
-    let minLon = bounds.getWest();
-    let maxLat = bounds.getNorth();
-    let maxLon = bounds.getEast();
-
-    const center = this.map.getCenter();
-    if (!center || !this.isInsideFrance(center.lat, center.lng)) {
-      this.paperSheetLayer.clearLayers();
+    const allSheets = window.IGN_TOP25_SHEETS;
+    if (!Array.isArray(allSheets) || allSheets.length === 0) {
       return;
     }
 
-    const sheets = await this.fetchVisibleSheets(minLat, minLon, maxLat, maxLon);
-    if (!sheets || sheets.length === 0) return;
+    const bounds = this.map.getBounds();
+    const minLat = bounds.getSouth();
+    const minLon = bounds.getWest();
+    const maxLat = bounds.getNorth();
+    const maxLon = bounds.getEast();
+
+    const zoom = this.map.getZoom();
+
+    // 1. Calcul de l'epaisseur adaptee selon le niveau de zoom
+    let outerWeight, innerWeight, showInnerDashed;
+    if (zoom >= 13) {
+      outerWeight = 14;
+      innerWeight = 2;
+      showInnerDashed = true;
+    } else if (zoom >= 11) {
+      outerWeight = 9;
+      innerWeight = 1.5;
+      showInnerDashed = true;
+    } else if (zoom >= 9) {
+      outerWeight = 5;
+      innerWeight = 1;
+      showInnerDashed = true;
+    } else if (zoom >= 7) {
+      outerWeight = 2.5;
+      innerWeight = 0;
+      showInnerDashed = false;
+    } else { // zoom <= 6 (France entiere)
+      outerWeight = 1.2;
+      innerWeight = 0;
+      showInnerDashed = false;
+    }
 
     this.paperSheetLayer.clearLayers();
 
-    sheets.forEach((sheet) => {
-      // 1. Bande translucide large le long du cadre exterieur de la feuille
-      const outerBand = L.rectangle(sheet.bounds, {
-        color: '#0284c7',       // Bleu cyan officiel TOP 25
-        weight: 16,             // Bande large translucide
-        opacity: 0.35,          // Transparence 35%
+    // 2. Parcourir toutes les feuilles visibles dans la zone BBOX
+    for (let i = 0; i < allSheets.length; i++) {
+      const s = allSheets[i];
+      const sb = s.b; // [minLat, minLon, maxLat, maxLon]
+
+      // Test d'intersection rapide
+      if (sb[2] < minLat || sb[0] > maxLat || sb[3] < minLon || sb[1] > maxLon) {
+        continue;
+      }
+
+      const sheetBounds = [[sb[0], sb[1]], [sb[2], sb[3]]];
+
+      // A. Bande translucide adaptee
+      const outerBand = L.rectangle(sheetBounds, {
+        color: '#0284c7',
+        weight: outerWeight,
+        opacity: zoom >= 8 ? 0.35 : 0.55,
         fill: true,
         fillColor: '#0284c7',
-        fillOpacity: 0.03,      // Voile tres subtil a l'interieur
+        fillOpacity: zoom >= 10 ? 0.025 : 0.001,
         interactive: true
       });
 
-      // 2. Trait interieur net en pointilles
-      const innerBorder = L.rectangle(sheet.bounds, {
-        color: '#0369a1',
-        weight: 2,
-        opacity: 0.85,
-        dashArray: '8, 6',
-        fill: false,
-        interactive: false
-      });
+      // B. Trait interieur en pointilles (si zoom suffisant)
+      if (showInnerDashed) {
+        const innerBorder = L.rectangle(sheetBounds, {
+          color: '#0369a1',
+          weight: innerWeight,
+          opacity: 0.85,
+          dashArray: '8, 6',
+          fill: false,
+          interactive: false
+        });
+        this.paperSheetLayer.addLayer(innerBorder);
+      }
 
-      // 3. Etiquette elegante en haut au centre de la feuille papier
-      const topLat = sheet.bounds[1][0];
-      const centerLon = (sheet.bounds[0][1] + sheet.bounds[1][1]) / 2;
+      // C. Verification de la largeur du cartouche texte vs largeur de la feuille sur l'ecran
+      const pTopLeft = this.map.latLngToContainerPoint([sb[2], sb[1]]);
+      const pTopRight = this.map.latLngToContainerPoint([sb[2], sb[3]]);
+      const sheetWidthPx = Math.abs(pTopRight.x - pTopLeft.x);
 
-      const labelHtml = `
-        <div class="paper-sheet-badge-label" title="Feuille IGN : ${sheet.titre} (n° ${sheet.numero})\nÉdition papier : ${sheet.annee}\nCliquer pour recadrer la feuille">
-          <span class="mr-1">📄</span>
-          <strong>TOP 25 ${sheet.titre}</strong>
-          <span class="opacity-80 text-[10px]">(${sheet.numero})</span>
-          <span class="ml-1 px-1 py-0.5 rounded bg-sky-100 text-sky-800 font-mono text-[9px] font-bold">Éd. ${sheet.annee}</span>
-        </div>
-      `;
+      // Largeur requise estimee pour le cartouche texte (titre + numero + annee)
+      const labelText = `TOP 25 ${s.t} (${s.n}) Éd. ${s.a}`;
+      const labelEstimatedWidth = Math.max(160, labelText.length * 7.5 + 44);
 
-      const sheetMarker = L.marker([topLat, centerLon], {
-        icon: L.divIcon({
-          className: 'paper-sheet-label-container',
-          html: labelHtml,
-          iconSize: [260, 26],
-          iconAnchor: [130, 13]
-        }),
-        interactive: true
-      });
+      // REGLE STRICTE DEMANDEE : "la mention de la carte ne sera plus affichée dès lors que le cartouche texte correspondant dépasse la largeur de la carte"
+      // Ne tracer le badge que si :
+      // 1. Le cartouche ne depasse pas la largeur de la feuille (avec marge de securite de 20px)
+      // 2. Le point d'ancrage est visible a l'ecran sans chevaucher les bordures d'ecran ni la barre d'attribution du bas
+      if (labelEstimatedWidth + 20 <= sheetWidthPx) {
+        const topLat = sb[2];
+        const centerLon = (sb[1] + sb[3]) / 2;
+        const pMarker = this.map.latLngToContainerPoint([topLat, centerLon]);
+        const mapSize = this.map.getSize();
 
-      // Clic sur l'emprise ou sur l'etiquette pour zoomer sur toute la feuille papier
+        // Evite tout depassement d'ecran ou chevauchement avec la barre basse d'attribution / HUD
+        if (pMarker.y >= 20 && pMarker.y <= mapSize.y - 48 &&
+            pMarker.x >= (labelEstimatedWidth / 2) && pMarker.x <= mapSize.x - (labelEstimatedWidth / 2)) {
+          const labelHtml = `
+            <div class="paper-sheet-badge-label" title="Feuille IGN : ${s.t} (n° ${s.n})\nÉdition papier : ${s.a}\nCliquer pour recadrer toute la feuille">
+              <span class="mr-1">📄</span>
+              <strong>TOP 25 ${s.t}</strong>
+              <span class="opacity-80 text-[10px]">(${s.n})</span>
+              <span class="ml-1 px-1 py-0.5 rounded bg-sky-100 text-sky-800 font-mono text-[9px] font-bold">Éd. ${s.a}</span>
+            </div>
+          `;
+
+          const sheetMarker = L.marker([topLat, centerLon], {
+            icon: L.divIcon({
+              className: 'paper-sheet-label-container',
+              html: labelHtml,
+              iconSize: [labelEstimatedWidth, 26],
+              iconAnchor: [labelEstimatedWidth / 2, 13]
+            }),
+            interactive: true
+          });
+
+          const fitSheet = () => {
+            this.map.fitBounds(sheetBounds, { padding: [30, 30], maxZoom: 14 });
+          };
+          sheetMarker.on('click', fitSheet);
+          this.paperSheetLayer.addLayer(sheetMarker);
+        }
+      }
+
+      // Clic sur la feuille pour recadrer
       const fitSheet = () => {
-        this.map.fitBounds(sheet.bounds, { padding: [30, 30], maxZoom: 14 });
+        this.map.fitBounds(sheetBounds, { padding: [30, 30], maxZoom: 14 });
       };
       outerBand.on('click', fitSheet);
-      sheetMarker.on('click', fitSheet);
 
-      // Infobulle au survol
-      const tooltipText = `<b>Feuille IGN TOP 25 : ${sheet.titre}</b> (n° ${sheet.numero})<br>Édition papier : <b>${sheet.annee}</b>${sheet.dateMaj ? '<br>Mise à jour sentiers : ' + sheet.dateMaj.slice(0, 4) : ''}<br><i>Cliquez pour recadrer toute la feuille</i>`;
+      // Infobulle complete toujours disponible au survol meme si le badge texte est masque
+      const tooltipText = `<b>Feuille IGN TOP 25 : ${s.t}</b> (n° ${s.n})<br>Édition papier : <b>${s.a}</b><br><i>Cliquez pour recadrer toute la feuille</i>`;
       outerBand.bindTooltip(tooltipText, { sticky: true, opacity: 0.95 });
 
       this.paperSheetLayer.addLayer(outerBand);
-      this.paperSheetLayer.addLayer(innerBorder);
-      this.paperSheetLayer.addLayer(sheetMarker);
-    });
-  }
-
-  /**
-   * Recupere les feuilles papier IGN TOP 25 visibles dans la zone BBOX
-   */
-  async fetchVisibleSheets(minLat, minLon, maxLat, maxLon) {
-    try {
-      const dLat = maxLat - minLat;
-      const dLon = maxLon - minLon;
-      if (dLat > 1.2 || dLon > 1.5) {
-        const center = this.map.getCenter();
-        minLat = center.lat - 0.22;
-        maxLat = center.lat + 0.22;
-        minLon = center.lng - 0.30;
-        maxLon = center.lng + 0.30;
-      }
-
-      const cacheKey = `${minLat.toFixed(2)},${minLon.toFixed(2)},${maxLat.toFixed(2)},${maxLon.toFixed(2)}`;
-      if (this._sheetsCache && this._sheetsCache.has(cacheKey)) {
-        return this._sheetsCache.get(cacheKey);
-      }
-
-      const url = `https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAME=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25.GRAPHE-MOSAIQUAGE:graphe_scan25&BBOX=${minLat},${minLon},${maxLat},${maxLon},urn:ogc:def:crs:EPSG::4326&SRSNAME=EPSG:4326&OUTPUTFORMAT=application/json`;
-      const resp = await fetch(url);
-      if (!resp.ok) return [];
-      const data = await resp.json();
-      if (!data || !data.features) return [];
-
-      const sheetsMap = new Map();
-      for (const f of data.features) {
-        const p = f.properties;
-        const num = p.numero;
-        if (!num) continue;
-        if (!sheetsMap.has(num)) {
-          sheetsMap.set(num, {
-            numero: num,
-            titre: p.titre || '',
-            annee: p.annee_edition || '2020',
-            dateScan: p.date_int_scan,
-            dateMaj: p.date_int_a || p.thema_a,
-            coords: []
-          });
-        }
-        const s = sheetsMap.get(num);
-        const ext = (c) => {
-          if (typeof c[0] === 'number') s.coords.push(c);
-          else for (const item of c) ext(item);
-        };
-        ext(f.geometry.coordinates);
-      }
-
-      const result = [];
-      for (const [num, s] of sheetsMap.entries()) {
-        if (s.coords.length === 0) continue;
-        const lons = s.coords.map(c => c[0]);
-        const lats = s.coords.map(c => c[1]);
-        result.push({
-          numero: num,
-          titre: s.titre,
-          annee: s.annee,
-          dateScan: s.dateScan,
-          dateMaj: s.dateMaj,
-          bounds: [
-            [Math.min(...lats), Math.min(...lons)],
-            [Math.max(...lats), Math.max(...lons)]
-          ]
-        });
-      }
-
-      if (!this._sheetsCache) this._sheetsCache = new Map();
-      this._sheetsCache.set(cacheKey, result);
-      return result;
-    } catch (e) {
-      console.warn('Erreur chargement emprises feuilles papier IGN:', e);
-      return [];
     }
   }
 
@@ -2371,8 +2358,44 @@ class MapManager {
 
     const lat = center.lat;
     const lon = center.lng;
-    const cacheKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
 
+    // 1. Recherche instantanee dans les 1861 feuilles de France
+    let annee = '2020';
+    let titre = 'TOULON (087_088)';
+    let fullTooltip = `Édition papier : ${annee}`;
+
+    if (window.IGN_TOP25_SHEETS && Array.isArray(window.IGN_TOP25_SHEETS)) {
+      const match = window.IGN_TOP25_SHEETS.find(s =>
+        lat >= s.b[0] && lat <= s.b[2] && lon >= s.b[1] && lon <= s.b[3]
+      );
+      if (match) {
+        annee = match.a;
+        titre = match.t ? `${match.t} (${match.n})` : match.n;
+        fullTooltip = `Feuille IGN : ${titre} • Édition papier : ${annee}`;
+      }
+    }
+
+    // 2. Mettre a jour immediatement le badge dans le cartouche DOM
+    const badgeEl = document.getElementById('ign-paper-date-badge');
+    if (badgeEl) {
+      badgeEl.textContent = `Édition papier : ${annee}`;
+      badgeEl.setAttribute('title', `${fullTooltip} • Cliquer pour afficher/masquer les limites papier`);
+    }
+
+    const newAttr = `&copy; IGN France - Carte TOPO 25 (SCAN 25® • <span id="ign-paper-date-badge" class="font-bold text-slate-700 hover:text-sky-600 cursor-pointer" onclick="window.MapManagerInstance && window.MapManagerInstance.togglePaperSheetBounds()" title="${fullTooltip} • Cliquer pour afficher/masquer les limites papier">Édition papier : ${annee}</span>)`;
+
+    const top25Layer = this.baseLayers && this.baseLayers["IGN TOP 25 (Carte papier officielle)"];
+    if (top25Layer) {
+      top25Layer.options.attribution = newAttr;
+    }
+    if (this._currentIgnAttribution !== newAttr && this.map.attributionControl) {
+      this.map.attributionControl.removeAttribution(this._currentIgnAttribution);
+      this.map.attributionControl.addAttribution(newAttr);
+      this._currentIgnAttribution = newAttr;
+    }
+
+    // 3. Enrichir via le flux WFS en arriere-plan pour obtenir les dates precises de Scan HD et sentiers
+    const cacheKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
     let info = this._ignSheetCache ? this._ignSheetCache.get(cacheKey) : null;
     if (!info) {
       info = await this.fetchIgnSheetInfo(lat, lon);
@@ -2380,40 +2403,15 @@ class MapManager {
         this._ignSheetCache.set(cacheKey, info);
       }
     }
-
-    if (info && info.anneeEdition) {
-      const annee = info.anneeEdition;
-      const titre = info.titre ? `${info.titre} (${info.numero || ''})` : '';
+    if (info && (info.dateScan || info.dateMajThematique)) {
       const scanYear = info.dateScan ? String(info.dateScan).slice(0, 4) : '';
       const majYear = info.dateMajThematique ? String(info.dateMajThematique).slice(0, 4) : '';
-
-      let tooltipParts = [];
-      if (titre) tooltipParts.push(`Feuille IGN : ${titre}`);
-      tooltipParts.push(`Édition papier : ${annee}`);
-      if (scanYear) tooltipParts.push(`Scan HD : ${scanYear}`);
-      if (majYear) tooltipParts.push(`Sentiers : ${majYear}`);
-      const fullTooltip = tooltipParts.join(' • ');
-
-      const newAttr = `&copy; IGN France - Carte TOPO 25 (SCAN 25® • <span id="ign-paper-date-badge" class="font-bold text-slate-700 hover:text-sky-600 cursor-pointer" onclick="window.MapManagerInstance && window.MapManagerInstance.togglePaperSheetBounds()" title="${fullTooltip} • Cliquer pour afficher/masquer les limites papier">Édition papier : ${annee}</span>)`;
-
-      // 1. Mise a jour immediate du badge dans le DOM existant
-      const badgeEl = document.getElementById('ign-paper-date-badge');
+      let enrichedParts = [`Feuille IGN : ${titre}`, `Édition papier : ${annee}`];
+      if (scanYear) enrichedParts.push(`Scan HD : ${scanYear}`);
+      if (majYear) enrichedParts.push(`Sentiers : ${majYear}`);
+      const enrichedTooltip = enrichedParts.join(' • ');
       if (badgeEl) {
-        badgeEl.textContent = `Édition papier : ${annee}`;
-        badgeEl.setAttribute('title', fullTooltip);
-      }
-
-      // 2. Mise a jour de l'option d'attribution sur la couche
-      const top25Layer = this.baseLayers && this.baseLayers["IGN TOP 25 (Carte papier officielle)"];
-      if (top25Layer) {
-        top25Layer.options.attribution = newAttr;
-      }
-
-      // 3. Synchronisation du controle Leaflet si l'attribution a change
-      if (this._currentIgnAttribution !== newAttr && this.map.attributionControl) {
-        this.map.attributionControl.removeAttribution(this._currentIgnAttribution);
-        this.map.attributionControl.addAttribution(newAttr);
-        this._currentIgnAttribution = newAttr;
+        badgeEl.setAttribute('title', `${enrichedTooltip} • Cliquer pour afficher/masquer les limites papier`);
       }
     }
   }
