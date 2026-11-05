@@ -74,6 +74,12 @@ class MapManager {
     this._elevationDebounceTimer = null;
     this._elevationAbortCtrl = null;
     this._currentElevation = null;
+
+    // Date edition carte papier IGN (Scan 25 WFS graphe_scan25)
+    this._ignSheetCache = new Map();
+    this._ignSheetTimeout = null;
+    this.currentBaseLayer = 'igntop25';
+    this._currentIgnAttribution = '&copy; IGN France - Carte TOPO 25 (SCAN 25® • <span id="ign-paper-date-badge" class="font-bold text-slate-700" title="Feuille IGN : TOULON (087_088) • Édition papier : 2020 • Scan HD : 2021 • Sentiers : 2022">Édition papier : 2020</span>)';
   }
 
   init() {
@@ -84,7 +90,7 @@ class MapManager {
     const ignTop25 = L.tileLayer('https://data.geopf.fr/private/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image%2Fjpeg&apikey=ign_scan_ws', {
       maxZoom: 19,
       maxNativeZoom: 18,
-      attribution: '&copy; IGN France - Carte TOPO 25 (SCAN 25®)'
+      attribution: this._currentIgnAttribution
     });
 
     const ignPlan = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image%2Fpng', {
@@ -156,7 +162,10 @@ class MapManager {
     // Track active base layer
     this.map.on('baselayerchange', (e) => {
       const name = (e.name || '').toLowerCase();
-      if (name.includes('top 25') || name.includes('top25')) this.currentBaseLayer = 'igntop25';
+      if (name.includes('top 25') || name.includes('top25')) {
+        this.currentBaseLayer = 'igntop25';
+        this.scheduleIgnPaperDateUpdate();
+      }
       else if (name.includes('plan')) this.currentBaseLayer = 'ignplan';
       else if (name.includes('opentopo')) this.currentBaseLayer = 'opentopo';
       else if (name.includes('france') || name.includes('openstreetmap')) this.currentBaseLayer = 'osmfr';
@@ -205,6 +214,9 @@ class MapManager {
       }
       this.updateMapHud();
       this.updateCursorCoords(null);
+      if (this.currentBaseLayer === 'igntop25') {
+        this.scheduleIgnPaperDateUpdate();
+      }
     });
 
     // Zoom/Dézoom de la carte (molette de la souris, boutons +/-)
@@ -254,6 +266,7 @@ class MapManager {
         this.updateMapHud();
         this.updateCursorCoords(null);
         this.setupScaleInputListeners();
+        this.scheduleIgnPaperDateUpdate();
       }
     }, 250);
   }
@@ -493,6 +506,9 @@ class MapManager {
       }
       this.map.addLayer(targetLayer);
       this.currentBaseLayer = targetKey;
+      if (targetKey === 'igntop25') {
+        this.scheduleIgnPaperDateUpdate();
+      }
       if (typeof this.onBaseLayerChangeCallback === 'function') {
         this.onBaseLayerChangeCallback(this.currentBaseLayer);
       }
@@ -2116,6 +2132,76 @@ class MapManager {
       btn.classList.add('bg-white/95', 'text-slate-800');
     }
     if (btnText) btnText.textContent = 'Mesurer';
+  }
+
+  /**
+   * Planifie la mise a jour de la date d'edition de la carte papier IGN
+   */
+  scheduleIgnPaperDateUpdate() {
+    if (this.currentBaseLayer !== 'igntop25' || !this.map) return;
+    if (this._ignSheetTimeout) {
+      clearTimeout(this._ignSheetTimeout);
+    }
+    this._ignSheetTimeout = setTimeout(() => {
+      this.updateIgnPaperDate();
+    }, 350);
+  }
+
+  /**
+   * Met a jour dynamiquement la date de la feuille papier dans le cartouche Leaflet
+   */
+  async updateIgnPaperDate() {
+    if (this.currentBaseLayer !== 'igntop25' || !this.map) return;
+    const center = this.map.getCenter();
+    if (!center || !this.isInsideFrance(center.lat, center.lng)) return;
+
+    const lat = center.lat;
+    const lon = center.lng;
+    const cacheKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+
+    let info = this._ignSheetCache ? this._ignSheetCache.get(cacheKey) : null;
+    if (!info) {
+      info = await this.fetchIgnSheetInfo(lat, lon);
+      if (info && this._ignSheetCache) {
+        this._ignSheetCache.set(cacheKey, info);
+      }
+    }
+
+    if (info && info.anneeEdition) {
+      const annee = info.anneeEdition;
+      const titre = info.titre ? `${info.titre} (${info.numero || ''})` : '';
+      const scanYear = info.dateScan ? String(info.dateScan).slice(0, 4) : '';
+      const majYear = info.dateMajThematique ? String(info.dateMajThematique).slice(0, 4) : '';
+
+      let tooltipParts = [];
+      if (titre) tooltipParts.push(`Feuille IGN : ${titre}`);
+      tooltipParts.push(`Édition papier : ${annee}`);
+      if (scanYear) tooltipParts.push(`Scan HD : ${scanYear}`);
+      if (majYear) tooltipParts.push(`Sentiers : ${majYear}`);
+      const fullTooltip = tooltipParts.join(' • ');
+
+      const newAttr = `&copy; IGN France - Carte TOPO 25 (SCAN 25® • <span id="ign-paper-date-badge" class="font-bold text-slate-700" title="${fullTooltip}">Édition papier : ${annee}</span>)`;
+
+      // 1. Mise a jour immediate du badge dans le DOM existant
+      const badgeEl = document.getElementById('ign-paper-date-badge');
+      if (badgeEl) {
+        badgeEl.textContent = `Édition papier : ${annee}`;
+        badgeEl.setAttribute('title', fullTooltip);
+      }
+
+      // 2. Mise a jour de l'option d'attribution sur la couche
+      const top25Layer = this.baseLayers && this.baseLayers["IGN TOP 25 (Carte papier officielle)"];
+      if (top25Layer) {
+        top25Layer.options.attribution = newAttr;
+      }
+
+      // 3. Synchronisation du controle Leaflet si l'attribution a change
+      if (this._currentIgnAttribution !== newAttr && this.map.attributionControl) {
+        this.map.attributionControl.removeAttribution(this._currentIgnAttribution);
+        this.map.attributionControl.addAttribution(newAttr);
+        this._currentIgnAttribution = newAttr;
+      }
+    }
   }
 
   /**
