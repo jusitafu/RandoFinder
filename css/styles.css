@@ -450,3 +450,38 @@ path.bearing-preview-line {
     display: none !important;
   }
 }
+
+/* Limites de la carte papier IGN TOP 25 (Bande translucide) */
+.paper-sheet-label-container {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.paper-sheet-badge-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1.5px solid #0284c7;
+  color: #0369a1;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.paper-sheet-badge-label:hover {
+  background: #ffffff;
+  border-color: #0369a1;
+  color: #0c4a6e;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+}

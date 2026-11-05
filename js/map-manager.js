@@ -78,8 +78,10 @@ class MapManager {
     // Date edition carte papier IGN (Scan 25 WFS graphe_scan25)
     this._ignSheetCache = new Map();
     this._ignSheetTimeout = null;
+    this._sheetsCache = new Map();
+    this._sheetsTimeout = null;
     this.currentBaseLayer = 'igntop25';
-    this._currentIgnAttribution = '&copy; IGN France - Carte TOPO 25 (SCAN 25® • <span id="ign-paper-date-badge" class="font-bold text-slate-700" title="Feuille IGN : TOULON (087_088) • Édition papier : 2020 • Scan HD : 2021 • Sentiers : 2022">Édition papier : 2020</span>)';
+    this._currentIgnAttribution = '&copy; IGN France - Carte TOPO 25 (SCAN 25® • <span id="ign-paper-date-badge" class="font-bold text-slate-700 hover:text-sky-600 cursor-pointer" onclick="window.MapManagerInstance && window.MapManagerInstance.togglePaperSheetBounds()" title="Feuille IGN : TOULON (087_088) • Édition papier : 2020 • Cliquer pour afficher/masquer les limites papier">Édition papier : 2020</span>)';
   }
 
   init() {
@@ -143,8 +145,10 @@ class MapManager {
     });
 
     this.utmGridLayer = L.layerGroup();
+    this.paperSheetLayer = L.layerGroup();
     const overlayLayers = {
-      "🌐 Carroyage UTM (Grille kilométrique)": this.utmGridLayer
+      "🌐 Carroyage UTM (Grille kilométrique)": this.utmGridLayer,
+      "🗺️ Limites feuille papier (TOP 25)": this.paperSheetLayer
     };
 
     this.layerControl = L.control.layers(this.baseLayers, overlayLayers, { position: 'topright' }).addTo(this.map);
@@ -156,6 +160,12 @@ class MapManager {
 
     // Activer la grille kilométrique UTM par défaut (conforme carte papier IGN Top 25)
     this.utmGridLayer.addTo(this.map);
+
+    // Activer les limites de la carte papier TOP 25 si souhaite (actif par defaut)
+    const showPaperLimits = localStorage.getItem('rf_show_paper_sheet_bounds') !== 'false';
+    if (showPaperLimits) {
+      this.paperSheetLayer.addTo(this.map);
+    }
 
     this.updateSearchRadiusVisuals(false);
 
@@ -212,6 +222,9 @@ class MapManager {
       if (this.map.hasLayer(this.utmGridLayer)) {
         this.renderUtmGrid();
       }
+      if (this.map.hasLayer(this.paperSheetLayer)) {
+        this.schedulePaperSheetBoundsUpdate();
+      }
       this.updateMapHud();
       this.updateCursorCoords(null);
       if (this.currentBaseLayer === 'igntop25') {
@@ -223,6 +236,9 @@ class MapManager {
     this.map.on('zoomend', () => {
       if (this.map.hasLayer(this.utmGridLayer)) {
         this.renderUtmGrid();
+      }
+      if (this.map.hasLayer(this.paperSheetLayer)) {
+        this.schedulePaperSheetBoundsUpdate();
       }
       this.updateMapHud();
       this.updateCursorCoords(null);
@@ -241,12 +257,18 @@ class MapManager {
     this.map.on('overlayadd', (e) => {
       if (e.layer === this.utmGridLayer) {
         this.renderUtmGrid();
+      } else if (e.layer === this.paperSheetLayer) {
+        localStorage.setItem('rf_show_paper_sheet_bounds', 'true');
+        this.renderPaperSheetBounds();
       }
     });
 
     this.map.on('overlayremove', (e) => {
       if (e.layer === this.utmGridLayer) {
         this.utmGridLayer.clearLayers();
+      } else if (e.layer === this.paperSheetLayer) {
+        localStorage.setItem('rf_show_paper_sheet_bounds', 'false');
+        this.paperSheetLayer.clearLayers();
       }
     });
 
@@ -267,6 +289,9 @@ class MapManager {
         this.updateCursorCoords(null);
         this.setupScaleInputListeners();
         this.scheduleIgnPaperDateUpdate();
+        if (this.map.hasLayer(this.paperSheetLayer)) {
+          this.schedulePaperSheetBoundsUpdate();
+        }
       }
     }, 250);
   }
@@ -2135,6 +2160,195 @@ class MapManager {
   }
 
   /**
+   * Bascule l'affichage des limites de la carte papier
+   */
+  togglePaperSheetBounds() {
+    if (!this.map || !this.paperSheetLayer) return;
+    if (this.map.hasLayer(this.paperSheetLayer)) {
+      this.map.removeLayer(this.paperSheetLayer);
+      localStorage.setItem('rf_show_paper_sheet_bounds', 'false');
+    } else {
+      this.paperSheetLayer.addTo(this.map);
+      localStorage.setItem('rf_show_paper_sheet_bounds', 'true');
+      this.renderPaperSheetBounds();
+    }
+  }
+
+  /**
+   * Planifie la mise a jour des limites des feuilles papier
+   */
+  schedulePaperSheetBoundsUpdate() {
+    if (!this.map || !this.map.hasLayer(this.paperSheetLayer)) return;
+    if (this._sheetsTimeout) {
+      clearTimeout(this._sheetsTimeout);
+    }
+    this._sheetsTimeout = setTimeout(() => {
+      this.renderPaperSheetBounds();
+    }, 350);
+  }
+
+  /**
+   * Rendu visuel des limites de la carte papier TOP 25 avec une bande translucide
+   */
+  async renderPaperSheetBounds() {
+    if (!this.map || !this.map.hasLayer(this.paperSheetLayer)) return;
+
+    const bounds = this.map.getBounds();
+    let minLat = bounds.getSouth();
+    let minLon = bounds.getWest();
+    let maxLat = bounds.getNorth();
+    let maxLon = bounds.getEast();
+
+    const center = this.map.getCenter();
+    if (!center || !this.isInsideFrance(center.lat, center.lng)) {
+      this.paperSheetLayer.clearLayers();
+      return;
+    }
+
+    const sheets = await this.fetchVisibleSheets(minLat, minLon, maxLat, maxLon);
+    if (!sheets || sheets.length === 0) return;
+
+    this.paperSheetLayer.clearLayers();
+
+    sheets.forEach((sheet) => {
+      // 1. Bande translucide large le long du cadre exterieur de la feuille
+      const outerBand = L.rectangle(sheet.bounds, {
+        color: '#0284c7',       // Bleu cyan officiel TOP 25
+        weight: 16,             // Bande large translucide
+        opacity: 0.35,          // Transparence 35%
+        fill: true,
+        fillColor: '#0284c7',
+        fillOpacity: 0.03,      // Voile tres subtil a l'interieur
+        interactive: true
+      });
+
+      // 2. Trait interieur net en pointilles
+      const innerBorder = L.rectangle(sheet.bounds, {
+        color: '#0369a1',
+        weight: 2,
+        opacity: 0.85,
+        dashArray: '8, 6',
+        fill: false,
+        interactive: false
+      });
+
+      // 3. Etiquette elegante en haut au centre de la feuille papier
+      const topLat = sheet.bounds[1][0];
+      const centerLon = (sheet.bounds[0][1] + sheet.bounds[1][1]) / 2;
+
+      const labelHtml = `
+        <div class="paper-sheet-badge-label" title="Feuille IGN : ${sheet.titre} (n° ${sheet.numero})\nÉdition papier : ${sheet.annee}\nCliquer pour recadrer la feuille">
+          <span class="mr-1">📄</span>
+          <strong>TOP 25 ${sheet.titre}</strong>
+          <span class="opacity-80 text-[10px]">(${sheet.numero})</span>
+          <span class="ml-1 px-1 py-0.5 rounded bg-sky-100 text-sky-800 font-mono text-[9px] font-bold">Éd. ${sheet.annee}</span>
+        </div>
+      `;
+
+      const sheetMarker = L.marker([topLat, centerLon], {
+        icon: L.divIcon({
+          className: 'paper-sheet-label-container',
+          html: labelHtml,
+          iconSize: [260, 26],
+          iconAnchor: [130, 13]
+        }),
+        interactive: true
+      });
+
+      // Clic sur l'emprise ou sur l'etiquette pour zoomer sur toute la feuille papier
+      const fitSheet = () => {
+        this.map.fitBounds(sheet.bounds, { padding: [30, 30], maxZoom: 14 });
+      };
+      outerBand.on('click', fitSheet);
+      sheetMarker.on('click', fitSheet);
+
+      // Infobulle au survol
+      const tooltipText = `<b>Feuille IGN TOP 25 : ${sheet.titre}</b> (n° ${sheet.numero})<br>Édition papier : <b>${sheet.annee}</b>${sheet.dateMaj ? '<br>Mise à jour sentiers : ' + sheet.dateMaj.slice(0, 4) : ''}<br><i>Cliquez pour recadrer toute la feuille</i>`;
+      outerBand.bindTooltip(tooltipText, { sticky: true, opacity: 0.95 });
+
+      this.paperSheetLayer.addLayer(outerBand);
+      this.paperSheetLayer.addLayer(innerBorder);
+      this.paperSheetLayer.addLayer(sheetMarker);
+    });
+  }
+
+  /**
+   * Recupere les feuilles papier IGN TOP 25 visibles dans la zone BBOX
+   */
+  async fetchVisibleSheets(minLat, minLon, maxLat, maxLon) {
+    try {
+      const dLat = maxLat - minLat;
+      const dLon = maxLon - minLon;
+      if (dLat > 1.2 || dLon > 1.5) {
+        const center = this.map.getCenter();
+        minLat = center.lat - 0.22;
+        maxLat = center.lat + 0.22;
+        minLon = center.lng - 0.30;
+        maxLon = center.lng + 0.30;
+      }
+
+      const cacheKey = `${minLat.toFixed(2)},${minLon.toFixed(2)},${maxLat.toFixed(2)},${maxLon.toFixed(2)}`;
+      if (this._sheetsCache && this._sheetsCache.has(cacheKey)) {
+        return this._sheetsCache.get(cacheKey);
+      }
+
+      const url = `https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAME=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25.GRAPHE-MOSAIQUAGE:graphe_scan25&BBOX=${minLat},${minLon},${maxLat},${maxLon},urn:ogc:def:crs:EPSG::4326&SRSNAME=EPSG:4326&OUTPUTFORMAT=application/json`;
+      const resp = await fetch(url);
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      if (!data || !data.features) return [];
+
+      const sheetsMap = new Map();
+      for (const f of data.features) {
+        const p = f.properties;
+        const num = p.numero;
+        if (!num) continue;
+        if (!sheetsMap.has(num)) {
+          sheetsMap.set(num, {
+            numero: num,
+            titre: p.titre || '',
+            annee: p.annee_edition || '2020',
+            dateScan: p.date_int_scan,
+            dateMaj: p.date_int_a || p.thema_a,
+            coords: []
+          });
+        }
+        const s = sheetsMap.get(num);
+        const ext = (c) => {
+          if (typeof c[0] === 'number') s.coords.push(c);
+          else for (const item of c) ext(item);
+        };
+        ext(f.geometry.coordinates);
+      }
+
+      const result = [];
+      for (const [num, s] of sheetsMap.entries()) {
+        if (s.coords.length === 0) continue;
+        const lons = s.coords.map(c => c[0]);
+        const lats = s.coords.map(c => c[1]);
+        result.push({
+          numero: num,
+          titre: s.titre,
+          annee: s.annee,
+          dateScan: s.dateScan,
+          dateMaj: s.dateMaj,
+          bounds: [
+            [Math.min(...lats), Math.min(...lons)],
+            [Math.max(...lats), Math.max(...lons)]
+          ]
+        });
+      }
+
+      if (!this._sheetsCache) this._sheetsCache = new Map();
+      this._sheetsCache.set(cacheKey, result);
+      return result;
+    } catch (e) {
+      console.warn('Erreur chargement emprises feuilles papier IGN:', e);
+      return [];
+    }
+  }
+
+  /**
    * Planifie la mise a jour de la date d'edition de la carte papier IGN
    */
   scheduleIgnPaperDateUpdate() {
@@ -2180,7 +2394,7 @@ class MapManager {
       if (majYear) tooltipParts.push(`Sentiers : ${majYear}`);
       const fullTooltip = tooltipParts.join(' • ');
 
-      const newAttr = `&copy; IGN France - Carte TOPO 25 (SCAN 25® • <span id="ign-paper-date-badge" class="font-bold text-slate-700" title="${fullTooltip}">Édition papier : ${annee}</span>)`;
+      const newAttr = `&copy; IGN France - Carte TOPO 25 (SCAN 25® • <span id="ign-paper-date-badge" class="font-bold text-slate-700 hover:text-sky-600 cursor-pointer" onclick="window.MapManagerInstance && window.MapManagerInstance.togglePaperSheetBounds()" title="${fullTooltip} • Cliquer pour afficher/masquer les limites papier">Édition papier : ${annee}</span>)`;
 
       // 1. Mise a jour immediate du badge dans le DOM existant
       const badgeEl = document.getElementById('ign-paper-date-badge');
