@@ -303,9 +303,13 @@ class AppController {
           return;
         }
 
-        // 2. Pré-suggestions instantanées sur les communes & massifs locaux (0 ms)
+        // 2. Pré-suggestions instantanées sur les sentiers GR ou communes locales (0 ms)
+        let grMatches = [];
+        if (typeof GrManager !== 'undefined') {
+          grMatches = GrManager.search(query);
+        }
         const localMatches = this.getLocalPlaceMatches(query);
-        if (localMatches.length > 0) {
+        if (grMatches.length > 0 || localMatches.length > 0) {
           this.renderPlacesResults(localMatches, query);
         }
 
@@ -1016,6 +1020,24 @@ class AppController {
         valB = (typeof b.ibp === 'number') ? b.ibp : ((typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP(b) : 0);
       }
 
+      if (this.sortColumn === 'lastHikeDate') {
+        const parseDate = (d) => {
+          if (!d || typeof d !== 'string') return 0;
+          const parts = d.trim().split(/[\/\-\.]/);
+          if (parts.length === 3) {
+            let day = parseInt(parts[0], 10);
+            let month = parseInt(parts[1], 10);
+            let year = parseInt(parts[2], 10);
+            if (year < 100) year += 2000;
+            const t = new Date(year, month - 1, day).getTime();
+            return isNaN(t) ? 0 : t;
+          }
+          return 0;
+        };
+        valA = parseDate(a.lastHikeDate);
+        valB = parseDate(b.lastHikeDate);
+      }
+
       if (typeof valA === 'string') valA = valA.toLowerCase();
       if (typeof valB === 'string') valB = valB.toLowerCase();
 
@@ -1045,7 +1067,7 @@ class AppController {
     if (this.filteredHikes.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="7" class="p-8 text-center text-slate-400">
+          <td colspan="8" class="p-8 text-center text-slate-400">
             <div class="text-3xl mb-2">🔍</div>
             <div class="font-medium text-slate-700">Aucune randonnée dans ce rayon (${window.MapManagerInstance ? window.MapManagerInstance.searchRadiusKm : 50} km)</div>
             <div class="text-xs text-slate-500 mt-1">👉 <strong>Augmentez le curseur de rayon</strong> (ex: 200 km) ou tapez une autre ville de départ pour les voir.</div>
@@ -1093,6 +1115,9 @@ class AppController {
             <span class="w-4 h-4 rounded text-[10px] font-black text-white flex items-center justify-center" style="background-color: ${ibpInfo.color}">${ibpInfo.level}</span>
             <span>IBP ${ibpVal}</span>
           </div>
+        </td>
+        <td class="p-3 whitespace-nowrap text-xs font-semibold text-slate-700">
+          ${hike.lastHikeDate ? `<span class="px-2 py-0.5 bg-slate-100 text-slate-800 rounded-md border border-slate-200">${hike.lastHikeDate}</span>` : '<span class="text-slate-300 italic">-</span>'}
         </td>
         <td class="p-3 text-slate-600 whitespace-nowrap text-xs">
           ${hike.minElevation}m - ${hike.maxElevation}m
@@ -1329,6 +1354,10 @@ class AppController {
 
     document.getElementById('edit-hike-name').value = hike.name || '';
     document.getElementById('edit-hike-notes').value = hike.notes || '';
+    const lastDateInput = document.getElementById('edit-hike-last-date');
+    if (lastDateInput) {
+      lastDateInput.value = hike.lastHikeDate || '';
+    }
     
     const ibpInput = document.getElementById('edit-hike-ibp');
     const ibpVal = (typeof hike.ibp === 'number') ? hike.ibp : ((typeof GPXParser !== 'undefined') ? GPXParser.calculateIBP(hike) : 50);
@@ -1387,6 +1416,10 @@ class AppController {
 
     this.hikeToEdit.name = newName;
     this.hikeToEdit.notes = newNotes;
+    const lastDateInput = document.getElementById('edit-hike-last-date');
+    if (lastDateInput) {
+      this.hikeToEdit.lastHikeDate = lastDateInput.value.trim();
+    }
 
     const ibpInputEl = document.getElementById('edit-hike-ibp');
     if (ibpInputEl) {
@@ -2525,7 +2558,46 @@ class AppController {
     if (!resultsContainer) return;
 
     resultsContainer.innerHTML = '';
-    if (!places || places.length === 0) {
+
+    // Détection et affichage prioritaire des Sentiers de Grande Randonnée (GR)
+    let grMatches = [];
+    if (typeof GrManager !== 'undefined') {
+      grMatches = GrManager.search(query);
+    }
+
+    if (grMatches.length > 0) {
+      resultsContainer.classList.remove('hidden');
+      grMatches.forEach(gr => {
+        const item = document.createElement('div');
+        item.className = 'search-item px-3.5 py-2.5 bg-rose-50/80 hover:bg-rose-100 cursor-pointer transition border-b border-rose-200/90 flex items-center gap-3 text-left group';
+        item.innerHTML = `
+          <span class="bg-rose-600 text-white font-black text-[11px] px-2 py-0.5 rounded-md shadow uppercase tracking-wide flex-shrink-0 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+            ${gr.ref}
+          </span>
+          <div class="flex-1 min-w-0">
+            <div class="font-extrabold text-slate-900 text-xs truncate group-hover:text-rose-800">${this.escapeHtml(gr.name)}</div>
+            <div class="text-[10px] text-rose-700 font-semibold truncate mt-0.5">${gr.distKm} km • D+ ${gr.dplus.toLocaleString('fr-FR')} m • ${this.escapeHtml(gr.region)}</div>
+          </div>
+          <span class="text-xs text-rose-600 font-bold flex-shrink-0">Afficher ➔</span>
+        `;
+        item.addEventListener('click', () => {
+          const locationInput = document.getElementById('location-input');
+          if (locationInput) locationInput.value = `${gr.ref} - ${gr.name}`;
+          resultsContainer.classList.add('hidden');
+          if (typeof GrManager !== 'undefined') {
+            GrManager.displayGr(gr, window.MapManagerInstance ? window.MapManagerInstance.map : null);
+          }
+        });
+        resultsContainer.appendChild(item);
+      });
+
+      if (/^\s*GR\s*([0-9]+[A-Z0-9_-]*)\s*$/i.test(query)) {
+        return;
+      }
+    }
+
+    if ((!places || places.length === 0) && grMatches.length === 0) {
       resultsContainer.innerHTML = `
         <div class="p-3.5 text-xs text-slate-500 text-center flex items-center justify-center gap-2">
           <span>🌍</span> Aucun lieu trouvé dans le monde pour "<b>${this.escapeHtml(query)}</b>"
@@ -3194,6 +3266,22 @@ class AppController {
         hike.name = proposedName;
         hike.proposedName = proposedName;
         hike.ajoutee_par = (typeof AuthManager !== 'undefined' && AuthManager.getCurrentUser()) ? AuthManager.getCurrentUser().username : 'admin';
+        
+        // Extraction de la date de derniere rando depuis le GPX si presente
+        if (!hike.lastHikeDate && hike.points && hike.points.length > 0) {
+          const ptWithTime = hike.points.find(p => p.time);
+          if (ptWithTime && ptWithTime.time) {
+            try {
+              const d = new Date(ptWithTime.time);
+              if (!isNaN(d.getTime())) {
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yy = String(d.getFullYear()).slice(-2);
+                hike.lastHikeDate = `${dd}/${mm}/${yy}`;
+              }
+            } catch (e) {}
+          }
+        }
 
         // Détection de randonnée ayant les mêmes caractéristiques
         const duplicateMatch = this.findSimilarHike(hike);
@@ -3427,37 +3515,56 @@ class AppController {
       infoEl.textContent = `Zone sélectionnée : ~${dKmWidth.toFixed(1)} km × ${dKmHeight.toFixed(1)} km • 2 clics`;
     }
 
-    // Déterminer la randonnée active s'il y en a une
-    const activeHike = this.areaPrintHike || this.selectedHike || (window.MapManagerInstance && window.MapManagerInstance.selectedHike) || null;
+    // Déterminer la randonnée active s'il y en a une (club ou trace GPX libre chargée)
+    const activeHike = this.areaPrintHike || this.selectedHike || 
+                       (window.MapManagerInstance && window.MapManagerInstance.selectedHike) || 
+                       (window.MapManagerInstance && window.MapManagerInstance.standaloneHike) || null;
 
     // Remplir le sélecteur de tracé GPX (accessible et visible en permanence)
     const gpxSelect = document.getElementById('map-area-gpx-select');
     const titleEl = document.getElementById('map-area-title');
-    const hikesList = (this.allHikes && this.allHikes.length > 0) ? this.allHikes : (this.hikes || []);
 
     if (gpxSelect) {
       gpxSelect.innerHTML = '<option value="">🚫 Aucun tracé (fond de carte vierge)</option>';
-      const sortedHikes = [...hikesList].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-      sortedHikes.forEach(h => {
-        const opt = document.createElement('option');
-        opt.value = h.id;
-        opt.textContent = `📍 ${h.name} (${h.distanceKm ? h.distanceKm + ' km' : 'GPX'})`;
-        if (activeHike && (activeHike.id === h.id || activeHike.name === h.name)) {
-          opt.selected = true;
-        }
-        gpxSelect.appendChild(opt);
-      });
+      // Si une trace GPX libre est active
+      if (activeHike) {
+        const optActive = document.createElement('option');
+        optActive.value = String(activeHike.id);
+        optActive.textContent = `📍 ${activeHike.name} (${activeHike.distance || '?'} km)`;
+        optActive.selected = true;
+        gpxSelect.appendChild(optActive);
+      }
+
+      // En mode Randonner uniquement (protégé), lister les autres randonnées du club
+      const isRandoMode = window.location.hash.startsWith('#randonner');
+      if (isRandoMode) {
+        const hikesList = (this.allHikes && this.allHikes.length > 0) ? this.allHikes : (this.hikes || []);
+        const sortedHikes = [...hikesList].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        sortedHikes.forEach(h => {
+          if (activeHike && String(h.id) === String(activeHike.id)) return;
+          const opt = document.createElement('option');
+          opt.value = h.id;
+          opt.textContent = `📍 ${h.name} (${h.distanceKm ? h.distanceKm + ' km' : 'GPX'})`;
+          gpxSelect.appendChild(opt);
+        });
+      }
 
       // Adapter automatiquement le titre en cas de changement de sélection
       gpxSelect.onchange = () => {
         const selectedId = gpxSelect.value;
-        const chosen = hikesList.find(h => String(h.id) === String(selectedId));
         if (titleEl) {
-          if (chosen) {
-            titleEl.value = `${chosen.name} - Extrait de carte`;
+          if (activeHike && String(activeHike.id) === String(selectedId)) {
+            titleEl.value = `${activeHike.name} - Extrait de carte`;
           } else {
-            titleEl.value = `Extrait Cartographique (${dKmWidth.toFixed(1)} × ${dKmHeight.toFixed(1)} km)`;
+            const hikesList = (this.allHikes && this.allHikes.length > 0) ? this.allHikes : (this.hikes || []);
+            const chosen = hikesList.find(h => String(h.id) === String(selectedId));
+            if (chosen) {
+              titleEl.value = `${chosen.name} - Extrait de carte`;
+            } else {
+              titleEl.value = `Extrait Cartographique (${dKmWidth.toFixed(1)} × ${dKmHeight.toFixed(1)} km)`;
+            }
           }
         }
       };
@@ -3475,6 +3582,74 @@ class AppController {
     if (layerSelect && window.MapManagerInstance) {
       layerSelect.value = window.MapManagerInstance.getCurrentBaseLayerKey();
     }
+
+    // Gestion de l'echelle vraie physique (1/XXXXXX)
+    const formatEl = document.getElementById('map-area-format');
+    const orientEl = document.getElementById('map-area-orientation');
+    const scaleModeEl = document.getElementById('map-area-scale-mode');
+    const scaleDenomEl = document.getElementById('map-area-scale-denom');
+    const scalePreviewEl = document.getElementById('map-area-scale-preview');
+    const scaleInputBox = document.getElementById('box-map-area-scale-input');
+    const scalePresetsBox = document.getElementById('map-area-scale-presets');
+
+    const updateScalePreview = () => {
+      const fmt = (formatEl ? formatEl.value : 'a4').toLowerCase();
+      const ori = (orientEl ? orientEl.value : 'landscape').toLowerCase();
+      const mode = scaleModeEl ? scaleModeEl.value : 'custom';
+      const denom = parseInt(scaleDenomEl ? scaleDenomEl.value : '25000', 10) || 25000;
+
+      if (mode === 'auto') {
+        if (scaleInputBox) scaleInputBox.classList.add('opacity-40', 'pointer-events-none');
+        if (scalePresetsBox) scalePresetsBox.classList.add('opacity-40', 'pointer-events-none');
+        if (scalePreviewEl) {
+          scalePreviewEl.innerHTML = `<strong>Mode Automatique :</strong> L'echelle s'adaptera exactement a la zone selectionnee (~${dKmWidth.toFixed(1)} x ${dKmHeight.toFixed(1)} km).`;
+        }
+        return;
+      }
+
+      if (scaleInputBox) scaleInputBox.classList.remove('opacity-40', 'pointer-events-none');
+      if (scalePresetsBox) scalePresetsBox.classList.remove('opacity-40', 'pointer-events-none');
+
+      const isA3 = fmt === 'a3';
+      const isLand = ori === 'landscape';
+      const pageW_mm = isA3 ? (isLand ? 420 : 297) : (isLand ? 297 : 210);
+      const pageH_mm = isA3 ? (isLand ? 297 : 420) : (isLand ? 210 : 297);
+      const margin_mm = isA3 ? 18 : 15;
+      const mapW_mm = pageW_mm - (margin_mm * 2);
+      const mapH_mm = pageH_mm - (margin_mm * 2) - 40;
+
+      const groundW_km = (mapW_mm / 1000) * (denom / 1000);
+      const groundH_km = (mapH_mm / 1000) * (denom / 1000);
+      const metersPerCm = denom / 100;
+
+      if (scalePreviewEl) {
+        scalePreviewEl.innerHTML = `<strong>📏 1 cm sur papier = ${metersPerCm >= 1000 ? (metersPerCm/1000).toFixed(1) + ' km' : metersPerCm + ' m'} terrain</strong> • Emprise sur ${fmt.toUpperCase()} ${isLand ? 'Paysage' : 'Portrait'} : <strong>${groundW_km.toFixed(1)} km × ${groundH_km.toFixed(1)} km</strong> (centre)`;
+      }
+    };
+
+    if (formatEl) formatEl.onchange = updateScalePreview;
+    if (orientEl) orientEl.onchange = updateScalePreview;
+    if (scaleModeEl) scaleModeEl.onchange = updateScalePreview;
+    if (scaleDenomEl) scaleDenomEl.oninput = updateScalePreview;
+
+    const presetBtns = document.querySelectorAll('.btn-scale-preset');
+    presetBtns.forEach(btn => {
+      btn.onclick = () => {
+        const sc = btn.dataset.scale;
+        if (scaleDenomEl && sc) {
+          scaleDenomEl.value = sc;
+          presetBtns.forEach(b => {
+            b.classList.remove('bg-emerald-600', 'text-white');
+            b.classList.add('bg-white', 'text-slate-700', 'border', 'border-slate-300');
+          });
+          btn.classList.remove('bg-white', 'text-slate-700', 'border', 'border-slate-300');
+          btn.classList.add('bg-emerald-600', 'text-white');
+          updateScalePreview();
+        }
+      };
+    });
+
+    updateScalePreview();
 
     modal.classList.remove('hidden');
   }
@@ -3508,8 +3683,14 @@ class AppController {
     const selectedHikeId = gpxSelect ? gpxSelect.value : '';
     let hikeForTrack = null;
     if (selectedHikeId) {
-      const hikesList = (this.allHikes && this.allHikes.length > 0) ? this.allHikes : (this.hikes || []);
-      hikeForTrack = hikesList.find(h => String(h.id) === String(selectedHikeId)) || null;
+      if (this.areaPrintHike && String(this.areaPrintHike.id) === String(selectedHikeId)) {
+        hikeForTrack = this.areaPrintHike;
+      } else if (window.MapManagerInstance && window.MapManagerInstance.standaloneHike && String(window.MapManagerInstance.standaloneHike.id) === String(selectedHikeId)) {
+        hikeForTrack = window.MapManagerInstance.standaloneHike;
+      } else {
+        const hikesList = (this.allHikes && this.allHikes.length > 0) ? this.allHikes : (this.hikes || []);
+        hikeForTrack = hikesList.find(h => String(h.id) === String(selectedHikeId)) || null;
+      }
     }
 
     this.closeMapAreaModal();
@@ -3521,6 +3702,11 @@ class AppController {
         try { await StorageManager.ensureHikeTrackLoaded(hikeForTrack); } catch (e) {}
       }
       const showUtm = document.getElementById('map-area-opt-utm') ? document.getElementById('map-area-opt-utm').checked : true;
+      const scaleModeEl = document.getElementById('map-area-scale-mode');
+      const scaleMode = scaleModeEl ? scaleModeEl.value : 'custom';
+      const scaleDenomEl = document.getElementById('map-area-scale-denom');
+      const scaleDenom = scaleDenomEl ? (parseInt(scaleDenomEl.value, 10) || 25000) : 25000;
+
       await PDFExporter.exportMapAreaPDF(this.selectedAreaBounds, {
         title: title,
         format: format,
@@ -3528,6 +3714,8 @@ class AppController {
         mapLayer: mapLayer,
         showCoords: showCoords,
         showUtmGrid: showUtm,
+        scaleMode: scaleMode,
+        scaleDenom: scaleDenom,
         trackColor: trackColor,
         hike: hikeForTrack
       });
@@ -3925,8 +4113,11 @@ class AppController {
     const authContainer = document.getElementById('auth-header-container');
     const isAuthed = typeof AuthManager !== 'undefined' && AuthManager.isAuthenticated();
 
+    // RandoFinder: Verrouillage par mot de passe
     if (!isAuthed) {
-      if (lockModal) lockModal.classList.remove('hidden');
+      if (lockModal) {
+        lockModal.classList.remove('hidden');
+      }
       if (authContainer) authContainer.classList.add('opacity-0', 'pointer-events-none');
       
       // S'assurer que les champs restent strictement vierges à l'affichage (ni identifiant ni mot de passe pré-affichés)

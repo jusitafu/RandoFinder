@@ -1,3 +1,36 @@
+// Dictionnaire des correspondances commerciales IGN TOP 25 / Série Bleue (OT / ET / SB)
+window.IGN_COMMERCIAL_REFS = {
+  "085_086": "3245 ET",  // Aubagne / Massif de la Sainte-Baume
+  "085_088": "3245 ET",  // Aubagne / La Ciotat
+  "087_088": "3346 OT",  // Toulon / Le Gros Cerveau / Mont Faron
+  "089_088": "3446 OT",  // Hyères / Ile de Porquerolles
+  "091_088": "3446 OT",  // La Londe-les-Maures / Bormes-les-Mimosas
+  "065_034": "3218 SB",  // Bourbonne-les-Bains
+  "083_086": "3145 ET",  // Marseille / Les Calanques
+  "091_086": "3545 OT",  // Saint-Tropez / Sainte-Maxime / Massif des Maures
+  "091_084": "3544 ET",  // Fréjus / Saint-Raphaël
+  "093_082": "3643 ET",  // Cannes / Grasse
+  "095_080": "3742 OT",  // Nice / Monaco / Menton
+  "093_056": "3630 OT",  // Chamonix / Mont-Blanc
+  "087_086": "3345 OT",  // Signes / Tourves / Brignoles
+  "089_086": "3445 OT",  // Le Luc / Cuers
+  "083_084": "3144 OT",  // Aix-en-Provence / Sainte-Victoire
+  "085_084": "3244 ET",  // Sainte-Victoire
+  "089_082": "3442 OT",  // Gorges du Verdon / Moustiers-Sainte-Marie
+  "091_082": "3542 ET",  // Castellane / Lac de Castillon
+  "095_078": "3841 OT",  // Vallée de la Roya / Vallée de la Bévéra
+  "093_078": "3741 OT",  // Vallée de la Vésubie / Mercantour
+  "065_032": "3218 SB"   // Bourbonne-les-Bains / Fresnes-sur-Apance
+};
+const IGN_COMMERCIAL_REFS = window.IGN_COMMERCIAL_REFS;
+
+function getSheetCommercialLabel(num, title) {
+  if (IGN_COMMERCIAL_REFS[num]) {
+    return `${IGN_COMMERCIAL_REFS[num]} • ${title}`;
+  }
+  return `TOP 25 ${title}`;
+}
+
 /**
  * Leaflet Map Manager with IGN, OpenStreetMap, Clean GPX Polylines & Selection Halo
  * Les Randonneurs Sanaryens - RandoFinder - JLD Apps 2026
@@ -169,17 +202,39 @@ class MapManager {
 
     this.updateSearchRadiusVisuals(false);
 
-    // Track active base layer
+    // Track active base layer & quadrillage IGN TOP 25
     this.map.on('baselayerchange', (e) => {
       const name = (e.name || '').toLowerCase();
       if (name.includes('top 25') || name.includes('top25')) {
         this.currentBaseLayer = 'igntop25';
         this.scheduleIgnPaperDateUpdate();
+        // Si activé, ré-afficher le quadrillage des feuilles IGN TOP 25
+        const showPaperLimits = localStorage.getItem('rf_show_paper_sheet_bounds') !== 'false';
+        if (showPaperLimits && !this.map.hasLayer(this.paperSheetLayer)) {
+          this.paperSheetLayer.addTo(this.map);
+        }
+        if (this.map.hasLayer(this.paperSheetLayer)) {
+          this.renderPaperSheetBounds();
+        }
+      } else {
+        if (name.includes('plan')) this.currentBaseLayer = 'ignplan';
+        else if (name.includes('opentopo')) this.currentBaseLayer = 'opentopo';
+        else if (name.includes('france') || name.includes('openstreetmap')) this.currentBaseLayer = 'osmfr';
+        else if (name.includes('satellite')) this.currentBaseLayer = 'satellite';
+        else this.currentBaseLayer = 'other';
+
+        // Les limites des feuilles papier IGN sont spécifiques à IGN TOP 25
+        if (this.paperSheetLayer) {
+          this.paperSheetLayer.clearLayers();
+        }
+        // Le carroyage UTM kilométrique est universel (WGS84 mondial) et s'affiche sur tous les fonds de carte
+        if (this.map.hasLayer(this.utmGridLayer)) {
+          this.renderUtmGrid();
+        }
+        if (this.currentBaseLayer === 'satellite') {
+          this.scheduleSatelliteDateUpdate();
+        }
       }
-      else if (name.includes('plan')) this.currentBaseLayer = 'ignplan';
-      else if (name.includes('opentopo')) this.currentBaseLayer = 'opentopo';
-      else if (name.includes('france') || name.includes('openstreetmap')) this.currentBaseLayer = 'osmfr';
-      else if (name.includes('satellite')) this.currentBaseLayer = 'satellite';
 
       if (typeof this.onBaseLayerChangeCallback === 'function') {
         this.onBaseLayerChangeCallback(this.currentBaseLayer);
@@ -192,14 +247,19 @@ class MapManager {
         L.DomEvent.stop(e);
         this.finishMeasurePath();
       }
+      if (this.bearingMeasurementActive) {
+        L.DomEvent.stop(e);
+      }
     });
 
     this.map.on('click', (e) => {
       if (this.measurePathActive) {
+        L.DomEvent.stop(e);
         this.handleMeasureClick(e.latlng);
         return;
       }
       if (this.bearingMeasurementActive) {
+        L.DomEvent.stop(e);
         this.handleBearingClick(e.latlng);
         return;
       }
@@ -229,6 +289,9 @@ class MapManager {
       this.updateCursorCoords(null);
       if (this.currentBaseLayer === 'igntop25') {
         this.scheduleIgnPaperDateUpdate();
+      }
+      if (this.currentBaseLayer === 'satellite') {
+        this.scheduleSatelliteDateUpdate();
       }
     });
 
@@ -533,6 +596,21 @@ class MapManager {
       this.currentBaseLayer = targetKey;
       if (targetKey === 'igntop25') {
         this.scheduleIgnPaperDateUpdate();
+        const showPaperLimits = localStorage.getItem('rf_show_paper_sheet_bounds') !== 'false';
+        if (showPaperLimits && !this.map.hasLayer(this.paperSheetLayer)) {
+          this.paperSheetLayer.addTo(this.map);
+        }
+        if (this.map.hasLayer(this.paperSheetLayer)) {
+          this.renderPaperSheetBounds();
+        }
+      } else {
+        // Le quadrillage carte IGN ne doit apparaître que lorsqu'on est en affichage IGN TOP 25
+        if (this.paperSheetLayer) {
+          this.paperSheetLayer.clearLayers();
+        }
+        if (this.utmGridLayer) {
+          this.utmGridLayer.clearLayers();
+        }
       }
       if (typeof this.onBaseLayerChangeCallback === 'function') {
         this.onBaseLayerChangeCallback(this.currentBaseLayer);
@@ -1013,6 +1091,8 @@ class MapManager {
     if (!this.map || !this.utmGridLayer || !this.map.hasLayer(this.utmGridLayer)) return;
     this.utmGridLayer.clearLayers();
 
+    // Le carroyage UTM kilométrique est universel (WGS84 mondial) et actif sur tous les calques
+
     const zoom = this.map.getZoom();
     // Le carroyage kilométrique officiel TOP 25 (1 km x 1 km) est actif aux échelles de randonnée
     // (zoom >= 13, soit échelle 1:50 000 et 1:25 000 TOP 25).
@@ -1367,6 +1447,13 @@ class MapManager {
     this.bearingPointA = null;
     this.bearingPointB = null;
 
+    // Désactiver le zoom au double-clic et les interactions parasites
+    if (this.map.doubleClickZoom) {
+      this.map.doubleClickZoom.disable();
+    }
+    if (this.map.getPane('markerPane')) this.map.getPane('markerPane').style.pointerEvents = 'none';
+    if (this.map.getPane('overlayPane')) this.map.getPane('overlayPane').style.pointerEvents = 'none';
+
     // Curseur réticule
     L.DomUtil.addClass(this.map.getContainer(), 'bearing-selection-cursor');
 
@@ -1450,6 +1537,11 @@ class MapManager {
     this.bearingPointB = null;
 
     if (this.map) {
+      if (this.map.doubleClickZoom) {
+        this.map.doubleClickZoom.enable();
+      }
+      if (this.map.getPane('markerPane')) this.map.getPane('markerPane').style.pointerEvents = '';
+      if (this.map.getPane('overlayPane')) this.map.getPane('overlayPane').style.pointerEvents = '';
       L.DomUtil.removeClass(this.map.getContainer(), 'bearing-selection-cursor');
       if (this._onBearingMouseMove) {
         this.map.off('mousemove', this._onBearingMouseMove);
@@ -2178,7 +2270,7 @@ class MapManager {
    * Planifie la mise a jour des limites des feuilles papier
    */
   schedulePaperSheetBoundsUpdate() {
-    if (!this.map || !this.map.hasLayer(this.paperSheetLayer)) return;
+    if (!this.map || !this.map.hasLayer(this.paperSheetLayer) || this.currentBaseLayer !== 'igntop25') return;
     if (this._sheetsTimeout) {
       clearTimeout(this._sheetsTimeout);
     }
@@ -2195,6 +2287,11 @@ class MapManager {
    */
   renderPaperSheetBounds() {
     if (!this.map || !this.paperSheetLayer) return;
+    // Le quadrillage carte IGN ne doit apparaître que lorsqu'on est en affichage IGN TOP 25
+    if (this.currentBaseLayer !== 'igntop25') {
+      this.paperSheetLayer.clearLayers();
+      return;
+    }
     if (!this.map.hasLayer(this.paperSheetLayer)) return;
 
     const allSheets = window.IGN_TOP25_SHEETS;
@@ -2248,7 +2345,7 @@ class MapManager {
 
       const sheetBounds = [[sb[0], sb[1]], [sb[2], sb[3]]];
 
-      // A. Bande translucide adaptee
+      // A. Bande translucide adaptee (interactive: false pour ne jamais bloquer les clics sur la carte)
       const outerBand = L.rectangle(sheetBounds, {
         color: '#0284c7',
         weight: outerWeight,
@@ -2256,7 +2353,7 @@ class MapManager {
         fill: true,
         fillColor: '#0284c7',
         fillOpacity: zoom >= 10 ? 0.025 : 0.001,
-        interactive: true
+        interactive: false
       });
 
       // B. Trait interieur en pointilles (si zoom suffisant)
@@ -2295,10 +2392,9 @@ class MapManager {
         if (pMarker.y >= 20 && pMarker.y <= mapSize.y - 48 &&
             pMarker.x >= (labelEstimatedWidth / 2) && pMarker.x <= mapSize.x - (labelEstimatedWidth / 2)) {
           const labelHtml = `
-            <div class="paper-sheet-badge-label" title="Feuille IGN : ${s.t} (n° ${s.n})\nÉdition papier : ${s.a}\nCliquer pour recadrer toute la feuille">
+            <div class="paper-sheet-badge-label" title="Feuille IGN : ${getSheetCommercialLabel(s.n, s.t)}\nÉdition papier : ${s.a}\nCliquer pour recadrer toute la feuille">
               <span class="mr-1">📄</span>
-              <strong>TOP 25 ${s.t}</strong>
-              <span class="opacity-80 text-[10px]">(${s.n})</span>
+              <strong>${getSheetCommercialLabel(s.n, s.t)}</strong>
               <span class="ml-1 px-1 py-0.5 rounded bg-sky-100 text-sky-800 font-mono text-[9px] font-bold">Éd. ${s.a}</span>
             </div>
           `;
@@ -2321,14 +2417,14 @@ class MapManager {
         }
       }
 
-      // Clic sur la feuille pour recadrer
+      // Recadrage uniquement via le badge central si non en mode mesure
       const fitSheet = () => {
+        if (this.bearingMeasurementActive || this.measurePathActive || this.areaSelectionActive) return;
         this.map.fitBounds(sheetBounds, { padding: [30, 30], maxZoom: 14 });
       };
-      outerBand.on('click', fitSheet);
 
       // Infobulle complete toujours disponible au survol meme si le badge texte est masque
-      const tooltipText = `<b>Feuille IGN TOP 25 : ${s.t}</b> (n° ${s.n})<br>Édition papier : <b>${s.a}</b><br><i>Cliquez pour recadrer toute la feuille</i>`;
+      const tooltipText = `<b>Feuille IGN : ${getSheetCommercialLabel(s.n, s.t)}</b><br>Édition papier : <b>${s.a}</b><br><i>Cliquez pour recadrer toute la feuille</i>`;
       outerBand.bindTooltip(tooltipText, { sticky: true, opacity: 0.95 });
 
       this.paperSheetLayer.addLayer(outerBand);
@@ -2370,7 +2466,7 @@ class MapManager {
       );
       if (match) {
         annee = match.a;
-        titre = match.t ? `${match.t} (${match.n})` : match.n;
+        titre = match.t ? getSheetCommercialLabel(match.n, match.t) : match.n;
         fullTooltip = `Feuille IGN : ${titre} • Édition papier : ${annee}`;
       }
     }
@@ -2532,6 +2628,235 @@ class MapManager {
       this.startBearingMeasurement();
     }
   }
+
+  /**
+   * Affiche un tracé GPX en mode autonome (accès libre sans enregistrement)
+   * et propose l'impression de la carte haute définition autour du tracé.
+   */
+  displayStandaloneGpxTrack(gpxData, fileName) {
+    if (!this.map || !gpxData) return;
+
+    if (this._standaloneGpxLayer) {
+      this.map.removeLayer(this._standaloneGpxLayer);
+      this._standaloneGpxLayer = null;
+    }
+
+    // Récupérer les points (soit direct de GPXParser.parse, soit tracks)
+    let pts = gpxData.points || [];
+    if (pts.length === 0 && gpxData.tracks) {
+      gpxData.tracks.forEach(track => {
+        track.segments.forEach(seg => {
+          seg.points.forEach(p => pts.push(p));
+        });
+      });
+    }
+
+    if (pts.length === 0) return;
+
+    const latlngs = pts.map(p => [p.lat, p.lon]);
+
+    const polyline = L.polyline(latlngs, {
+      color: '#e11d48',
+      weight: 4.5,
+      opacity: 0.95,
+      lineJoin: 'round'
+    });
+
+    const startPt = latlngs[0];
+    const endPt = latlngs[latlngs.length - 1];
+
+    const startMarker = L.circleMarker(startPt, {
+      radius: 7,
+      fillColor: '#16a34a',
+      color: '#ffffff',
+      weight: 2,
+      fillOpacity: 1
+    }).bindTooltip('<b>Départ</b>');
+
+    const endMarker = L.circleMarker(endPt, {
+      radius: 7,
+      fillColor: '#dc2626',
+      color: '#ffffff',
+      weight: 2,
+      fillOpacity: 1
+    }).bindTooltip('<b>Arrivée</b>');
+
+    this._standaloneGpxLayer = L.featureGroup([polyline, startMarker, endMarker]);
+    this.map.addLayer(this._standaloneGpxLayer);
+    this.map.fitBounds(this._standaloneGpxLayer.getBounds(), { padding: [40, 40] });
+
+    const trackName = (gpxData.name || fileName || 'Trace GPX importée').replace(/\.gpx$/i, '');
+    const distVal = (gpxData.distanceKm !== undefined) ? gpxData.distanceKm : ((gpxData.distance !== undefined) ? gpxData.distance : '0');
+    const eleVal = (gpxData.elevationGain !== undefined) ? Math.round(gpxData.elevationGain) : 0;
+
+    this.standaloneHike = {
+      id: gpxData.id || ('gpx_user_' + Date.now()),
+      name: trackName,
+      distance: String(distVal),
+      elevationGain: eleVal,
+      points: pts,
+      startPoint: gpxData.startPoint || { lat: startPt[0], lon: startPt[1] },
+      endPoint: gpxData.endPoint || { lat: endPt[0], lon: endPt[1] }
+    };
+    this.selectedHike = this.standaloneHike;
+
+    // Afficher le HUD interactif avec bouton d'impression
+    this.showStandaloneGpxHud(this.standaloneHike);
+  }
+
+  showStandaloneGpxHud(hike) {
+    let hud = document.getElementById('standalone-gpx-hud');
+    if (!hud) {
+      hud = document.createElement('div');
+      hud.id = 'standalone-gpx-hud';
+      hud.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[1050] bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl px-4 py-2.5 shadow-2xl flex items-center gap-3 text-xs text-white';
+      document.body.appendChild(hud);
+    }
+    hud.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+        <span class="font-bold text-slate-100 truncate max-w-[180px] sm:max-w-[280px]" title="${hike.name}">${hike.name}</span>
+        <span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] font-mono text-emerald-400 whitespace-nowrap">${hike.distance} km • +${hike.elevationGain}m</span>
+      </div>
+      <div class="flex items-center gap-2 border-l border-slate-700 pl-3">
+        <button id="btn-print-standalone-gpx" type="button" class="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm">
+          <span>🖨️</span> <span class="hidden sm:inline">Imprimer la carte</span><span class="sm:hidden">Imprimer</span>
+        </button>
+        <button id="btn-clear-standalone-gpx" type="button" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-rose-400 transition cursor-pointer" title="Fermer cette trace">
+          ✕
+        </button>
+      </div>
+    `;
+    hud.classList.remove('hidden');
+
+    document.getElementById('btn-print-standalone-gpx').addEventListener('click', () => {
+      this.printAroundStandaloneGpx();
+    });
+
+    document.getElementById('btn-clear-standalone-gpx').addEventListener('click', () => {
+      this.clearStandaloneGpxTrack();
+    });
+  }
+
+  printAroundStandaloneGpx() {
+    if (!this._standaloneGpxLayer) return;
+    const bounds = this._standaloneGpxLayer.getBounds();
+    const padLat = (bounds.getNorth() - bounds.getSouth()) * 0.15;
+    const padLng = (bounds.getEast() - bounds.getWest()) * 0.15;
+    const paddedBounds = [
+      [bounds.getSouth() - padLat, bounds.getWest() - padLng],
+      [bounds.getNorth() + padLat, bounds.getEast() + padLng]
+    ];
+    if (window.App) {
+      window.App.areaPrintHike = this.standaloneHike;
+      window.App.openMapAreaModal(paddedBounds);
+    }
+  }
+
+  clearStandaloneGpxTrack() {
+    if (this._standaloneGpxLayer) {
+      this.map.removeLayer(this._standaloneGpxLayer);
+      this._standaloneGpxLayer = null;
+    }
+    this.standaloneHike = null;
+    if (this.selectedHike && String(this.selectedHike.id).startsWith('gpx_user_')) {
+      this.selectedHike = null;
+    }
+    const hud = document.getElementById('standalone-gpx-hud');
+    if (hud) hud.classList.add('hidden');
+  }
+
+  /**
+   * Planifie la mise à jour de la date de prise de vue de l'imagerie satellite
+   */
+  scheduleSatelliteDateUpdate() {
+    if (!this.map) return;
+    if (this._satDateTimeout) clearTimeout(this._satDateTimeout);
+    this._satDateTimeout = setTimeout(() => {
+      this.updateSatelliteDate();
+    }, 400);
+  }
+
+  /**
+   * Récupère et affiche la date exacte de prise de vue satellite (IGN Ortho HR en France ou Esri World)
+   */
+  async updateSatelliteDate() {
+    if (!this.map) return;
+    const center = this.map.getCenter();
+    if (!center) return;
+
+    const lat = center.lat;
+    const lon = center.lng;
+    let dateStr = '';
+    let provider = '';
+
+    try {
+      if (this.isInsideFrance(lat, lon)) {
+        // Flux officiel IGN WFS Ortho
+        const delta = 0.01;
+        const url = `https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAME=ORTHOIMAGERY.ORTHOPHOTOS.GRAPHE-MOSAIQUAGE:graphe_bdortho&BBOX=${lat-delta},${lon-delta},${lat+delta},${lon+delta},urn:ogc:def:crs:EPSG::4326&OUTPUTFORMAT=application/json`;
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.features && data.features.length > 0) {
+            const p = data.features[0].properties;
+            if (p.date_vol) {
+              const dParts = String(p.date_vol).replace('Z', '').split('-');
+              if (dParts.length >= 3) {
+                dateStr = `${dParts[2]}/${dParts[1]}/${dParts[0]}`;
+              } else {
+                dateStr = String(p.date_vol);
+              }
+              provider = 'IGN BD ORTHO® (20 cm)';
+            } else if (p.pva) {
+              dateStr = String(p.pva);
+              provider = 'IGN BD ORTHO®';
+            }
+          }
+        }
+      }
+
+      if (!dateStr) {
+        // Esri World Imagery Identify
+        const esriUrl = `https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/identify?geometry=${lon},${lat}&geometryType=esriGeometryPoint&sr=4326&layers=top&tolerance=2&mapExtent=${lon-0.05},${lat-0.05},${lon+0.05},${lat+0.05}&imageDisplay=800,600,96&returnGeometry=false&f=json`;
+        const eResp = await fetch(esriUrl);
+        if (eResp.ok) {
+          const eData = await eResp.json();
+          if (eData && eData.results && eData.results.length > 0) {
+            const attr = eData.results[0].attributes || {};
+            const dVal = attr['DATE (YYYYMMDD)'] || attr['SRC_DATE2'];
+            if (dVal) {
+              if (String(dVal).length === 8) {
+                const y = String(dVal).substring(0, 4);
+                const m = String(dVal).substring(4, 6);
+                const d = String(dVal).substring(6, 8);
+                dateStr = `${d}/${m}/${y}`;
+              } else {
+                dateStr = String(dVal);
+              }
+              provider = attr['SOURCE'] ? `Satellite ${attr['SOURCE']}` : 'Satellite Haute Résolution';
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Erreur lecture date satellite:', e);
+    }
+
+    if (dateStr) {
+      this.currentSatelliteDateStr = `Prise de vue : ${dateStr} (${provider})`;
+      // Mettre à jour l'attribution Leaflet
+      const satLayer = this.baseLayers && (this.baseLayers["Satellite France (IGN Ortho)"] || this.baseLayers["Satellite Mondial (Esri 🌍)"]);
+      if (satLayer) {
+        const satAttr = `&copy; Satellite (${provider} • <span class="font-bold text-slate-800">Date : ${dateStr}</span>)`;
+        satLayer.options.attribution = satAttr;
+        if (this.map.attributionControl) {
+          this.map.attributionControl.addAttribution(satAttr);
+        }
+      }
+    }
+  }
+
 }
 
 window.MapManager = MapManager;
