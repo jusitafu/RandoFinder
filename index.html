@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-  <title>Randonneurs Sanaryens - RandoFinder</title>
+  <title>Map & Rando by JLDApps - La cartographie au service de vos pas</title>
 
   
 
@@ -90,11 +90,11 @@
 
   <!-- Custom CSS -->
 
-  <link rel="stylesheet" href="css/styles.css?v=100">
+  <link rel="stylesheet" href="css/styles.css?v=101">
 
 </head>
 
-<body class="h-full flex flex-col bg-slate-50 text-slate-800 antialiased select-none overflow-hidden">
+<body class="min-h-screen bg-slate-950 text-slate-100 antialiased font-sans select-none overflow-x-hidden">
 
 
 
@@ -104,7 +104,1346 @@
 
   <!-- ========================================================================= -->
 
-  <header class="bg-slate-900 text-white shadow-lg border-b border-slate-800 relative z-[1060] flex-shrink-0">
+  
+  <!-- ========================================================================= -->
+  <!-- PORTAL VIEW : MAP & RANDO BY JLDAPPS (FRESQUE 4 CARTES & COURS D'EAU) -->
+  <!-- ========================================================================= -->
+  <div id="portal-view" class="relative min-h-screen flex flex-col justify-between text-slate-100 selection:bg-emerald-500 selection:text-white overflow-hidden">
+    
+    <!-- FRESQUE CARTOGRAPHIQUE EN FOND D'ÉCRAN AVEC SÉPARATIONS PAR COURS D'EAU -->
+    <div id="portal-bg-composite" class="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+      <!-- Image composite haute résolution des 4 territoires unis par méandres fluviaux -->
+      <div class="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-[1.01]" 
+           style="background-image: url('images/vignettes/wallpaper_composite_4maps.jpg');"></div>
+      
+      <!-- Voile de contraste équilibré : met parfaitement en valeur les 4 cartes et la rivière tout en sublimant les cartes de menu -->
+      <div class="absolute inset-0 bg-gradient-to-b from-slate-950/45 via-slate-950/20 to-slate-950/60 backdrop-blur-[0.5px]"></div>
+    </div>
+
+    <!-- Navigation Supérieure Épurée -->
+    <header class="sticky top-0 z-40 w-full bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80 px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-xl">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-2xl shadow-lg shadow-emerald-950/50 border border-emerald-400/30">
+          🗺️
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-baseline gap-2">
+            <span class="text-xl sm:text-2xl font-black tracking-tight text-white uppercase leading-none">Map &amp; Rando</span>
+            <span class="text-xs sm:text-sm font-normal text-emerald-300/80 font-medium leading-none">by JLDApps</span>
+          </div>
+          <span class="text-[11px] text-slate-300 font-semibold tracking-wider uppercase leading-tight mt-0.5">La cartographie au service de vos pas</span>
+        </div>
+      </div>
+      
+      <!-- Boîte Mode d'emploi détaillé (à gauche) & Boîte CGU (à droite) -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+        <button id="btn-open-mode-emploi" type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm border-2 border-emerald-400 hover:border-white shadow-xl transition-all cursor-pointer">
+          <span class="text-sm">📖</span>
+          <span>Mode d'emploi</span>
+        </button>
+        <button id="btn-open-cgu" type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs sm:text-sm border-2 border-slate-600 hover:border-emerald-400 shadow-xl transition-all cursor-pointer">
+          <span class="text-sm">⚖️</span>
+          <span>Mentions Légales &amp; CGU</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Contenu Principal Centré & Dimensionné pour tout écran PC -->
+    <main class="max-w-6xl w-full mx-auto px-4 sm:px-8 py-2 sm:py-3 flex-grow flex flex-col justify-center my-auto">
+      
+      <!-- En-tête Hero avec Branding & Titre dans un cadre de verre élégant pour lisibilité absolue -->
+      <div class="text-center max-w-4xl mx-auto mb-2.5 sm:mb-3 p-3.5 sm:p-4 rounded-3xl bg-slate-950/75 backdrop-blur-xl border border-slate-700/60 shadow-2xl">
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/40 text-emerald-300 mb-3 shadow-sm">
+          <span class="text-xs sm:text-sm font-black uppercase tracking-wider">Map &amp; Rando</span>
+          <span class="text-xs text-slate-300 font-light">by JLDApps</span>
+        </div>
+        <h1 class="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white mb-1.5 leading-tight drop-shadow-xl">
+          La cartographie au service de vos pas
+        </h1>
+        <p class="text-sm sm:text-base md:text-lg text-slate-200 font-normal leading-relaxed drop-shadow">
+          Explorez la France au 1 : 25 000 officiel IGN, chargez vos traces GPX, imprimez vos cartes personnalisées et randonnez en toute liberté.
+        </p>
+      </div>
+
+      <!-- Les 3 Chemins : Menu Haut Contraste & Verre Foncé -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+        
+        <!-- Voie 1 : Cartes & Outils (Accès Libre) -->
+        <div class="group relative rounded-3xl bg-slate-950/92 hover:bg-slate-950 border-2 border-slate-700 hover:border-emerald-500 p-4 sm:p-5 backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition">
+                🧭
+              </div>
+              <span class="px-3.5 py-1 rounded-full bg-emerald-500/30 border border-emerald-400/60 text-emerald-300 text-[11px] font-black uppercase tracking-wider shadow-sm">
+                Accès Libre
+              </span>
+            </div>
+            
+            <div>
+              <h2 class="text-xl sm:text-2xl font-black text-white group-hover:text-emerald-300 transition">
+                Cartes &amp; Outils
+              </h2>
+              <p class="text-xs sm:text-sm text-slate-200 mt-2 font-medium leading-relaxed">
+                Carte pleine page IGN TOP 25, étalonnage d'écran au centimètre vrai, chargement d'une trace GPX depuis votre PC et impression de la carte sur mesure.
+              </p>
+            </div>
+          </div>
+          
+          <div class="mt-3.5 pt-3 border-t border-slate-800">
+            <a href="#carte" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-sm sm:text-base shadow-xl shadow-emerald-950/50 transition-all cursor-pointer">
+              <span>Ouvrir la Carte</span>
+              <span class="group-hover:translate-x-1 transition-transform">→</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Voie 2 : Randonner : trouver des traces gpx et les gérer (Accès Protégé) -->
+        <div class="group relative rounded-3xl bg-slate-950/92 hover:bg-slate-950 border-2 border-slate-700 hover:border-blue-500 p-4 sm:p-5 backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition">
+                🥾
+              </div>
+              <span class="px-3.5 py-1 rounded-full bg-blue-500/30 border border-blue-400/60 text-blue-300 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                <span>🔒</span> <span>Accès Membre</span>
+              </span>
+            </div>
+            
+            <div>
+              <h2 class="text-xl sm:text-2xl font-black text-white group-hover:text-blue-300 transition">
+                Randonner : trouver des traces GPX et les gérer
+              </h2>
+              <p class="text-xs sm:text-sm text-slate-200 mt-2 font-medium leading-relaxed">
+                Catalogue associatif complet, filtres de recherche et calcul d'effort (Index IBP officiel), gestion du fonds de randonnées et fiches PDF détaillées.
+              </p>
+            </div>
+          </div>
+          
+          <div class="mt-3.5 pt-3 border-t border-slate-800">
+            <a href="#randonner" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm sm:text-base shadow-xl shadow-blue-950/50 transition-all cursor-pointer">
+              <span>Accéder à l'Espace Rando</span>
+              <span class="group-hover:translate-x-1 transition-transform">→</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Voie 3 : Guides & Savoirs -->
+        <div class="group relative rounded-3xl bg-slate-950/92 hover:bg-slate-950 border-2 border-slate-700 hover:border-amber-500 p-4 sm:p-5 backdrop-blur-2xl shadow-2xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition">
+                📚
+              </div>
+              <span class="px-3.5 py-1 rounded-full bg-amber-500/30 border border-amber-400/60 text-amber-300 text-[11px] font-black uppercase tracking-wider shadow-sm">
+                Fiches Pratiques
+              </span>
+            </div>
+            
+            <div>
+              <h2 class="text-xl sm:text-2xl font-black text-white group-hover:text-amber-300 transition">
+                Guides &amp; Savoirs
+              </h2>
+              <p class="text-xs sm:text-sm text-slate-200 mt-2 font-medium leading-relaxed">
+                Fiches techniques sur le GPS &amp; SBAS, le programme LiDAR HD de l'IGN, l'évaluation d'effort IBP Index et la Check-list essentielle avant de partir en randonnée.
+              </p>
+            </div>
+          </div>
+          
+          <div class="mt-3.5 pt-3 border-t border-slate-800">
+            <a href="#guides" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-white font-black text-sm sm:text-base shadow-xl shadow-amber-950/50 transition-all cursor-pointer">
+              <span>Consulter les Fiches</span>
+              <span class="group-hover:translate-x-1 transition-transform">→</span>
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- BANDEAU ÉQUIPEMENTS OUTDOOR SUR LA PAGE D'ACCUEIL (SYSTÉMATIQUEMENT VISIBLE) -->
+      <div id="outdoor-gear-home-bar" class="mt-2.5 rounded-3xl bg-slate-950/92 border-2 border-amber-500/40 p-3 sm:p-4 backdrop-blur-2xl shadow-2xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full bg-amber-500/25 border border-amber-400/50 text-amber-300 text-[10px] font-black uppercase tracking-wider">
+              🛒 Équipements Rando Recommandés
+            </span>
+            <span class="text-xs sm:text-sm font-extrabold text-white">Préparez vos sorties avec notre sélection matériel sur Amazon</span>
+          </div>
+          <span class="text-[11px] text-slate-400">Soutenez Map &amp; Rando sans surcoût</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <a href="https://www.amazon.fr/s?k=chaussures+randonnee+gore+tex+batons+carbone&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition flex items-center gap-2 shadow-md">
+            <span class="text-xl group-hover:scale-110 transition-transform">🥾</span>
+            <span class="text-[11px] font-extrabold text-white group-hover:text-amber-300 leading-tight">Chaussures &amp; Bâtons</span>
+          </a>
+          <a href="https://www.amazon.fr/s?k=batterie+externe+randonnee+chargeur+solaire+portable&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition flex items-center gap-2 shadow-md">
+            <span class="text-xl group-hover:scale-110 transition-transform">⚡</span>
+            <span class="text-[11px] font-extrabold text-white group-hover:text-amber-300 leading-tight">Power Banks &amp; Solaire</span>
+          </a>
+          <a href="https://www.amazon.fr/s?k=boussole+visee+suunto+silva+gps+randonnee+garmin&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition flex items-center gap-2 shadow-md">
+            <span class="text-xl group-hover:scale-110 transition-transform">🧭</span>
+            <span class="text-[11px] font-extrabold text-white group-hover:text-amber-300 leading-tight">Boussoles &amp; GPS</span>
+          </a>
+          <a href="https://www.amazon.fr/s?k=trousse+premiers+secours+randonnee+lampe+frontale+petzl&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition flex items-center gap-2 shadow-md">
+            <span class="text-xl group-hover:scale-110 transition-transform">🩹</span>
+            <span class="text-[11px] font-extrabold text-white group-hover:text-amber-300 leading-tight">Trousse Secours &amp; Frontales</span>
+          </a>
+          <a href="https://www.amazon.fr/s?k=filtre+eau+randonnee+sawyer+lifestraw+rechaud+gaz&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition flex items-center gap-2 shadow-md">
+            <span class="text-xl group-hover:scale-110 transition-transform">💧</span>
+            <span class="text-[11px] font-extrabold text-white group-hover:text-amber-300 leading-tight">Filtres Eau &amp; Bivouac</span>
+          </a>
+          <a href="https://www.amazon.fr/s?k=porte+carte+etanche+randonnee+curvimetre+loupe&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition flex items-center gap-2 shadow-md">
+            <span class="text-xl group-hover:scale-110 transition-transform">🗺️</span>
+            <span class="text-[11px] font-extrabold text-white group-hover:text-amber-300 leading-tight">Porte-Cartes &amp; Outils</span>
+          </a>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Pied de page avec évocation des 4 territoires réunis par cours d'eau -->
+    <footer class="w-full border-t border-slate-800/80 bg-slate-950/90 backdrop-blur-md py-3 px-4 sm:px-8 text-center text-xs text-slate-300 flex flex-col sm:flex-row items-center justify-between gap-2 shadow-inner">
+      <div class="flex items-center gap-2 text-[11px] text-slate-400">
+        <span>🌊 4 Territoires en cours d'eau :</span>
+        <span class="text-slate-300 font-medium">🌋 Tongariro &bull; 🏜️ Bardenas &bull; 🌲 Morimond &bull; 🏖️ Sanary-Bandol</span>
+      </div>
+      <div>
+        <span class="text-white font-bold">Map &amp; Rando</span> &bull; <span class="text-slate-400">JLDApps 2026</span> &bull; Sanary-sur-Mer (Var 83)
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- GUIDES & SAVOIRS VIEW : FICHES DÉPLIABLES & SÉLECTION OUTDOOR AMAZON -->
+  <!-- ========================================================================= -->
+  <div id="guides-view" class="hidden relative min-h-screen bg-slate-950 text-slate-100 py-2.5 px-4 sm:px-8 selection:bg-amber-500 selection:text-white flex flex-col justify-between">
+    
+    <!-- Top Bar avec retour accueil -->
+    <div class="w-full px-4 sm:px-8 lg:px-12 mb-2.5 flex items-center justify-between border-b border-slate-800 pb-2">
+      <a href="#accueil" class="btn-return-home inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs sm:text-sm transition border-2 border-slate-700 hover:border-emerald-400 shadow-md cursor-pointer">
+        <span>←</span> <span>Retour à l'Accueil Map &amp; Rando</span>
+      </a>
+      <div class="flex items-center gap-3">
+        <span class="text-xs sm:text-sm font-bold text-amber-400 uppercase tracking-wider">Guides, Savoirs &amp; Matériel</span>
+        <span class="text-xs text-slate-400 hidden sm:inline">&bull; JLDApps 2026</span>
+      </div>
+    </div>
+
+    <div class="w-full px-4 sm:px-8 lg:px-12 space-y-3 my-auto">
+      
+      <!-- EN-TÊTE DE LA SECTION GUIDES (COMPACT PLEINE PAGE) -->
+      <div class="text-center max-w-4xl mx-auto">
+        <div class="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-black uppercase tracking-wider mb-1">
+          <span>📚</span> <span>Fiches Pratiques de Cartographie, Géolocalisation &amp; Préparation</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-black text-white leading-tight">
+          Comprendre, Mesurer &amp; Optimiser vos Traces
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-300 mt-1">
+          Cliquez sur une fiche pour déplier son analyse complète, ses tableaux de réglages et télécharger le guide officiel au format PDF.
+        </p>
+      </div>
+
+      <!-- DISPOSITION 2 COLONNES : FICHES À GAUCHE + CADRE PUBS ALIGNÉ EN HAUT ET EN BAS À DROITE -->
+      <div id="guides-main-grid" class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-stretch">
+        <div id="guides-fiches-col" class="lg:col-span-7 flex flex-col justify-between gap-2.5">
+        
+        <!-- ================================================================= -->
+        <!-- FICHE 1 : GPS DIFFÉRENTIEL, SBAS & RÉGLAGES MONTRES DE SPORT -->
+        <!-- ================================================================= -->
+        <div class="rounded-3xl bg-slate-900/90 border-2 border-slate-800 hover:border-sky-500/70 transition-all shadow-2xl overflow-hidden">
+          <!-- Entête cliquable (Titre seul) -->
+          <button type="button" onclick="window.PortalRouterInstance.toggleGuideFiche('fiche-gps-content', this)" 
+                  class="w-full p-3.5 sm:p-4 text-left flex items-start sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-800/40 transition">
+            <div class="flex items-start sm:items-center gap-3.5">
+              <div class="w-11 h-11 rounded-2xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center text-xl flex-shrink-0 shadow-inner">
+                🛰️
+              </div>
+              <div>
+                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 text-[10px] font-black uppercase tracking-wider mb-0.5">
+                  <span>GÉOLOCALISATION &amp; MONTRES</span>
+                </div>
+                <h2 class="text-base sm:text-lg font-black text-white leading-snug">
+                  GPS Différentiel, Système SBAS &amp; Réglages des Montres de Sport
+                </h2>
+                <p class="text-xs text-slate-300 mt-0.5 font-light line-clamp-2">
+                  Pourquoi le GPS décroche sous la canopée, comment le SBAS abaisse l'erreur sous 1,5&nbsp;m, et comparatif Garmin, Suunto, Coros, Apple.
+                </p>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-3 flex-shrink-0">
+              <span class="guide-toggle-icon text-sm px-3.5 py-2 rounded-xl bg-sky-600/30 text-sky-300 font-extrabold border border-sky-500/40">
+                Déplier ▾
+              </span>
+            </div>
+          </button>
+
+          <!-- Contenu dépliable de la Fiche 1 (Initialement masqué) -->
+          <div id="fiche-gps-content" class="hidden border-t border-slate-800 p-6 sm:p-10 bg-slate-950/60 space-y-8">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-sky-950/30 p-4 rounded-2xl border border-sky-800/50">
+              <div class="text-xs text-sky-200">
+                📄 <strong>Fiche Technique Officielle</strong> &bull; Édition Haute Définition &bull; Document PDF imprimable
+              </div>
+              <a href="docs/Guide_Pratique_GPS_SBAS.pdf" target="_blank" download class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs shadow-lg transition cursor-pointer flex-shrink-0">
+                <span>📥</span> <span>Télécharger le PDF (207 Ko)</span>
+              </a>
+            </div>
+
+            <div class="space-y-6 text-sm text-slate-300 leading-relaxed">
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-sky-400">1.</span> Pourquoi le GPS standard présente des imprécisions en randonnée
+                </h3>
+                <p>
+                  Le système GPS civil standard offre une précision nominale d'environ <strong>5 à 10 mètres</strong> en conditions dégagées. 
+                  Toutefois, en randonnée, cette précision est fréquemment altérée par la traversée de l'atmosphère, 
+                  les masques végétaux (forêts à canopée dense) et les échos parasites en gorge ou falaise (effet multi-trajet).
+                </p>
+              </section>
+
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-sky-400">2.</span> Le fonctionnement du système SBAS (EGNOS / WAAS)
+                </h3>
+                <p>
+                  Le système <strong>SBAS</strong> (<em>Satellite-Based Augmentation System</em>) compense ces erreurs en temps réel. 
+                  Un réseau de stations au sol mesure les écarts entre positions théoriques et mesurées, puis transmet ces corrections 
+                  à des satellites géostationnaires (<strong>EGNOS</strong> en Europe, <strong>WAAS</strong> en Amérique du Nord). 
+                  Votre récepteur GPS applique ces corrections pour abaisser la marge d'erreur à <strong>moins de 1,5 mètre</strong>.
+                </p>
+              </section>
+
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-3 flex items-center gap-2">
+                  <span class="text-sky-400">3.</span> Tableau comparatif des réglages recommandés par marque
+                </h3>
+                <div class="overflow-x-auto rounded-2xl border border-slate-800">
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-slate-900 text-slate-200 border-b border-slate-800 font-extrabold uppercase tracking-wider">
+                      <tr>
+                        <th class="p-3">Marque</th>
+                        <th class="p-3">Modèles récents</th>
+                        <th class="p-3">Réglage Satellite conseillé</th>
+                        <th class="p-3">Option SBAS / EGNOS</th>
+                        <th class="p-3">Impact Autonomie</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 bg-slate-950/40 font-medium">
+                      <tr class="hover:bg-slate-800/30">
+                        <td class="p-3 font-bold text-white">Garmin</td>
+                        <td class="p-3 text-slate-300">Fenix 7/8, Forerunner 265/965, Epix</td>
+                        <td class="p-3 text-emerald-400 font-semibold">Tous les systèmes + Multi-Bandes (L1+L5)</td>
+                        <td class="p-3">Activé d'office en multi-bandes</td>
+                        <td class="p-3 text-amber-400">-15% à -25%</td>
+                      </tr>
+                      <tr class="hover:bg-slate-800/30">
+                        <td class="p-3 font-bold text-white">Suunto</td>
+                        <td class="p-3 text-slate-300">Vertical, Race, 9 Peak Pro</td>
+                        <td class="p-3 text-emerald-400 font-semibold">Performances (Tous systèmes + Double fréq.)</td>
+                        <td class="p-3">Intégré nativement</td>
+                        <td class="p-3 text-emerald-400 font-bold">Excellente (60h+)</td>
+                      </tr>
+                      <tr class="hover:bg-slate-800/30">
+                        <td class="p-3 font-bold text-white">Coros</td>
+                        <td class="p-3 text-slate-300">Apex 2 Pro, Vertix 2/2S, Pace 3</td>
+                        <td class="p-3 text-emerald-400 font-semibold">Tous les systèmes + Double Fréquence</td>
+                        <td class="p-3">Automatique</td>
+                        <td class="p-3 text-emerald-400">Très faible impact</td>
+                      </tr>
+                      <tr class="hover:bg-slate-800/30">
+                        <td class="p-3 font-bold text-white">Apple</td>
+                        <td class="p-3 text-slate-300">Apple Watch Ultra 1 &amp; 2</td>
+                        <td class="p-3 text-emerald-400 font-semibold">GPS double fréquence de précision L1/L5</td>
+                        <td class="p-3">Géré par watchOS</td>
+                        <td class="p-3 text-rose-400 font-semibold">Autonomie 17-36h</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+
+            <!-- Bouton replier -->
+            <div class="pt-4 border-t border-slate-800 flex justify-end">
+              <button type="button" onclick="window.PortalRouterInstance.toggleGuideFiche('fiche-gps-content')" 
+                      class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer">
+                ▴ Replier la fiche
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- FICHE 2 : LE PROGRAMME NATIONAL LIDAR HD DE L'IGN -->
+        <!-- ================================================================= -->
+        <div class="rounded-3xl bg-slate-900/90 border-2 border-slate-800 hover:border-emerald-500/70 transition-all shadow-2xl overflow-hidden">
+          <!-- Entête cliquable (Titre seul) -->
+          <button type="button" onclick="window.PortalRouterInstance.toggleGuideFiche('fiche-lidar-content', this)" 
+                  class="w-full p-3.5 sm:p-4 text-left flex items-start sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-800/40 transition">
+            <div class="flex items-start sm:items-center gap-3.5">
+              <div class="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xl flex-shrink-0 shadow-inner">
+                🌲
+              </div>
+              <div>
+                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase tracking-wider mb-0.5">
+                  <span>TOPOGRAPHIE &amp; ALTIMÉTRIE IGN</span>
+                </div>
+                <h2 class="text-base sm:text-lg font-black text-white leading-snug">
+                  Le Programme National LiDAR HD de l'IGN : Révolution de la Cartographie 3D
+                </h2>
+                <p class="text-xs text-slate-300 mt-0.5 font-light line-clamp-2">
+                  Couverture laser aéroportée de toute la France, résolution de 0,5 mètre, pénétration sous couvert végétal et génération des MNT.
+                </p>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-3 flex-shrink-0">
+              <span class="guide-toggle-icon text-sm px-3.5 py-2 rounded-xl bg-emerald-600/30 text-emerald-300 font-extrabold border border-emerald-500/40">
+                Déplier ▾
+              </span>
+            </div>
+          </button>
+
+          <!-- Contenu dépliable de la Fiche 2 (Initialement masqué) -->
+          <div id="fiche-lidar-content" class="hidden border-t border-slate-800 p-6 sm:p-10 bg-slate-950/60 space-y-8">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-emerald-950/30 p-4 rounded-2xl border border-emerald-800/50">
+              <div class="text-xs text-emerald-200">
+                📄 <strong>Fiche Technique Officielle</strong> &bull; Édition IGN France &bull; Document PDF imprimable
+              </div>
+              <a href="docs/Fiche_Pratique_LiDAR_HD.pdf" target="_blank" download class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-lg transition cursor-pointer flex-shrink-0">
+                <span>📥</span> <span>Télécharger le PDF (162 Ko)</span>
+              </a>
+            </div>
+
+            <div class="space-y-6 text-sm text-slate-300 leading-relaxed">
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-emerald-400">1.</span> Qu'est-ce que le programme LiDAR HD ?
+                </h3>
+                <p>
+                  Le programme national <strong>LiDAR HD</strong> mené par l'Institut National de l'Information Géographique et Forestière (<strong>IGN</strong>) 
+                  constitue une avancée technologique majeure. Il vise à modéliser la totalité du sol et du sursol métropolitain et ultra-marin 
+                  en 3D à l'aide de capteurs laser embarqués sur aéronefs, avec une densité minimale de <strong>10 impulsions par m²</strong>.
+                </p>
+              </section>
+
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-emerald-400">2.</span> Pénétration du couvert végétal et Modèles Numériques
+                </h3>
+                <p>
+                  Contrairement aux prises de vues aériennes classiques ou satellites, les impulsions laser infrarouges traversent les interstices de la canopée. 
+                  L'IGN en extrait trois modèles d'élévation complémentaires :
+                </p>
+                <ul class="list-disc list-inside space-y-1.5 pl-2 mt-2">
+                  <li><strong>MNT (Modèle Numérique de Terrain)</strong> : altitude exacte du sol nu (sans arbres ni bâtiments).</li>
+                  <li><strong>MNS (Modèle Numérique de Surface)</strong> : sommet de la végétation et du bâti.</li>
+                  <li><strong>MNH (Modèle Numérique de Hauteur)</strong> : hauteur exacte de la canopée forestière.</li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-emerald-400">3.</span> Bénéfices directs pour les randonneurs
+                </h3>
+                <p>
+                  Grâce au MNT LiDAR HD à 50 cm de précision, les courbes de niveau des cartes <strong>IGN TOP 25®</strong> 
+                  acquièrent une netteté inégalée : détection de sentiers historiques dissimulés sous les bois, estimation exacte des pourcentages de pente 
+                  et calculs de dénivelés cumulés (D+) d'une rigueur absolue.
+                </p>
+              </section>
+            </div>
+
+            <!-- Bouton replier -->
+            <div class="pt-4 border-t border-slate-800 flex justify-end">
+              <button type="button" onclick="window.PortalRouterInstance.toggleGuideFiche('fiche-lidar-content')" 
+                      class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer">
+                ▴ Replier la fiche
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- FICHE 3 : IBP INDEX - ÉVALUATION OBJECTIVE DE LA DIFFICULTÉ       -->
+        <!-- ================================================================= -->
+        <div class="rounded-3xl bg-slate-900/90 border-2 border-slate-800 hover:border-indigo-500/70 transition-all shadow-2xl overflow-hidden">
+          <!-- Entête cliquable (Titre seul) -->
+          <button type="button" onclick="window.PortalRouterInstance.toggleGuideFiche('fiche-ibp-content', this)" 
+                  class="w-full p-3.5 sm:p-4 text-left flex items-start sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-800/40 transition">
+            <div class="flex items-start sm:items-center gap-3.5">
+              <div class="w-11 h-11 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xl flex-shrink-0 shadow-inner">
+                📊
+              </div>
+              <div>
+                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-wider mb-0.5">
+                  <span>TECHNIQUE OUTDOOR &bull; ANALYSE NUMÉRIQUE &amp; PERFORMANCE</span>
+                </div>
+                <h2 class="text-base sm:text-lg font-black text-white leading-snug">
+                  IBP Index : L'Évaluation Objective de la Difficulté Physique en Randonnée
+                </h2>
+                <p class="text-xs text-slate-300 mt-0.5 font-light line-clamp-2">
+                  Mécanisme algorithmique, étalonnage de l'effort, matrice de condition physique et interprétation des traces GPX.
+                </p>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-3 flex-shrink-0">
+              <span class="guide-toggle-icon text-sm px-3.5 py-2 rounded-xl bg-indigo-600/30 text-indigo-300 font-extrabold border border-indigo-500/40">
+                Déplier ▾
+              </span>
+            </div>
+          </button>
+
+          <!-- Contenu dépliable de la Fiche 3 (Initialement masqué) -->
+          <div id="fiche-ibp-content" class="hidden border-t border-slate-800 p-6 sm:p-10 bg-slate-950/60 space-y-8">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-indigo-950/30 p-4 rounded-2xl border border-indigo-800/50">
+              <div class="text-xs text-indigo-200">
+                📄 <strong>Fiche Pratique &bull; Analyse Numérique &amp; Performance Outdoor</strong> &bull; JLDApps 2026 &bull; Document PDF imprimable (2 pages)
+              </div>
+              <a href="docs/Fiche_Technique_IBP_Index.pdf" target="_blank" download class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-lg transition cursor-pointer flex-shrink-0">
+                <span>📥</span> <span>Télécharger le PDF (184 Ko)</span>
+              </a>
+            </div>
+
+            <div class="space-y-6 text-sm text-slate-300 leading-relaxed">
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-indigo-400">1.</span> Qu'est-ce que l'IBP Index (Intelligent Benchmark Prediction) ?
+                </h3>
+                <p>
+                  L'acronyme officiel <strong>IBP</strong> signifie <em>Intelligent Benchmark Prediction</em>. Développé en 2007 en Espagne pour standardiser l'effort sur les parcours de VTT (d'où l'analogie fréquente avec le sigle <em>BTT</em> en espagnol), ce système a été étendu avec succès à la <strong>randonnée pédestre (profil HKG / Hiking)</strong>, au trail et à la course à pied.
+                </p>
+                <p class="mt-2">
+                  L'IBP Index attribue une <strong>valeur numérique sans unité</strong> (de 0 à plus de 200) quantifiant la sévérité physique d'un itinéraire. Sa force réside dans sa <strong>neutralité absolue</strong> : la trace d'une même randonnée génère un score mathématique unique, strictement identique que l'on soit athlète chevronné ou marcheur occasionnel.
+                </p>
+              </section>
+
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-indigo-400">2.</span> Principes algorithmiques et données analysées
+                </h3>
+                <p>
+                  Contrairement aux estimations basées uniquement sur le cumul kilométrique et le dénivelé global, l'algorithme IBP segmente la trace en micro-tronçons et analyse en continu la géométrie fine du tracé :
+                </p>
+                <ul class="list-disc list-inside space-y-2 pl-2 mt-2.5">
+                  <li><strong>Distance et répartition des pentes :</strong> Calcul des pourcentages d'inclinaison réels (montée, plat, descente) et distinction entre montées régulières et raidillons brutaux.</li>
+                  <li><strong>Dénivelé cumulé et tranches d'altitude :</strong> Prise en compte de l'impact physiologique de l'altitude absolue (un dénivelé positif franchi au-dessus de 2&nbsp;000&nbsp;m engendre un coût métabolique supérieur lié à la raréfaction de l'oxygène).</li>
+                  <li><strong>Rythme des changements de pente :</strong> Un itinéraire en « dents de scie » continuel obtient un score IBP nettement plus élevé qu'un profil à montée unique régulière pour un kilométrage et un dénivelé identiques.</li>
+                  <li><strong>Filtrage des données parasites :</strong> L'algorithme élimine automatiquement les pauses, les arrêts prolongés et les artefacts d'imprécision du signal GPS avant calcul.</li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-indigo-400">3.</span> Échelle des scores et matrice de condition physique (Randonnée pédestre)
+                </h3>
+                <div class="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-800/40 text-xs sm:text-sm text-indigo-200 mb-3">
+                  <strong>L'effort perçu est relatif :</strong> L'IBP Index mesure l'exigence intrinsèque du parcours. L'effort ressenti varie selon la préparation physique selon la matrice officielle à 5 couleurs :
+                </div>
+                <div class="overflow-x-auto rounded-2xl border border-slate-800">
+                  <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                    <thead>
+                      <tr class="bg-slate-900/90 text-slate-300 border-b border-slate-800 uppercase text-[11px] tracking-wider">
+                        <th class="py-3 px-4 font-black">Score IBP HKG</th>
+                        <th class="py-3 px-4 font-black">🚶 Condition faible</th>
+                        <th class="py-3 px-4 font-black">🥾 Condition moyenne</th>
+                        <th class="py-3 px-4 font-black">🏃 Très bonne forme</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/80 font-bold">
+                      <tr class="bg-slate-900/40">
+                        <td class="py-2.5 px-4 text-white font-black">0 à 25</td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs">FACILE</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs">TRÈS FACILE</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs">NÉGLIGEABLE</span></td>
+                      </tr>
+                      <tr class="bg-slate-900/20">
+                        <td class="py-2.5 px-4 text-white font-black">26 à 50</td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs">MODÉRÉ</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs">FACILE</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs">TRÈS FACILE</span></td>
+                      </tr>
+                      <tr class="bg-slate-900/40">
+                        <td class="py-2.5 px-4 text-white font-black">51 à 75</td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs">DIFFICILE</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs">MODÉRÉ</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs">FACILE</span></td>
+                      </tr>
+                      <tr class="bg-slate-900/20">
+                        <td class="py-2.5 px-4 text-white font-black">76 à 100</td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-orange-500/20 text-orange-300 border border-orange-500/30 text-xs">TRÈS DIFFICILE</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs">DIFFICILE</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs">MODÉRÉ</span></td>
+                      </tr>
+                      <tr class="bg-slate-900/40">
+                        <td class="py-2.5 px-4 text-white font-black">101 à 150+</td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs">EXTRÊME</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-orange-500/20 text-orange-300 border border-orange-500/30 text-xs">TRÈS DIFFICILE</span></td>
+                        <td class="py-2.5 px-4"><span class="px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs">DIFFICILE</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-indigo-400">4.</span> Intérêts opérationnels et accès aux outils IBP Index
+                </h3>
+                <ul class="list-disc list-inside space-y-2 pl-2">
+                  <li><strong>Sélection sécurisée de ses randonnées :</strong> Évite de se fier à des mentions floues (« balade accessible ») pouvant cacher un score élevé (&gt; 65) inadapté aux débutants.</li>
+                  <li><strong>Étalonnage individuel :</strong> En analysant l'indice de ses sorties passées, chacun identifie sa plage d'effort idéale (ex. 40 à 60 pour une reprise, 75+ pour une sortie sportive).</li>
+                  <li><strong>Portail officiel IBP Index :</strong> Retrouvez l'ensemble des documentations et spécifications sur <a href="https://www.ibpindex.com" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 underline font-bold">www.ibpindex.com</a>.</li>
+                  <li><strong>Analyser une trace GPX :</strong> Pour obtenir gratuitement l'IBP Index détaillé de votre parcours (dénivelés récents, pourcentages par tranches, graphe altimétrique), déposez votre fichier sur l'analyseur en ligne : <a href="https://www.ibpindex.com/ibpindex/analyser.php" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 underline font-bold">ibpindex.com/ibpindex/analyser.php</a>.</li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 class="text-base sm:text-lg font-black text-white mb-2 flex items-center gap-2">
+                  <span class="text-indigo-400">5.</span> Ce que l'IBP Index ne mesure pas (Limites et complémentarités)
+                </h3>
+                <p>
+                  L'IBP Index est un indicateur <strong>purement physique et géométrique</strong>. Pour une sécurité totale en montagne, il doit être complété par l'analyse de deux autres critères essentiels (tels que formalisés par la cotation fédérale FFRandonnée) :
+                </p>
+                <ul class="list-disc list-inside space-y-2 pl-2 mt-2.5">
+                  <li><strong>La technicité du terrain :</strong> L'algorithme ignore la nature du sol (sentier forestier souple, pierrier instable, dalles glissantes, passages équipés de mains courantes ou barreaux).</li>
+                  <li><strong>L'exposition au vide et le danger :</strong> Une vire étroite le long d'une falaise abrupte ou une arête exposée présente un danger majeur sans pour autant augmenter le score IBP.</li>
+                  <li><strong>Les facteurs météorologiques du jour :</strong> La chaleur extrême, le vent violent, la pluie, la boue ou la neige augmentent la pénibilité réelle sans modifier l'indice théorique.</li>
+                </ul>
+              </section>
+            </div>
+
+            <!-- Bouton replier -->
+            <div class="pt-4 border-t border-slate-800 flex justify-end">
+              <button type="button" onclick="window.PortalRouterInstance.toggleGuideFiche('fiche-ibp-content')" 
+                      class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer">
+                ▴ Replier la fiche
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- FICHE 4 : CHECK-LIST ESSENTIELLE AVANT DE PARTIR EN RANDONNÉE     -->
+        <!-- ================================================================= -->
+        <div class="rounded-3xl bg-slate-900/90 border-2 border-slate-800 hover:border-amber-500/70 transition-all shadow-2xl overflow-hidden">
+          <!-- Entête cliquable (Titre seul) -->
+          <button type="button" onclick="window.PortalRouterInstance.toggleGuideFiche('fiche-checklist-content', this)" 
+                  class="w-full p-3.5 sm:p-4 text-left flex items-start sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-800/40 transition">
+            <div class="flex items-start sm:items-center gap-3.5">
+              <div class="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-xl flex-shrink-0 shadow-inner">
+                ✅
+              </div>
+              <div>
+                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase tracking-wider mb-0.5">
+                  <span>FICHE PRATIQUE &bull; PRÉPARATION, SÉCURITÉ &amp; AUTONOMIE EN MONTAGNE</span>
+                </div>
+                <h2 class="text-base sm:text-lg font-black text-white leading-snug">
+                  Check-list Essentielle Avant de Partir en Randonnée (De J-1 à H-0)
+                </h2>
+                <p class="text-xs text-slate-300 mt-0.5 font-light line-clamp-2">
+                  Mémo complet de vérification (Cartographie, Énergie, Sécurité, 3 Couches, Eau &amp; Départ) avec accès direct à chaque équipement recommandé.
+                </p>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-3 flex-shrink-0">
+              <span class="guide-toggle-icon text-sm px-3.5 py-2 rounded-xl bg-amber-600/30 text-amber-300 font-extrabold border border-amber-500/40">
+                Déplier ▾
+              </span>
+            </div>
+          </button>
+
+          <!-- Contenu dépliable de la Fiche 4 -->
+          <div id="fiche-checklist-content" class="hidden border-t border-slate-800 p-6 sm:p-10 bg-slate-950/60 space-y-8">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-amber-950/30 p-4 rounded-2xl border border-amber-800/50">
+              <div class="text-xs text-amber-200">
+                📄 <strong>Fiche Pratique &bull; Préparation, Sécurité &amp; Autonomie en Montagne</strong> &bull; JLDApps 2026 &bull; Document PDF imprimable (2 pages)
+              </div>
+              <a href="docs/Fiche_Pratique_Checklist_Randonnee.pdf" target="_blank" download class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs shadow-lg transition cursor-pointer flex-shrink-0">
+                <span>📥</span> <span>Télécharger le PDF (146 Ko)</span>
+              </a>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-700 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Une randonnée réussie et sécurisée repose à <strong>80 % sur l'anticipation</strong>. Ce mémo synthétique regroupe les vérifications indispensables à effectuer <strong>la veille du départ (J-1)</strong>, <strong>lors de la préparation du sac</strong> et <strong>sur le parking au moment de s'élancer (H-0)</strong>. Chaque équipement mentionné ci-dessous dispose d'un lien direct vers notre sélection matériel sur Amazon.
+            </div>
+
+            <div class="space-y-6 text-sm text-slate-300 leading-relaxed">
+              <!-- SECTION 1 -->
+              <section class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+                <h3 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  <span class="text-amber-400">1.</span> Préparation de l'Itinéraire et Météo (La Veille — J-1)
+                </h3>
+                <ul class="space-y-3">
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Bulletin météo local consulté :</strong> vérification des précipitations, de l'isotherme 0°C, de la vitesse du vent en crête et du risque d'orages d'évolution diurne.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=anemometre+portable+station+meteo+poche+randonnee&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Anémomètre &amp; Météo Poche ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Analyse du tracé et de l'effort :</strong> distance totale, dénivelé positif cumulé (D+), cotation physique (<strong>IBP Index</strong> adapté au groupe) et repérage des échappatoires ou refuges/abris.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=guide+randonnee+topo+ffrandonnee+curvimetre&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Topo-Guides &amp; Curvimètres ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Carte papier IGN TOP 25 (1:25 000) :</strong> carte du secteur ou extrait imprimé glissé sous <strong>pochette étanche</strong> (indispensable en cas de panne ou casse de téléphone).
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=porte+carte+etanche+randonnee+carte+ign+top+25&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Porte-Carte Étanche &amp; IGN ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Boussole à plaquette fonctionnelle :</strong> absence de bulle d'air dans la capsule, aiguille libre pour l'orientation par visibilité réduite ou brouillard.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=boussole+plaquette+randonnee+silva+suunto&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Boussoles Silva / Suunto ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Contact d'urgence informé :</strong> itinéraire prévu, lieu de stationnement et heure approximative de retour communiqués à un proche (ou balise satellite en zone blanche).
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=garmin+inreach+mini+2+balise+satellite+sos&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Balise SOS Garmin inReach ➔</span>
+                    </a>
+                  </li>
+                </ul>
+              </section>
+
+              <!-- SECTION 2 -->
+              <section class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+                <h3 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  <span class="text-amber-400">2.</span> Électronique, GPS et Énergie (La Veille au Soir)
+                </h3>
+                <ul class="space-y-3">
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Montre GPS et Smartphone chargés à 100 % :</strong> l'enregistrement continu d'une trace GPX et le froid en altitude sollicitent fortement les batteries lithium-ion.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=montre+gps+randonnee+garmin+fenix+suunto+coros&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Montres GPS Garmin/Suunto ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Fonds de carte hors-ligne et trace GPX téléchargés :</strong> tuiles cartographiques IGN / OpenTopoMap mises en cache sur le smartphone protégé contre les chocs et la pluie.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=coque+etanche+antichoc+smartphone+randonnee+pochette&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Coque &amp; Pochette Étanche Tel ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Éphémérides satellites synchronisées (Montre GPS) :</strong> montre synchronisée avec l'application mobile (Garmin Connect, Suunto App, Coros) pour un fix GPS Multi-bandes + SBAS instantané.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=gps+randonnee+portable+garmin+gpsmap+etrex&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>GPS Dédiés Multi-Bandes ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Batterie de secours (Powerbank) chargée + câble adapté :</strong> rangée au sec avec le câble correspondant au téléphone et à la montre GPS.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=batterie+externe+powerbank+20000mah+randonnee+solaire&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Powerbank &amp; Chargeur Solaire ➔</span>
+                    </a>
+                  </li>
+                </ul>
+              </section>
+
+              <!-- SECTION 3 -->
+              <section class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+                <h3 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  <span class="text-amber-400">3.</span> Fond de Sac et Sécurité (Matériel Permanent)
+                </h3>
+                <ul class="space-y-3">
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Couverture de survie (or/argent) :</strong> 1 par personne (face argentée vers le corps pour conserver la chaleur, face dorée vers le corps pour protéger de l'insolation).
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=couverture+de+survie+reutilisable+epaisse+randonnee&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Couverture de Survie ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Lampe frontale fonctionnelle :</strong> batterie chargée ou piles de rechange vérifiées, même pour une sortie prévue à la demi-journée.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=lampe+frontale+rechargeable+petzl+black+diamond&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Lampes Frontales Petzl ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Sifflet sans bille :</strong> fixé ou accessible sur la sangle pectorale du sac (signal international de détresse : 6 coups par minute, pause d'1 minute).
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=sifflet+detresse+sans+bille+randonnee+120db&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Sifflet Détresse Sans Bille ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Trousse de premiers soins :</strong> pansement compressif, bandes cohésives, pansements seconde peau (ampoules), désinfectant unidose, bande de strapp, tire-tique, pince à écharde et antalgiques.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=trousse+premiers+secours+randonnee+complete+tire+tique&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Trousse Secours &amp; Tire-Tique ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Couteau de poche et briquet étanche (ou allumettes anti-tempête) :</strong> indispensables pour les réparations d'urgence, le bivouac imprévu et le ravitaillement.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=couteau+suisse+victorinox+opinel+briquet+tempete+etanche&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Couteau Poche &amp; Briquet Étanche ➔</span>
+                    </a>
+                  </li>
+                </ul>
+              </section>
+
+              <!-- SECTION 4 -->
+              <section class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+                <h3 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  <span class="text-amber-400">4.</span> Équipement Vestimentaire, Eau et Ravitaillement (Le Jour J)
+                </h3>
+                <ul class="space-y-3">
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Principe des 3 couches respecté :</strong>
+                      1<sup>re</sup> couche respirante (T-shirt technique ou laine Mérinos, jamais de coton), 2<sup>e</sup> couche thermique (polaire ou doudoune compressible), 3<sup>e</sup> couche imperméable et coupe-vent (veste membrane type Gore-Tex).
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 flex-shrink-0">
+                      <a href="https://www.amazon.fr/s?k=t+shirt+laine+merinos+randonnee+polaire+technique&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition">
+                        <span>🛒</span> <span>Mérinos &amp; Polaire ➔</span>
+                      </a>
+                      <a href="https://www.amazon.fr/s?k=veste+impermeable+randonnee+gore+tex+coupe+vent&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition">
+                        <span>🛒</span> <span>Veste Gore-Tex ➔</span>
+                      </a>
+                    </div>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Chaussures adaptées au terrain :</strong> tige déjà rodée, semelle crantée (type Vibram) en bon état et <strong>chaussettes techniques de randonnée</strong> sans plis.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=chaussures+randonnee+vibram+chaussettes+anti+ampoules&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Chaussures Vibram &amp; Chaussettes ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Protection solaire complète :</strong> lunettes de soleil (catégorie 3 ou 4 en haute montagne), chapeau ou casquette anti-UV, crème solaire et stick lèvres.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=lunettes+soleil+randonnee+categorie+3+4+julbo+chapeau+uv&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Lunettes Cat. 3/4 &amp; Protection UV ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Eau en quantité suffisante :</strong> minimum <strong>1,5 L à 2 L par personne</strong> (davantage par forte chaleur ou sur terrain karstique) + pastilles de purification d'eau (type Micropur) ou gourde filtrante.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=poche+a+eau+randonnee+pastilles+micropur+filtre+lifestraw&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Poche à Eau &amp; Micropur ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Vivres de course et réserve :</strong> repas principal + encas glucidiques accessibles dans les poches de ceinture (barres énergétiques, fruits secs, pâte d'amande) + 1 ration de secours.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=barres+energetiques+randonnee+repas+lyophilise+trek&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Barres Énergie &amp; Lyophilisés ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Bâtons de randonnée vérifiés :</strong> pointes, rondelles et mécanismes de verrouillage des brins contrôlés avant le départ.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=batons+de+randonnee+telescopiques+carbone+aluminium&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Bâtons Rando Carbone / Alu ➔</span>
+                    </a>
+                  </li>
+                </ul>
+              </section>
+
+              <!-- SECTION 5 -->
+              <section class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+                <h3 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  <span class="text-amber-400">5.</span> Au Point de Départ (Sur le Parking — H-0)
+                </h3>
+                <ul class="space-y-3">
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Acquisition du signal GPS à l'arrêt :</strong> lancer l'activité sur la montre et <strong>attendre 30 à 60 secondes immobile</strong> après le passage du témoin GPS au vert avant de commencer à marcher.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=montre+gps+outdoor+altimetre+barometrique+garmin&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Montres Alti-Baro-GPS ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Altimètre calibré :</strong> vérifier que l'altitude affichée par la montre correspond à la cote officielle du point de départ sur la carte IGN (ou au panneau sur place) ; étalonner manuellement si un écart barométrique apparaît.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=altimetre+barometrique+randonnee+poche&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Altimètres Barométriques ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Mode Avion / Économie d'énergie sur le smartphone :</strong> si le réseau cellulaire est faible ou absent en montagne, activer le mode Avion (la puce GPS reste 100 % fonctionnelle en mode Avion) pour éviter que la recherche d'antennes ne vide la batterie en quelques heures.
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=pochette+isolante+thermique+telephone+froid+montagne&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Pochette Anti-Froid Smartphone ➔</span>
+                    </a>
+                  </li>
+                  <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span class="text-emerald-400 font-bold">☑</span> <strong>Chaussage et portage :</strong> lacets ajustés sans point de compression et sangles du <strong>sac à dos de randonnée</strong> réglées (70 % du poids reporté sur la ceinture ventrale posée sur les hanches, rappels de charge ajustés).
+                    </div>
+                    <a href="https://www.amazon.fr/s?k=sac+a+dos+randonnee+osprey+deuter+millet+30l&tag=maprando-21" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-extrabold whitespace-nowrap transition flex-shrink-0">
+                      <span>🛒</span> <span>Sacs à Dos Osprey / Deuter / Millet ➔</span>
+                    </a>
+                  </li>
+                </ul>
+              </section>
+            </div>
+
+            <!-- Bouton replier -->
+            <div class="pt-4 border-t border-slate-800 flex justify-end">
+              <button type="button" onclick="window.PortalRouterInstance.toggleGuideFiche('fiche-checklist-content')" 
+                      class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer">
+                ▴ Replier la fiche
+              </button>
+            </div>
+          </div>
+        </div>
+
+
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- COLONNE DROITE STICKY : ÉQUIPEMENTS AMAZON TOUJOURS VISIBLES      -->
+      <!-- ================================================================= -->
+      <aside id="outdoor-gear-panel" class="lg:col-span-5 rounded-3xl bg-slate-900/95 border-2 border-amber-500/60 p-4 sm:p-5 shadow-2xl flex flex-col justify-between h-full">
+        
+        <div class="border-b border-slate-800 pb-2.5 flex-shrink-0">
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase tracking-wider mb-1">
+            <span>🛒</span> <span>Sélection Matériel Randonnée &amp; Aventure</span>
+          </div>
+          <h2 class="text-lg sm:text-xl font-black text-white leading-tight">
+            Équipements &amp; Matériels Recommandés
+          </h2>
+          <p class="text-xs text-slate-300 mt-0.5 font-light">
+            Sélection d'équipements de confiance sur Amazon. En commandant via ces liens, vous soutenez Map &amp; Rando sans surcoût.
+          </p>
+        </div>
+
+        <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 grid-rows-3 gap-3 items-stretch mt-3">
+          
+          <!-- BLOC 1 : ÉQUIPEMENTS & PORTANCE -->
+          <a href="https://www.amazon.fr/s?k=chaussures+randonnee+gore+tex+batons+carbone&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group flex flex-col justify-between h-full p-3.5 rounded-2xl bg-slate-950/90 hover:bg-slate-800 border-2 border-slate-800 hover:border-amber-400 transition-all duration-200 shadow-lg hover:-translate-y-0.5 cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-3xl group-hover:scale-110 transition-transform">🥾</span>
+              <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Équipements &amp; Portance
+              </span>
+            </div>
+            <h3 class="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors flex items-center justify-between">
+              <span>Chaussures, Bâtons &amp; Vêtements</span>
+              <span class="text-amber-400 text-sm group-hover:translate-x-1 transition-transform">➔</span>
+            </h3>
+          </a>
+
+          <!-- BLOC 2 : ÉNERGIE & SOLAIRE -->
+          <a href="https://www.amazon.fr/s?k=batterie+externe+randonnee+chargeur+solaire+portable&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group flex flex-col justify-between h-full p-3.5 rounded-2xl bg-slate-950/90 hover:bg-slate-800 border-2 border-slate-800 hover:border-amber-400 transition-all duration-200 shadow-lg hover:-translate-y-0.5 cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-3xl group-hover:scale-110 transition-transform">⚡</span>
+              <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Énergie &amp; Solaire
+              </span>
+            </div>
+            <h3 class="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors flex items-center justify-between">
+              <span>Power Banks &amp; Chargeurs Solaires</span>
+              <span class="text-amber-400 text-sm group-hover:translate-x-1 transition-transform">➔</span>
+            </h3>
+          </a>
+
+          <!-- BLOC 3 : ORIENTATION & GPS -->
+          <a href="https://www.amazon.fr/s?k=boussole+visee+suunto+silva+gps+randonnee+garmin&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group flex flex-col justify-between h-full p-3.5 rounded-2xl bg-slate-950/90 hover:bg-slate-800 border-2 border-slate-800 hover:border-amber-400 transition-all duration-200 shadow-lg hover:-translate-y-0.5 cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-3xl group-hover:scale-110 transition-transform">🧭</span>
+              <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Orientation &amp; GPS
+              </span>
+            </div>
+            <h3 class="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors flex items-center justify-between">
+              <span>Boussoles, Altimètres &amp; GPS Dédiés</span>
+              <span class="text-amber-400 text-sm group-hover:translate-x-1 transition-transform">➔</span>
+            </h3>
+          </a>
+
+          <!-- BLOC 4 : SÉCURITÉ & SECOURS -->
+          <a href="https://www.amazon.fr/s?k=trousse+premiers+secours+randonnee+lampe+frontale+petzl&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group flex flex-col justify-between h-full p-3.5 rounded-2xl bg-slate-950/90 hover:bg-slate-800 border-2 border-slate-800 hover:border-amber-400 transition-all duration-200 shadow-lg hover:-translate-y-0.5 cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-3xl group-hover:scale-110 transition-transform">🩹</span>
+              <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Sécurité &amp; Secours
+              </span>
+            </div>
+            <h3 class="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors flex items-center justify-between">
+              <span>Trousse Secours, Frontales &amp; Survie</span>
+              <span class="text-amber-400 text-sm group-hover:translate-x-1 transition-transform">➔</span>
+            </h3>
+          </a>
+
+          <!-- BLOC 5 : EAU & BIVOUAC -->
+          <a href="https://www.amazon.fr/s?k=filtre+eau+randonnee+sawyer+lifestraw+rechaud+gaz&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group flex flex-col justify-between h-full p-3.5 rounded-2xl bg-slate-950/90 hover:bg-slate-800 border-2 border-slate-800 hover:border-amber-400 transition-all duration-200 shadow-lg hover:-translate-y-0.5 cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-3xl group-hover:scale-110 transition-transform">💧</span>
+              <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Eau &amp; Bivouac
+              </span>
+            </div>
+            <h3 class="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors flex items-center justify-between">
+              <span>Filtres à Eau, Pastilles &amp; Réchauds</span>
+              <span class="text-amber-400 text-sm group-hover:translate-x-1 transition-transform">➔</span>
+            </h3>
+          </a>
+
+          <!-- BLOC 6 : CARTOGRAPHIE & OUTILS -->
+          <a href="https://www.amazon.fr/s?k=porte+carte+etanche+randonnee+curvimetre+loupe&tag=maprando-21" target="_blank" rel="noopener noreferrer"
+             class="group flex flex-col justify-between h-full p-3.5 rounded-2xl bg-slate-950/90 hover:bg-slate-800 border-2 border-slate-800 hover:border-amber-400 transition-all duration-200 shadow-lg hover:-translate-y-0.5 cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-3xl group-hover:scale-110 transition-transform">🗺️</span>
+              <span class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Cartographie &amp; Outils
+              </span>
+            </div>
+            <h3 class="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors flex items-center justify-between">
+              <span>Porte-Cartes, Curvimètres &amp; Loupes</span>
+              <span class="text-amber-400 text-sm group-hover:translate-x-1 transition-transform">➔</span>
+            </h3>
+          </a>
+
+        </div>
+
+      </aside>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL : MODE D'EMPLOI DÉTAILLÉ (Cartes & Outils • Randonner • Guides)     -->
+  <!-- ========================================================================= -->
+  <div id="modal-mode-emploi" class="hidden fixed inset-0 z-[10000] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
+    <div class="bg-slate-900 border-2 border-emerald-500/60 rounded-3xl max-w-5xl w-full p-5 sm:p-8 shadow-2xl space-y-6 max-h-[92vh] overflow-y-auto text-slate-200">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <div>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase tracking-wider mb-1">
+            <span>GUIDE COMPLET UTILISATEUR &bull; JLDAPPS 2026</span>
+          </div>
+          <h3 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+            <span>📖</span> <span>Mode d'emploi détaillé de Map &amp; Rando</span>
+          </h3>
+        </div>
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+          <a href="Mode_d_emploi_RandoFinder.pdf" target="_blank" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-xs font-extrabold transition flex items-center gap-1.5">
+            <span>📥</span> <span>Version PDF</span>
+          </a>
+          <button type="button" onclick="document.getElementById('modal-mode-emploi').classList.add('hidden')" class="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-xl text-base font-bold cursor-pointer">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Sommaire rapide -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <a href="#me-section-cartes" onclick="document.getElementById('me-section-cartes').scrollIntoView({behavior:'smooth'}); return false;" class="p-3 rounded-2xl bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-500/40 flex items-center gap-3 transition cursor-pointer">
+          <span class="text-2xl">🧭</span>
+          <div>
+            <div class="text-xs font-black text-emerald-300 uppercase">Module 1 &bull; Accès Libre</div>
+            <div class="text-sm font-extrabold text-white">Cartes &amp; Outils</div>
+          </div>
+        </a>
+        <a href="#me-section-randonner" onclick="document.getElementById('me-section-randonner').scrollIntoView({behavior:'smooth'}); return false;" class="p-3 rounded-2xl bg-blue-950/50 hover:bg-blue-900/60 border border-blue-500/40 flex items-center gap-3 transition cursor-pointer">
+          <span class="text-2xl">🥾</span>
+          <div>
+            <div class="text-xs font-black text-blue-300 uppercase">Module 2 &bull; Catalogue GPX</div>
+            <div class="text-sm font-extrabold text-white">Randonner (GPX &amp; Gestion)</div>
+          </div>
+        </a>
+        <a href="#me-section-guides" onclick="document.getElementById('me-section-guides').scrollIntoView({behavior:'smooth'}); return false;" class="p-3 rounded-2xl bg-amber-950/50 hover:bg-amber-900/60 border border-amber-500/40 flex items-center gap-3 transition cursor-pointer">
+          <span class="text-2xl">📚</span>
+          <div>
+            <div class="text-xs font-black text-amber-300 uppercase">Module 3 &bull; Fiches Techniques</div>
+            <div class="text-sm font-extrabold text-white">Guides &amp; Savoirs</div>
+          </div>
+        </a>
+      </div>
+
+      <div class="space-y-6 text-xs sm:text-sm leading-relaxed">
+        <!-- =============================================================== -->
+        <!-- MODULE 1 : CARTES & OUTILS                                      -->
+        <!-- =============================================================== -->
+        <section id="me-section-cartes" class="p-5 sm:p-6 rounded-3xl bg-slate-950/80 border-2 border-emerald-500/40 space-y-4">
+          <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
+            <span class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-xl font-bold">🧭</span>
+            <div>
+              <h4 class="text-base sm:text-lg font-black text-white">1. Module « Cartes &amp; Outils » (Accès Libre Pleine Page)</h4>
+              <p class="text-xs text-emerald-300">Cartographie topographique mondiale, étalonnage d'écran, réseau GR®, mesures et impression PDF haute définition.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div class="font-extrabold text-emerald-300 flex items-center gap-1.5"><span>🗺️</span> Choix des 7 Fonds de Carte (Bouton Calques en haut à droite)</div>
+              <ul class="list-disc list-inside space-y-1 text-xs text-slate-300">
+                <li><strong>IGN Cartes Topographiques (TOP 25 / SCAN 25) :</strong> la carte officielle de randonnée IGN au 1:25 000 avec courbes de niveau, sentiers balisés, refuges et points d'eau.</li>
+                <li><strong>IGN Plan J+1 Standard :</strong> fond cartographique vectoriel IGN mis à jour quotidiennement.</li>
+                <li><strong>🥾 Carte des GR® (Fond épuré) :</strong> fond topographique clair mettant en évidence les sentiers balisés avec <strong>liste déroulante numérique de tous les GR® Français</strong> (<code>GR 1</code> à <code>GR 2013</code>, <code>GR R1..R3</code> et grands itinéraires réputés), <strong>cases à cocher par couleur</strong> (Bleu Europe, Rouge GR®, Orange GRP, Violet PR) et <strong>identification au clic direct sur un chemin</strong>.</li>
+                <li><strong>OpenTopoMap &amp; OpenStreetMap France :</strong> couverture topographique et routière mondiale.</li>
+                <li><strong>Esri World Imagery (Satellite Mondial HD) &amp; IGN Orthophotos HR :</strong> vues aériennes et satellites haute résolution avec <strong>affichage automatique de la date de prise de vue de l'image</strong> au centre de l'écran.</li>
+              </ul>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div class="font-extrabold text-emerald-300 flex items-center gap-1.5"><span>📐</span> Cartes IGN TOP 25 Dernière Édition &amp; Carroyage UTM</div>
+              <ul class="list-disc list-inside space-y-1 text-xs text-slate-300">
+                <li><strong>Limites des cartes papier IGN TOP 25 (dernière édition) :</strong> en cochant cette option dans le sélecteur de calques, la carte affiche les contours exacts des feuilles papier IGN TOP 25 avec <strong>mention du numéro de référence officiel</strong> (ex. <code>3245 ET</code>, <code>3346 OT</code>), du titre de la feuille et de <strong>l'année de dernière édition</strong> (ex. <code>Éd. 2023</code>).</li>
+                <li><strong>Carroyage UTM kilométrique (1 km × 1 km) :</strong> grille universelle WGS84 (fuseaux UTM 30T, 31T, 32T et monde entier) disponible sur <strong>tous les fonds de carte</strong> dès le niveau de zoom 12, avec coordonnées kilométriques bleues affichées sur les bords de l'écran.</li>
+                <li><strong>Recherche universelle (barre en haut à gauche) :</strong> cherchez un lieu, un sommet, une adresse, un <strong>GR par numéro</strong> (ex. <code>GR 20</code>, <code>GR 34</code>) ou un <strong>chemin réputé</strong> (<code>Francigena</code>, <code>West Highland Way</code>, <code>Stevenson</code>) pour l'afficher en surbrillance clignotante avec son nom sur le tracé.</li>
+              </ul>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div class="font-extrabold text-emerald-300 flex items-center gap-1.5"><span>📏</span> Échelle Dynamique, « 1 cm vrai », Altitude &amp; Coordonnées</div>
+              <ul class="list-disc list-inside space-y-1 text-xs text-slate-300">
+                <li><strong>Échelle saisissable (en bas à gauche) :</strong> tapez directement <code>25000</code> ou <code>50000</code> dans la case <code>Échelle ~ 1 :</code> et validez par Entrée.</li>
+                <li><strong>Bouton « 📏 1 cm vrai » :</strong> étalonnez votre écran à l'aide d'une règle physique graduée pour qu'à l'échelle <code>1 : 25 000</code>, <strong>1 centimètre mesuré sur votre écran représente exactement 250 mètres sur le terrain</strong> (comme sur une carte papier IGN TOP 25).</li>
+                <li><strong>Altitude temps réel (⛰️) &amp; Commune (🏛️) :</strong> affiche en continu sous le curseur l'altitude exacte issue du modèle numérique <strong>IGN RGE Alti® / LiDAR HD</strong> ainsi que le nom de la commune et le département.</li>
+                <li><strong>Coordonnées GPS WGS84 &amp; UTM :</strong> affichées en direct en bas à gauche ; cliquez sur le bandeau pour les copier dans le presse-papier.</li>
+              </ul>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div class="font-extrabold text-emerald-300 flex items-center gap-1.5"><span>🖨️</span> Cap (Azimut), Mesure, GPX Libre &amp; Impression d'une Zone</div>
+              <ul class="list-disc list-inside space-y-1 text-xs text-slate-300">
+                <li><strong>🧭 Outil Cap (Azimut) :</strong> cliquez sur <em>Cap</em> puis cliquez un Point A (départ) et un Point B (cible) sur la carte (sans aucun changement intempestif de zoom) pour obtenir le <strong>cap géographique Nord Vrai (0°–360°)</strong>, le cap retour, le point cardinal et la distance.</li>
+                <li><strong>📏 Outil Mesurer :</strong> cliquez plusieurs points successifs pour mesurer la distance totale d'un itinéraire, la longueur et le cap du dernier tronçon.</li>
+                <li><strong>📂 Charger une trace GPX :</strong> bouton orange en haut permettant d'afficher librement un fichier <code>.gpx</code> depuis votre PC avec calcul immédiat de sa distance et de son D+.</li>
+                <li><strong>🖨️ Imprimer une zone (PDF A4 / A3 Haute Définition) :</strong> cliquez 2 coins opposés sur la carte pour générer un extrait PDF à l'échelle exacte (ex. <code>1:25 000</code>), sans chevauchement d'étiquettes, avec carroyage UTM kilométrique et <strong>mention automatique de la référence et de l'année d'édition de la carte IGN TOP 25</strong> dans le cartouche inférieur.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- MODULE 2 : RANDONNER                                            -->
+        <!-- =============================================================== -->
+        <section id="me-section-randonner" class="p-5 sm:p-6 rounded-3xl bg-slate-950/80 border-2 border-blue-500/40 space-y-4">
+          <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
+            <span class="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center text-xl font-bold">🥾</span>
+            <div>
+              <h4 class="text-base sm:text-lg font-black text-white">2. Module « Randonner : Trouver des traces GPX et les gérer »</h4>
+              <p class="text-xs text-blue-300">Recherche géographique, indice d'effort IBP Index, chargement GPX avec nom de l'utilisateur et gestion complète du catalogue.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div class="font-extrabold text-blue-300 flex items-center gap-1.5"><span>🔍</span> Recherche &amp; Exploration des Randonnées GPX</div>
+              <ul class="list-disc list-inside space-y-1 text-xs text-slate-300">
+                <li><strong>Point de départ (Référence) :</strong> choisissez une ville, un sommet ou une adresse dans la barre de recherche, utilisez le bouton <strong>📍 Ma position GPS</strong>, ou <strong>cliquez directement sur un endroit de la carte</strong>.</li>
+                <li><strong>Curseur de rayon (10 km ➔ Monde entier 🌍) :</strong> filtre instantanément les randonnées situées dans le rayon choisi autour du point de référence.</li>
+                <li><strong>Tableau interactif triable :</strong> cliquez sur n'importe quel en-tête de colonne pour trier par <em>Proximité</em>, <em>Nom &amp; Notes</em>, <em>Longueur</em>, <em>Dénivelé D+</em>, <strong>IBP Index (Niveaux 1 à 5 FFRandonnée)</strong>, <em>Dernière rando (JJ/MM/AA)</em> ou <strong>👤 Ajoutée par (nom de l'utilisateur ayant chargé la trace)</strong>.</li>
+                <li><strong>Aperçu, Profil Altimétrique &amp; Téléchargement :</strong> survolez ou cliquez sur une ligne pour afficher son tracé sur la carte, parcourir son profil altimétrique interactif et télécharger soit le <strong>fichier .GPX</strong>, soit la <strong>Fiche Topo PDF complète</strong>.</li>
+              </ul>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div class="font-extrabold text-blue-300 flex items-center gap-1.5"><span>📤</span> Chargement de GPX, Nom de l'Utilisateur &amp; Gestion</div>
+              <ul class="list-disc list-inside space-y-1 text-xs text-slate-300">
+                <li><strong>👤 Nom de l'utilisateur au chargement d'un GPX :</strong> dans l'onglet <em>« Charger une randonnée »</em>, renseignez ou confirmez le <strong>nom de l'utilisateur qui charge la trace GPX</strong> (pré-rempli automatiquement avec votre identifiant). Ce nom est enregistré avec la trace et <strong>figure directement dans la colonne « Ajoutée par » du tableau des randonnées</strong>.</li>
+                <li><strong>Analyse automatique &amp; Anti-doublons :</strong> glissez-déposez un ou plusieurs fichiers <code>.gpx</code> (ou collez le texte XML) : l'application calcule la distance, le dénivelé D+ lissé, l'<strong>Indice IBP Index</strong>, extrait la date de la trace et vérifie l'absence de doublon.</li>
+                <li><strong>✏️ Modification &amp; 📁 Gestion :</strong> modifiez à tout moment le nom d'une randonnée, son IBP Index, sa date de dernière sortie, le <strong>nom de l'utilisateur (Ajoutée par)</strong> ou ses notes pratiques, et utilisez le détecteur automatique de doublons.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- MODULE 3 : GUIDES & SAVOIRS                                     -->
+        <!-- =============================================================== -->
+        <section id="me-section-guides" class="p-5 sm:p-6 rounded-3xl bg-slate-950/80 border-2 border-amber-500/40 space-y-4">
+          <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
+            <span class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center text-xl font-bold">📚</span>
+            <div>
+              <h4 class="text-base sm:text-lg font-black text-white">3. Module « Guides &amp; Savoirs » (Fiches Techniques &amp; Équipements)</h4>
+              <p class="text-xs text-amber-300">4 dossiers techniques de référence consultables en ligne (mode accordéon) et téléchargeables en PDF imprimable.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
+              <div class="font-extrabold text-amber-300 mb-1">🛰️ Fiche 1 : GPS, SBAS (EGNOS) &amp; Montres de Sport</div>
+              <p>Comprendre la précision GNSS, le rôle des satellites géostationnaires SBAS, le mode Multi-bandes double fréquence (L1+L5) et l'enregistrement à la seconde (1s).</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
+              <div class="font-extrabold text-emerald-300 mb-1">🌲 Fiche 2 : Programme National LiDAR HD de l'IGN</div>
+              <p>Modélisation laser 3D haute densité (10 pts/m²) traversant la canopée forestière pour produire des Modèles Numériques de Terrain (MNT) d'une précision de 50 cm.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
+              <div class="font-extrabold text-indigo-300 mb-1">📊 Fiche 3 : IBP Index &amp; Évaluation de l'Effort Physique</div>
+              <p>Fonctionnement de l'algorithme IBP Index, grille de lecture croisant le score IBP avec les 5 niveaux de condition physique et limites face à la technicité du terrain.</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
+              <div class="font-extrabold text-amber-300 mb-1">✅ Fiche 4 : Check-list Avant de Partir en Randonnée</div>
+              <p>Toutes les vérifications de J-1 à H-0 (Météo, Carte IGN, Boussole, Powerbank, Fond de sac, 3 Couches, Eau, Fix GPS) avec liens directs vers chaque équipement sur Amazon.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+        <span class="text-[11px] text-slate-400">Map &amp; Rando by <strong>JLDApps 2026</strong> &bull; La cartographie au service de vos pas</span>
+        <button type="button" onclick="document.getElementById('modal-mode-emploi').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs transition cursor-pointer shadow-lg">
+          Fermer le Mode d'emploi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL : MENTIONS LÉGALES & CGU (Accessible depuis l'accueil et le footer) -->
+  <!-- ========================================================================= -->
+  <div id="modal-cgu" class="hidden fixed inset-0 z-[10000] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+          <span>📜</span> <span>Mentions Légales, Licences &amp; Origine des Données</span>
+        </h3>
+        <button type="button" onclick="document.getElementById('modal-cgu').classList.add('hidden')" class="text-slate-400 hover:text-white text-xl p-1 font-bold">
+          ✕
+        </button>
+      </div>
+
+      <div class="text-xs sm:text-sm text-slate-300 space-y-4 leading-relaxed font-light">
+        <div class="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-200">
+          <div class="flex items-center gap-2 font-bold text-white text-sm mb-1">
+            <span>⚖️</span> Utilisation 100% Légale &amp; Conforme aux Licences Officielles
+          </div>
+          <p class="text-xs text-emerald-200/90 leading-normal font-normal">
+            L'ensemble des cartes, photographies aériennes, modèles altimétriques et données géographiques intégrés dans <strong>Map &amp; Rando</strong> sont diffusés dans le respect strict des réglementations françaises et internationales sur les données publiques ouvertes (Open Data) et des contrats de diffusion d'API de chaque producteur.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="font-extrabold text-white text-sm mb-1.5 flex items-center gap-2">
+            <span class="text-emerald-400">1.</span> IGN France (Institut National de l'Information Géographique et Forestière)
+          </h4>
+          <p class="mb-2">
+            Depuis le 1<sup>er</sup> janvier 2021, conformément à la politique nationale d'ouverture des données publiques de l'État français, les données de référence de l'IGN (cartes SCAN 25&reg;, TOP 25&reg;, BD TOPO&reg;, BD ORTHO&reg;, RGE ALTI&reg; et les relevés LiDAR HD) sont sous <strong>Licence Ouverte Etalab 2.0</strong> (équivalente à la licence internationale CC-BY).
+          </p>
+          <p class="mb-2">
+            Cette licence officielle autorise explicitement et gratuitement toute réutilisation, consultation, représentation, publication et intégration dans des applications web publiques ou commerciales, sous réserve du maintien des mentions de copyright et de paternité.
+          </p>
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <a href="https://geoservices.ign.fr/licences" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold border border-emerald-500/30 transition">
+              <span>➔</span> Consulter la Licence Ouverte sur IGN Geoservices
+            </a>
+            <a href="https://www.ign.fr" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 font-bold border border-slate-700 transition">
+              Portail Officiel IGN.fr
+            </a>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-extrabold text-white text-sm mb-1.5 flex items-center gap-2">
+            <span class="text-sky-400">2.</span> OpenStreetMap &amp; OpenTopoMap (Cartographie Mondiale)
+          </h4>
+          <p class="mb-2">
+            Les fonds cartographiques routiers, sentiers pédestres mondiaux et courbes de niveau sont issus de la base collaborative mondiale <strong>OpenStreetMap</strong> et du projet <strong>OpenTopoMap</strong>, publiés sous licence libre <strong>ODbL (Open Database License)</strong>.
+          </p>
+          <div class="flex items-center gap-2 text-xs">
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 font-bold border border-sky-500/30 transition">
+              <span>➔</span> Mentions et Droits d'auteur OpenStreetMap (ODbL)
+            </a>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-extrabold text-white text-sm mb-1.5 flex items-center gap-2">
+            <span class="text-amber-400">3.</span> Esri &amp; ArcGIS World Imagery (Satellite Mondial HD)
+          </h4>
+          <p class="mb-2">
+            L'imagerie satellite mondiale haute résolution est consultée via les services web ArcGIS Living Atlas conformément aux conditions d'utilisation publiques d'Esri pour l'affichage de fonds cartographiques interactifs.
+          </p>
+          <div class="flex items-center gap-2 text-xs">
+            <a href="https://www.esri.com/en-us/legal/terms/full-master-agreement" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 font-bold border border-amber-500/30 transition">
+              <span>➔</span> Conditions Générales Esri World Imagery
+            </a>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-extrabold text-white text-sm mb-1.5 flex items-center gap-2">
+            <span class="text-purple-400">4.</span> Programme National LiDAR HD (Altitudes &amp; Reliefs)
+          </h4>
+          <p>
+            Les dénivelés cumulés (+ / -), les altitudes et profils altimétriques sont issus du Modèle Numérique de Terrain (MNT) centimétrique du <strong>Programme National LiDAR HD</strong> de l'IGN (résolution à 0,5 mètre, pénétration sous couvert végétal), assurant une exactitude topographique supérieure aux GPS grand public.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="font-extrabold text-white text-sm mb-1.5 flex items-center gap-2">
+            <span class="text-emerald-400">5.</span> Partenariats, Affiliation &amp; Modèle Économique
+          </h4>
+          <p>
+            L'accès à Map &amp; Rando est totalement libre, gratuit et sans abonnement obligatoire. Pour pérenniser l'hébergement haute performance et le développement des outils, certains liens vers du matériel outdoor recommandé (chaussures, bâtons, sécurité, chargeurs) sont affiliés auprès d'enseignes partenaires (Amazon, Décathlon, Au Vieux Campeur). Ces commissions d'apporteur d'affaires ne génèrent <strong>aucun surcoût pour l'utilisateur</strong>.
+          </p>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+          <span>Édité par <strong>JLDApps 2026</strong> &bull; Sanary-sur-Mer (Var 83)</span>
+          <span class="text-emerald-400 font-semibold">Conformité RGPD &bull; Zéro cookie publicitaire intrusif</span>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 text-right">
+        <button type="button" onclick="document.getElementById('modal-cgu').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs transition cursor-pointer shadow-lg">
+          J'ai compris &bull; Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MAIN MAP APP CONTAINER (Carte plein écran / Randonnées) -->
+  <!-- ========================================================================= -->
+  <div id="main-map-app-container" class="hidden fixed inset-0 flex flex-col bg-slate-50 text-slate-800 z-50 overflow-hidden">
+<header class="bg-slate-900 text-white shadow-lg border-b border-slate-800 relative z-[1060] flex-shrink-0">
 
     <!-- BANDEAU OFFICIEL SUPÉRIEUR : DISPOSITION HARMONIEUSE (GAUCHE : LOGO CLUB | CENTRE : RANDOFINDER | DROITE : JLDAPPS 2026) -->
 
@@ -115,6 +1454,20 @@
       <!-- GAUCHE : Logo officiel Les Randonneurs Sanaryens avec animation de marche -->
 
       <div class="flex-1 flex items-center justify-start min-w-0">
+
+        <!-- BRANDING MAP & RANDO (Affiché en accès libre) -->
+        <a id="header-maprando-branding" href="#accueil" class="hidden items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 hover:border-emerald-400 transition cursor-pointer" title="Map & Rando by JLDApps - Retour à l'accueil">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-xl shadow-lg border border-emerald-400/40">
+            🗺️
+          </div>
+          <div class="flex flex-col">
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-lg sm:text-xl font-black tracking-tight text-white uppercase leading-none">Map &amp; Rando</span>
+              <span class="text-xs font-normal text-emerald-300/80 font-medium leading-none">by JLDApps</span>
+            </div>
+            <span class="text-[10px] text-slate-300 font-medium tracking-wide uppercase leading-tight mt-0.5">La cartographie au service de vos pas</span>
+          </div>
+        </a>
 
         <div id="logo-frame" class="relative overflow-hidden cursor-pointer select-none rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200 inline-flex items-center" title="Les Randonneurs Sanaryens (Cliquez pour faire marcher les randonneurs)">
 
@@ -150,11 +1503,7 @@
 
       <div class="flex-1 flex flex-col items-center justify-center text-center min-w-0 px-2 select-none">
 
-        <span class="inline-flex items-center justify-center text-sm sm:text-base md:text-lg lg:text-xl font-extrabold px-4 sm:px-5 py-1 sm:py-1.5 rounded-full bg-emerald-600 text-white tracking-wider uppercase shadow-sm whitespace-nowrap hover:bg-emerald-700 transition">
-
-          Rando Finder
-
-        </span>
+        <span class="inline-flex items-center justify-center text-sm sm:text-base md:text-lg lg:text-xl font-extrabold px-4 sm:px-5 py-1 sm:py-1.5 rounded-full bg-emerald-600 text-white tracking-wider uppercase shadow-sm whitespace-nowrap hover:bg-emerald-700 transition"><span id="header-center-pill-text">Map &amp; Rando</span></span>
 
       </div>
 
@@ -183,11 +1532,7 @@
 
           </div>
 
-          <span class="text-[10px] sm:text-[11px] text-slate-400 font-medium tracking-wide mt-0.5 hidden sm:inline-block">
-
-            Sanary-sur-Mer &bull; Var (83)
-
-          </span>
+          <span id="header-sub-location" class="text-[10px] sm:text-[11px] text-slate-400 font-medium tracking-wide mt-0.5 hidden sm:inline-block">Outils Cartographiques &bull; IGN &amp; GPX</span>
 
         </div>
 
@@ -207,7 +1552,19 @@
 
       <!-- Navigation Tabs -->
 
-      <nav class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+      <nav class="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <!-- BOUTON RETOUR ACCUEIL MAP & RANDO (HAUTE LISIBILITÉ) -->
+        <a id="btn-return-portal" href="#accueil" class="btn-return-home px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/30 cursor-pointer flex-shrink-0 border border-emerald-400/40" title="Retourner au portail d'accueil Map & Rando">
+          <span class="text-base">🏠</span>
+          <span>Accueil Map &amp; Rando</span>
+        </a>
+
+        <!-- BOUTON CHARGEMENT GPX ACCÈS LIBRE (HAUTE LISIBILITÉ) -->
+        <button id="btn-quick-gpx-viewer" type="button" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 transition shadow-lg shadow-amber-950/30 cursor-pointer border border-amber-300/40" title="Charger un fichier GPX depuis votre PC pour l'afficher sur le fond de carte">
+          <span class="text-base">📂</span>
+          <span>Charger une trace GPX</span>
+        </button>
+        <input type="file" id="input-quick-gpx-viewer" accept=".gpx" class="hidden">
 
         <button data-tab="explorer" class="tab-btn px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-emerald-700 text-white shadow-sm hover:brightness-110">
 
@@ -248,8 +1605,7 @@
 
 
       <!-- Contrôles droits : Base, Stockage & Utilisateur -->
-
-      <div class="flex items-center gap-2 flex-wrap justify-end">
+      <div id="header-user-controls" class="flex items-center gap-2 flex-wrap justify-end">
 
         <!-- Sélecteur de Base de Données -->
 
@@ -434,7 +1790,7 @@
 
       <!-- INSTRUCTIONS BANNER -->
 
-      <div class="bg-emerald-950/90 border-b border-emerald-800/60 px-3 sm:px-6 py-2 text-white text-xs flex items-center justify-between gap-2 flex-shrink-0">
+      <div id="search-instructions-bar" class="bg-emerald-950/90 border-b border-emerald-800/60 px-3 sm:px-6 py-2 text-white text-xs flex items-center justify-between gap-2 flex-shrink-0">
 
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 font-medium">
 
@@ -456,7 +1812,7 @@
 
       <!-- Top Filter & Search Bar -->
 
-      <div class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 shadow-sm relative z-[1050] flex-shrink-0">
+      <div id="search-filter-bar" class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 shadow-sm relative z-[1050] flex-shrink-0">
 
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
 
@@ -540,7 +1896,7 @@
 
               <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
 
-                <img src="favicon-32x32.png?v=100" alt="Randonneur" class="w-3.5 h-3.5 object-contain">
+                <img src="favicon-32x32.png?v=101" alt="Randonneur" class="w-3.5 h-3.5 object-contain">
 
               </div>
 
@@ -801,7 +2157,7 @@
               <span>⛰️</span> <span id="map-hud-elevation-val" class="font-mono">-- m</span>
             </span>
 
-            <span class="flex items-center gap-1 text-emerald-300 font-semibold whitespace-nowrap hidden sm:flex" id="map-hud-city" title="Commune au niveau du curseur">
+            <span class="flex items-center gap-1 text-emerald-300 font-semibold whitespace-nowrap" id="map-hud-city" title="Commune française au niveau du curseur">
               <span>🏛️</span> <span id="map-hud-city-val">Sanary-sur-Mer (83)</span>
             </span>
 
@@ -872,15 +2228,28 @@
             </button>
           </div>
 
-          <!-- Difficulty Legend on map -->
-
-          <div class="absolute top-3 left-14 z-20 hidden sm:flex items-center gap-2 bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl shadow-md border border-slate-200/90 text-[11px] font-semibold text-slate-700 pointer-events-none select-none">
+          <!-- Difficulty Legend on map (Actif uniquement en mode Randonner adherent) -->
+          <div id="map-ibp-legend" class="absolute top-3 left-14 z-20 hidden items-center gap-2 bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-xl shadow-md border border-slate-200/90 text-[11px] font-semibold text-slate-700 pointer-events-none select-none">
             <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1"><span>📈</span> IBP Index :</span>
             <span class="inline-flex items-center gap-1" title="Niveau 1 : Facile (≤ 25)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#16a34a">1</span> <span class="text-[10px] font-bold text-slate-600">≤25</span></span>
             <span class="inline-flex items-center gap-1" title="Niveau 2 : Assez facile (26 - 50)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#2563eb">2</span> <span class="text-[10px] font-bold text-slate-600">26-50</span></span>
             <span class="inline-flex items-center gap-1" title="Niveau 3 : Peu difficile (51 - 75)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#ea580c">3</span> <span class="text-[10px] font-bold text-slate-600">51-75</span></span>
             <span class="inline-flex items-center gap-1" title="Niveau 4 : Assez difficile (76 - 100)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#dc2626">4</span> <span class="text-[10px] font-bold text-slate-600">76-100</span></span>
             <span class="inline-flex items-center gap-1" title="Niveau 5 : Difficile (> 100)"><span class="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center shadow-2xs" style="background-color:#0f172a">5</span> <span class="text-[10px] font-bold text-slate-600">&gt;100</span></span>
+          </div>
+
+          <!-- Recherche exhaustive d'un lieu / adresse (Monde entier) en mode Carte & Outils -->
+          <div id="map-world-search-box" class="absolute top-3 left-14 z-[1050] flex flex-col" style="display: flex !important;">
+            <div class="relative flex items-center shadow-xl rounded-xl">
+              <input id="map-world-search-input" type="search"
+                     name="geo_search_address_input_no_autofill"
+                     autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                     placeholder="🔍 Lieu, sommet, GR (GR 20) ou sentier (Francigena, West Highland Way…)" 
+                     class="w-72 sm:w-96 pl-3.5 pr-8 py-2 rounded-xl bg-white text-slate-900 placeholder-slate-400 border-2 border-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 text-xs font-bold shadow-md transition-all"
+                     style="background-color: #ffffff !important; opacity: 1 !important;">
+              <button id="btn-clear-world-search" type="button" class="hidden absolute right-2.5 text-slate-400 hover:text-slate-700 font-bold text-xs cursor-pointer p-1" title="Effacer">✕</button>
+            </div>
+            <div id="map-world-search-results" class="hidden mt-1.5 w-72 sm:w-96 max-h-72 overflow-y-auto rounded-xl shadow-2xl border-2 border-slate-300 z-[1100] divide-y divide-slate-100 text-xs" style="background-color: #ffffff !important; opacity: 1 !important; -webkit-overflow-scrolling: touch;"></div>
           </div>
 
 
@@ -2222,7 +3591,9 @@
 
         </div>
 
-        <!-- Choix de l'échelle d'impression vraie (1/XXXXXX) -->
+
+
+        <!-- Choix de l'chelle d'impression vraie (1/XXXXXX) -->
         <div class="bg-emerald-50/80 p-3.5 rounded-2xl border border-emerald-200 space-y-2.5">
           <div class="flex items-center justify-between">
             <label class="block text-xs font-bold text-emerald-950 flex items-center gap-1.5">
@@ -2260,11 +3631,9 @@
 
           <!-- Indicateur dynamique temps réel -->
           <div id="map-area-scale-preview" class="text-[11px] font-semibold text-emerald-950 bg-white/90 p-2.5 rounded-xl border border-emerald-300 leading-relaxed shadow-2xs">
-            1 cm sur papier = 250 m sur le terrain
+            1 cm sur papier = 250 m sur le terrain • Emprise couverte : ~6,8 km × ~3,8 km
           </div>
         </div>
-
-
 
         <!-- Format et Orientation -->
 
@@ -3764,7 +5133,7 @@
 
   <!-- ========================================================================= -->
 
-  <div id="login-lock-modal" class="fixed inset-0 z-[10000] bg-slate-950/90 flex items-center justify-center p-4">
+  <div id="login-lock-modal" class="hidden fixed inset-0 z-[10000] bg-slate-950/90 flex items-center justify-center p-4">
 
     <div class="bg-white rounded-3xl shadow-2xl max-w-md sm:max-w-lg w-full overflow-hidden border border-slate-700 ">
 
@@ -3864,7 +5233,12 @@
 
         </button>
 
-      </form>
+        <div class="pt-2">
+            <a id="btn-login-return-portal" href="#accueil" onclick="document.getElementById('login-lock-modal').classList.add('hidden')" class="w-full py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm">
+              <span>🏠</span> <span>Retour à l'accueil Map &amp; Rando</span>
+            </a>
+          </div>
+        </form>
 
 
 
@@ -5144,30 +6518,33 @@ CREATE POLICY "Public Read/Write" ON randonnees_sanaryens FOR ALL USING (true) W
 
   <!-- Scripts -->
 
-  <script src="js/config.js?v=100"></script>
+  <script src="js/config.js?v=101"></script>
 
-  <script src="js/auth-manager.js?v=100"></script>
+  <script src="js/auth-manager.js?v=101"></script>
 
-  <script src="js/gpx-parser.js?v=100"></script>
+  <script src="js/gpx-parser.js?v=101"></script>
 
-  <script src="js/sample-data.js?v=100"></script>
+  <script src="js/sample-data.js?v=101"></script>
 
-  <script src="js/storage.js?v=100"></script>
+  <script src="js/storage.js?v=101"></script>
 
-  <script src="js/elevation-profile.js?v=100"></script>
+  <script src="js/elevation-profile.js?v=101"></script>
 
-  <script src="js/screen-calib-manager.js?v=100"></script>
-  <script src="js/ign-top25-sheets.js?v=100"></script>
-  <script src="js/map-manager.js?v=100"></script>
+  <script src="js/screen-calib-manager.js?v=101"></script>
+  <script src="js/ign-top25-sheets.js?v=101"></script>
+  <script src="js/map-manager.js?v=101"></script>
 
-  <script src="js/pdf-exporter.js?v=100"></script>
-  <script src="js/gr-manager.js?v=100"></script>
+  <script src="js/pdf-exporter.js?v=101"></script>
+  <script src="js/gr-manager.js?v=101"></script>
 
-  <script src="js/app.js?v=100"></script>
+  <script src="js/portal-router.js?v=101.2.0"></script>
+    <script src="js/app.js?v=101"></script>
 
 
   <!-- SCREEN CALIBRATION MODAL (Mesure 1 cm vrai sur écran) -->
-  <div id="screen-calib-modal" class="hidden fixed inset-0 z-[10000] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+  
+  </div>
+<div id="screen-calib-modal" class="hidden fixed inset-0 z-[10000] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
     <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
       
       <!-- Header -->
