@@ -14,6 +14,7 @@ class AppController {
     this.allHikes = [];
     this.filteredHikes = [];
     this.selectedHike = null;
+    this.isHikePinned = false;
     this.hikeToEdit = null;
     this.hikeToDelete = null;
 
@@ -872,6 +873,7 @@ class AppController {
 
   deselectHike() {
     this.selectedHike = null;
+    this.isHikePinned = false;
     this.hoveredHike = null;
     this.isMouseOverPreview = false;
     this.cancelHoverClear();
@@ -2085,9 +2087,11 @@ class AppController {
     this.scheduleHoverClear();
   }
 
-  scheduleHoverClear(delayMs = 200) {
+  scheduleHoverClear(delayMs = 250) {
+    if (this.isHikePinned) return;
     this.cancelHoverClear();
     this.hoverClearTimer = setTimeout(() => {
+      if (this.isHikePinned) return;
       const previewPanel = document.getElementById('hike-preview-panel');
       const isOver = this.isMouseOverPreview || (previewPanel && previewPanel.matches && previewPanel.matches(':hover'));
       if (isOver) {
@@ -2194,7 +2198,7 @@ class AppController {
 
   hideHikePreviewPanel() {
     const previewPanel = document.getElementById('hike-preview-panel');
-    if (previewPanel && !this.selectedHike) {
+    if (previewPanel && !this.selectedHike && !this.isHikePinned) {
       previewPanel.classList.add('hidden');
       this.isMouseOverPreview = false;
     }
@@ -3889,6 +3893,7 @@ class AppController {
 
     deselectHike() {
     this.selectedHike = null;
+    this.isHikePinned = false;
     this.hoveredHike = null;
     this.isMouseOverPreview = false;
     this.cancelHoverClear();
@@ -5102,9 +5107,11 @@ class AppController {
     this.scheduleHoverClear();
   }
 
-  scheduleHoverClear(delayMs = 200) {
+  scheduleHoverClear(delayMs = 250) {
+    if (this.isHikePinned) return;
     this.cancelHoverClear();
     this.hoverClearTimer = setTimeout(() => {
+      if (this.isHikePinned) return;
       const previewPanel = document.getElementById('hike-preview-panel');
       const isOver = this.isMouseOverPreview || (previewPanel && previewPanel.matches && previewPanel.matches(':hover'));
       if (isOver) {
@@ -5211,7 +5218,7 @@ class AppController {
 
   hideHikePreviewPanel() {
     const previewPanel = document.getElementById('hike-preview-panel');
-    if (previewPanel && !this.selectedHike) {
+    if (previewPanel && !this.selectedHike && !this.isHikePinned) {
       previewPanel.classList.add('hidden');
       this.isMouseOverPreview = false;
     }
@@ -6906,6 +6913,7 @@ class AppController {
 
     deselectHike() {
     this.selectedHike = null;
+    this.isHikePinned = false;
     this.hoveredHike = null;
     this.isMouseOverPreview = false;
     this.cancelHoverClear();
@@ -8119,9 +8127,11 @@ class AppController {
     this.scheduleHoverClear();
   }
 
-  scheduleHoverClear(delayMs = 200) {
+  scheduleHoverClear(delayMs = 250) {
+    if (this.isHikePinned) return;
     this.cancelHoverClear();
     this.hoverClearTimer = setTimeout(() => {
+      if (this.isHikePinned) return;
       const previewPanel = document.getElementById('hike-preview-panel');
       const isOver = this.isMouseOverPreview || (previewPanel && previewPanel.matches && previewPanel.matches(':hover'));
       if (isOver) {
@@ -8228,7 +8238,7 @@ class AppController {
 
   hideHikePreviewPanel() {
     const previewPanel = document.getElementById('hike-preview-panel');
-    if (previewPanel && !this.selectedHike) {
+    if (previewPanel && !this.selectedHike && !this.isHikePinned) {
       previewPanel.classList.add('hidden');
       this.isMouseOverPreview = false;
     }
