@@ -2173,13 +2173,15 @@ class MapManager {
       if (window.App) {
         window.App.cancelHoverClear();
         const previewPanel = document.getElementById('hike-preview-panel');
-        if (!previewPanel || previewPanel.classList.contains('hidden') || (!window.App.isHikePinned && window.App.selectedHike !== hike)) {
+        const isAlreadyShowing = previewPanel && !previewPanel.classList.contains('hidden') &&
+          (window.ElevationProfileInstance && window.ElevationProfileInstance.currentHike === hike);
+        if (!isAlreadyShowing) {
           window.App.showHikePreviewPanel(hike);
         }
       }
       if (e && e.latlng) {
         const closest = this.findClosestTrackPoint(e.latlng, hike.points, hike);
-        if (closest) {
+        if (closest && closest.point) {
           this.setCursorPosition(closest.point);
           if (window.ElevationProfileInstance) {
             window.ElevationProfileInstance.setCursorDist(closest.dist);
@@ -2191,14 +2193,16 @@ class MapManager {
     const handleTrackLeave = () => {
       if (trackLeaveTimer) clearTimeout(trackLeaveTimer);
       trackLeaveTimer = setTimeout(() => {
+        this._isOverTrackPolyline = false;
         if (window.App && !window.App.isHikePinned) {
           window.App.scheduleHoverClear(500);
         }
-      }, 300);
+      }, 150);
     };
 
     const handleTrackClick = (e) => {
       L.DomEvent.stopPropagation(e);
+      this._isOverTrackPolyline = true;
       if (trackLeaveTimer) {
         clearTimeout(trackLeaveTimer);
         trackLeaveTimer = null;
@@ -2472,13 +2476,33 @@ class MapManager {
     }
   }
 
-  getActiveTrackForProximity() {
-    // 1. En mode Cartes & Outils (#carte) : trace importée
+  getClosestTrackForCoordinates(latlng) {
+    if (!latlng) return null;
+    // 1. En mode Cartes & Outils (#carte) : plusieurs traces peuvent être affichées
     if (this.standaloneTracks && this.standaloneTracks.length > 0) {
       if (this.standaloneTracks.length === 1) {
         return this.standaloneTracks[0];
       }
-      return this.standaloneHike || this.selectedHike || this.standaloneTracks[this.standaloneTracks.length - 1];
+      let bestTrack = this.standaloneTracks[0];
+      let bestDistSq = Infinity;
+      const lat = latlng.lat;
+      const lng = latlng.lng !== undefined ? latlng.lng : latlng.lon;
+
+      for (const track of this.standaloneTracks) {
+        if (!track.points || track.points.length === 0) continue;
+        const closest = this.findClosestTrackPoint(latlng, track.points, track);
+        if (closest && closest.point) {
+          const dLat = closest.point.lat - lat;
+          const cLon = closest.point.lon !== undefined ? closest.point.lon : closest.point.lng;
+          const dLon = cLon - lng;
+          const distSq = dLat * dLat + dLon * dLon;
+          if (distSq < bestDistSq) {
+            bestDistSq = distSq;
+            bestTrack = track;
+          }
+        }
+      }
+      return bestTrack;
     }
     // 2. En mode Randonner (#randonner) : randonnée sélectionnée ou en aperçu
     if (this.selectedHike && this.selectedHike.points && this.selectedHike.points.length > 0) {
@@ -2492,7 +2516,8 @@ class MapManager {
 
   handleMapMouseMoveForTrack(e) {
     if (!this.map || !e || !e.latlng) return;
-    const activeHike = this.getActiveTrackForProximity();
+
+    const activeHike = this.getClosestTrackForCoordinates(e.latlng);
     if (!activeHike || !activeHike.points || activeHike.points.length === 0) return;
 
     const closest = this.findClosestTrackPoint(e.latlng, activeHike.points, activeHike);
@@ -2504,8 +2529,8 @@ class MapManager {
     const pTrack = this.map.latLngToContainerPoint([cLat, cLon]);
     const screenDist = Math.hypot(pMouse.x - pTrack.x, pMouse.y - pTrack.y);
 
-    // Rayon d'accroche magnétique de 45 pixels écran
-    if (screenDist <= 45) {
+    // Rayon d'accroche magnétique de 40 pixels écran
+    if (screenDist <= 40) {
       if (this._trackLeaveTimer) {
         clearTimeout(this._trackLeaveTimer);
         this._trackLeaveTimer = null;
@@ -2513,7 +2538,9 @@ class MapManager {
       if (window.App) {
         window.App.cancelHoverClear();
         const previewPanel = document.getElementById('hike-preview-panel');
-        if (!previewPanel || previewPanel.classList.contains('hidden') || (!window.App.isHikePinned && window.App.selectedHike !== activeHike)) {
+        const isAlreadyShowing = previewPanel && !previewPanel.classList.contains('hidden') &&
+          (window.ElevationProfileInstance && window.ElevationProfileInstance.currentHike === activeHike);
+        if (!isAlreadyShowing) {
           window.App.showHikePreviewPanel(activeHike);
         }
       }
@@ -6383,7 +6410,9 @@ displayStandaloneGpxTrack(gpxData, fileName, preferredColor = null) {
       if (window.App) {
         window.App.cancelHoverClear();
         const previewPanel = document.getElementById('hike-preview-panel');
-        if (!previewPanel || previewPanel.classList.contains('hidden') || (!window.App.isHikePinned && window.App.selectedHike !== trackItem)) {
+        const isAlreadyShowing = previewPanel && !previewPanel.classList.contains('hidden') &&
+          (window.ElevationProfileInstance && window.ElevationProfileInstance.currentHike === trackItem);
+        if (!isAlreadyShowing) {
           window.App.showHikePreviewPanel(trackItem);
         }
       }

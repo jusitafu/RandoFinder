@@ -122,7 +122,11 @@ class AppController {
         window.MapManagerInstance.onHikeHoverEndCallback = (hike) => this.handleHikeHoverEnd(hike);
         window.MapManagerInstance.onHikeSelectCallback = (hike) => this.handleHikeSelect(hike);
         window.MapManagerInstance.onSearchOriginChangeCallback = (origin) => this.handleOriginChange(origin);
-        window.MapManagerInstance.onMapBackgroundClickCallback = () => this.deselectHike();
+        window.MapManagerInstance.onMapBackgroundClickCallback = () => {
+          // Si le panneau a été épinglé au clic, le maintenir jusqu'à fermeture explicite par la croix ✕
+          if (this.isHikePinned) return;
+          this.deselectHike();
+        };
         window.MapManagerInstance.onBaseLayerChangeCallback = (layerKey) => this.handleBaseLayerChange(layerKey);
 
         // Synchronisation bidirectionnelle : Le zoom/dézoom de la carte à la souris ajuste le curseur de rayon
@@ -154,14 +158,7 @@ class AppController {
       console.error("Erreur map init :", e);
     }
 
-    // 4. Initialize Elevation Profile
-    try {
-      if (typeof ElevationProfile !== 'undefined') {
-        this.elevationProfile = new ElevationProfile('elevation-chart-container');
-      }
-    } catch (e) {
-      console.error("Erreur profile init :", e);
-    }
+
 
     // Storage initialization
     try {
@@ -2167,6 +2164,42 @@ class AppController {
       await StorageManager.ensureHikeTrackLoaded(hike);
     }
 
+    // Assurer que le tracé a ses distances cumulées calculées
+    if (hike.points && hike.points.length > 0 && typeof hike.points[0].dist === 'undefined') {
+      let cumulative = 0;
+      hike.points[0].dist = 0;
+      for (let i = 1; i < hike.points.length; i++) {
+        const p1 = hike.points[i - 1];
+        const p2 = hike.points[i];
+        if (typeof GPXParser !== 'undefined') {
+          cumulative += GPXParser.haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon);
+        } else {
+          // Haversine direct
+          const dLat = ((p2.lat - p1.lat) * Math.PI) / 180;
+          const dLon = ((p2.lon - p1.lon) * Math.PI) / 180;
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos((p1.lat * Math.PI) / 180) * Math.cos((p2.lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+          cumulative += 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+        p2.dist = Math.round(cumulative * 100) / 100;
+      }
+      if (!hike.distanceKm) {
+        hike.distanceKm = Math.round(cumulative * 10) / 10;
+      }
+    }
+
+    // Min & Max elevation
+    if ((!hike.minElevation || !hike.maxElevation) && hike.points && hike.points.length > 0) {
+      let minE = Infinity, maxE = -Infinity;
+      hike.points.forEach(p => {
+        if (p.ele < minE) minE = p.ele;
+        if (p.ele > maxE) maxE = p.ele;
+      });
+      if (minE !== Infinity) {
+        hike.minElevation = Math.round(minE);
+        hike.maxElevation = Math.round(maxE);
+      }
+    }
+
     previewPanel.classList.remove('hidden');
 
     // Détection immédiate si la souris se trouve déjà sous la zone d'apparition du panneau
@@ -2175,11 +2208,17 @@ class AppController {
       this.cancelHoverClear();
     }
 
-    document.getElementById('preview-title').textContent = hike.name;
-    document.getElementById('preview-dist').textContent = `${hike.distanceKm} km`;
-    document.getElementById('preview-dplus').textContent = `+${hike.elevationGain}m`;
-    document.getElementById('preview-dmoins').textContent = `-${hike.elevationLoss || 0}m`;
-    document.getElementById('preview-alt').textContent = `${hike.minElevation}m / ${hike.maxElevation}m`;
+    const distDisplay = hike.distanceKm || (hike.distance ? String(hike.distance) : '0');
+    const dplusDisplay = (hike.elevationGain !== undefined) ? Math.round(hike.elevationGain) : 0;
+    const dmoinsDisplay = (hike.elevationLoss !== undefined) ? Math.round(hike.elevationLoss) : 0;
+    const altMin = (hike.minElevation !== undefined) ? hike.minElevation : 0;
+    const altMax = (hike.maxElevation !== undefined) ? hike.maxElevation : 0;
+
+    document.getElementById('preview-title').textContent = hike.name || 'Randonnée';
+    document.getElementById('preview-dist').textContent = `${distDisplay} km`;
+    document.getElementById('preview-dplus').textContent = `+${dplusDisplay}m`;
+    document.getElementById('preview-dmoins').textContent = `-${dmoinsDisplay}m`;
+    document.getElementById('preview-alt').textContent = `${altMin}m / ${altMax}m`;
     document.getElementById('preview-duration').textContent = hike.estimatedDuration || '3h30';
     document.getElementById('preview-notes').textContent = hike.notes || 'Aucune note enregistrée';
 
@@ -2207,6 +2246,12 @@ class AppController {
         btnDl.style.removeProperty('display');
         btnDl.onclick = () => this.openDownloadModal(hike);
       }
+    }
+
+    // Assurer l'instance ElevationProfile
+    if (!this.elevationProfile && typeof ElevationProfile !== 'undefined') {
+      this.elevationProfile = new ElevationProfile('elevation-chart-container');
+      window.ElevationProfileInstance = this.elevationProfile;
     }
 
     if (this.elevationProfile) {
@@ -5196,6 +5241,42 @@ class AppController {
       await StorageManager.ensureHikeTrackLoaded(hike);
     }
 
+    // Assurer que le tracé a ses distances cumulées calculées
+    if (hike.points && hike.points.length > 0 && typeof hike.points[0].dist === 'undefined') {
+      let cumulative = 0;
+      hike.points[0].dist = 0;
+      for (let i = 1; i < hike.points.length; i++) {
+        const p1 = hike.points[i - 1];
+        const p2 = hike.points[i];
+        if (typeof GPXParser !== 'undefined') {
+          cumulative += GPXParser.haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon);
+        } else {
+          // Haversine direct
+          const dLat = ((p2.lat - p1.lat) * Math.PI) / 180;
+          const dLon = ((p2.lon - p1.lon) * Math.PI) / 180;
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos((p1.lat * Math.PI) / 180) * Math.cos((p2.lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+          cumulative += 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+        p2.dist = Math.round(cumulative * 100) / 100;
+      }
+      if (!hike.distanceKm) {
+        hike.distanceKm = Math.round(cumulative * 10) / 10;
+      }
+    }
+
+    // Min & Max elevation
+    if ((!hike.minElevation || !hike.maxElevation) && hike.points && hike.points.length > 0) {
+      let minE = Infinity, maxE = -Infinity;
+      hike.points.forEach(p => {
+        if (p.ele < minE) minE = p.ele;
+        if (p.ele > maxE) maxE = p.ele;
+      });
+      if (minE !== Infinity) {
+        hike.minElevation = Math.round(minE);
+        hike.maxElevation = Math.round(maxE);
+      }
+    }
+
     previewPanel.classList.remove('hidden');
 
     // Détection immédiate si la souris se trouve déjà sous la zone d'apparition du panneau
@@ -5204,11 +5285,17 @@ class AppController {
       this.cancelHoverClear();
     }
 
-    document.getElementById('preview-title').textContent = hike.name;
-    document.getElementById('preview-dist').textContent = `${hike.distanceKm} km`;
-    document.getElementById('preview-dplus').textContent = `+${hike.elevationGain}m`;
-    document.getElementById('preview-dmoins').textContent = `-${hike.elevationLoss || 0}m`;
-    document.getElementById('preview-alt').textContent = `${hike.minElevation}m / ${hike.maxElevation}m`;
+    const distDisplay = hike.distanceKm || (hike.distance ? String(hike.distance) : '0');
+    const dplusDisplay = (hike.elevationGain !== undefined) ? Math.round(hike.elevationGain) : 0;
+    const dmoinsDisplay = (hike.elevationLoss !== undefined) ? Math.round(hike.elevationLoss) : 0;
+    const altMin = (hike.minElevation !== undefined) ? hike.minElevation : 0;
+    const altMax = (hike.maxElevation !== undefined) ? hike.maxElevation : 0;
+
+    document.getElementById('preview-title').textContent = hike.name || 'Randonnée';
+    document.getElementById('preview-dist').textContent = `${distDisplay} km`;
+    document.getElementById('preview-dplus').textContent = `+${dplusDisplay}m`;
+    document.getElementById('preview-dmoins').textContent = `-${dmoinsDisplay}m`;
+    document.getElementById('preview-alt').textContent = `${altMin}m / ${altMax}m`;
     document.getElementById('preview-duration').textContent = hike.estimatedDuration || '3h30';
     document.getElementById('preview-notes').textContent = hike.notes || 'Aucune note enregistrée';
 
@@ -5236,6 +5323,12 @@ class AppController {
         btnDl.style.removeProperty('display');
         btnDl.onclick = () => this.openDownloadModal(hike);
       }
+    }
+
+    // Assurer l'instance ElevationProfile
+    if (!this.elevationProfile && typeof ElevationProfile !== 'undefined') {
+      this.elevationProfile = new ElevationProfile('elevation-chart-container');
+      window.ElevationProfileInstance = this.elevationProfile;
     }
 
     if (this.elevationProfile) {
@@ -8225,6 +8318,42 @@ class AppController {
       await StorageManager.ensureHikeTrackLoaded(hike);
     }
 
+    // Assurer que le tracé a ses distances cumulées calculées
+    if (hike.points && hike.points.length > 0 && typeof hike.points[0].dist === 'undefined') {
+      let cumulative = 0;
+      hike.points[0].dist = 0;
+      for (let i = 1; i < hike.points.length; i++) {
+        const p1 = hike.points[i - 1];
+        const p2 = hike.points[i];
+        if (typeof GPXParser !== 'undefined') {
+          cumulative += GPXParser.haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon);
+        } else {
+          // Haversine direct
+          const dLat = ((p2.lat - p1.lat) * Math.PI) / 180;
+          const dLon = ((p2.lon - p1.lon) * Math.PI) / 180;
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos((p1.lat * Math.PI) / 180) * Math.cos((p2.lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+          cumulative += 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+        p2.dist = Math.round(cumulative * 100) / 100;
+      }
+      if (!hike.distanceKm) {
+        hike.distanceKm = Math.round(cumulative * 10) / 10;
+      }
+    }
+
+    // Min & Max elevation
+    if ((!hike.minElevation || !hike.maxElevation) && hike.points && hike.points.length > 0) {
+      let minE = Infinity, maxE = -Infinity;
+      hike.points.forEach(p => {
+        if (p.ele < minE) minE = p.ele;
+        if (p.ele > maxE) maxE = p.ele;
+      });
+      if (minE !== Infinity) {
+        hike.minElevation = Math.round(minE);
+        hike.maxElevation = Math.round(maxE);
+      }
+    }
+
     previewPanel.classList.remove('hidden');
 
     // Détection immédiate si la souris se trouve déjà sous la zone d'apparition du panneau
@@ -8233,11 +8362,17 @@ class AppController {
       this.cancelHoverClear();
     }
 
-    document.getElementById('preview-title').textContent = hike.name;
-    document.getElementById('preview-dist').textContent = `${hike.distanceKm} km`;
-    document.getElementById('preview-dplus').textContent = `+${hike.elevationGain}m`;
-    document.getElementById('preview-dmoins').textContent = `-${hike.elevationLoss || 0}m`;
-    document.getElementById('preview-alt').textContent = `${hike.minElevation}m / ${hike.maxElevation}m`;
+    const distDisplay = hike.distanceKm || (hike.distance ? String(hike.distance) : '0');
+    const dplusDisplay = (hike.elevationGain !== undefined) ? Math.round(hike.elevationGain) : 0;
+    const dmoinsDisplay = (hike.elevationLoss !== undefined) ? Math.round(hike.elevationLoss) : 0;
+    const altMin = (hike.minElevation !== undefined) ? hike.minElevation : 0;
+    const altMax = (hike.maxElevation !== undefined) ? hike.maxElevation : 0;
+
+    document.getElementById('preview-title').textContent = hike.name || 'Randonnée';
+    document.getElementById('preview-dist').textContent = `${distDisplay} km`;
+    document.getElementById('preview-dplus').textContent = `+${dplusDisplay}m`;
+    document.getElementById('preview-dmoins').textContent = `-${dmoinsDisplay}m`;
+    document.getElementById('preview-alt').textContent = `${altMin}m / ${altMax}m`;
     document.getElementById('preview-duration').textContent = hike.estimatedDuration || '3h30';
     document.getElementById('preview-notes').textContent = hike.notes || 'Aucune note enregistrée';
 
@@ -8265,6 +8400,12 @@ class AppController {
         btnDl.style.removeProperty('display');
         btnDl.onclick = () => this.openDownloadModal(hike);
       }
+    }
+
+    // Assurer l'instance ElevationProfile
+    if (!this.elevationProfile && typeof ElevationProfile !== 'undefined') {
+      this.elevationProfile = new ElevationProfile('elevation-chart-container');
+      window.ElevationProfileInstance = this.elevationProfile;
     }
 
     if (this.elevationProfile) {
