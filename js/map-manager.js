@@ -2165,6 +2165,7 @@ class MapManager {
     let trackLeaveTimer = null;
 
     const handleTrackHover = (e) => {
+      this._isOverTrackPolyline = true;
       if (trackLeaveTimer) {
         clearTimeout(trackLeaveTimer);
         trackLeaveTimer = null;
@@ -6142,31 +6143,46 @@ class MapManager {
     if (!latlng || !points || points.length === 0) return null;
     const lat = latlng.lat;
     const lng = latlng.lng !== undefined ? latlng.lng : latlng.lon;
-    let closestPt = points[0];
-    let closestDistSq = Infinity;
-    let closestIdx = 0;
-    for (let i = 0; i < points.length; i++) {
-      const p = points[i];
-      const pLon = p.lon !== undefined ? p.lon : p.lng;
-      const dLat = p.lat - lat;
-      const dLon = pLon - lng;
-      const distSq = dLat * dLat + dLon * dLon;
-      if (distSq < closestDistSq) {
-        closestDistSq = distSq;
-        closestPt = p;
-        closestIdx = i;
+    if (points.length === 1) return { point: points[0], dist: points[0].dist || 0, index: 0 };
+
+    let bestDistSq = Infinity;
+    let bestPoint = points[0];
+    let bestDistAlongTrack = points[0].dist || 0;
+    let bestIndex = 0;
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p1Lon = p1.lon !== undefined ? p1.lon : p1.lng;
+      const p2Lon = p2.lon !== undefined ? p2.lon : p2.lng;
+      const dx = p2Lon - p1Lon;
+      const dy = p2.lat - p1.lat;
+      const lenSq = dx * dx + dy * dy;
+      let t = 0;
+      if (lenSq > 0) {
+        t = ((lng - p1Lon) * dx + (lat - p1.lat) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t));
+      }
+      const projLon = p1Lon + t * dx;
+      const projLat = p1.lat + t * dy;
+      const distSq = (projLat - lat) ** 2 + (projLon - lng) ** 2;
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
+        bestIndex = i;
+        const p1Ele = p1.ele != null ? p1.ele : 0;
+        const p2Ele = p2.ele != null ? p2.ele : p1Ele;
+        const p1Dist = p1.dist != null ? p1.dist : (hike && hike.distanceKm ? (i / (points.length - 1)) * hike.distanceKm : 0);
+        const p2Dist = p2.dist != null ? p2.dist : (hike && hike.distanceKm ? ((i + 1) / (points.length - 1)) * hike.distanceKm : p1Dist);
+        bestPoint = {
+          lat: projLat,
+          lon: projLon,
+          ele: Math.round(p1Ele + t * (p2Ele - p1Ele)),
+          dist: Math.round((p1Dist + t * (p2Dist - p1Dist)) * 100) / 100
+        };
+        bestDistAlongTrack = bestPoint.dist;
       }
     }
-    let distVal = closestPt.dist;
-    if (distVal === undefined) {
-      const totalKm = (hike && (hike.distanceKm || hike.distance)) ? parseFloat(hike.distanceKm || hike.distance) : (points[points.length - 1]?.dist || 0);
-      distVal = totalKm > 0 ? Math.round(((closestIdx / Math.max(1, points.length - 1)) * totalKm) * 100) / 100 : 0;
-    }
-    return {
-      point: closestPt,
-      dist: distVal,
-      index: closestIdx
-    };
+    return { point: bestPoint, dist: bestDistAlongTrack, index: bestIndex };
   }
 
 displayStandaloneGpxTrack(gpxData, fileName, preferredColor = null) {
@@ -6359,6 +6375,7 @@ displayStandaloneGpxTrack(gpxData, fileName, preferredColor = null) {
     let standaloneLeaveTimer = null;
 
     const handleTrackHover = (e) => {
+      this._isOverTrackPolyline = true;
       if (standaloneLeaveTimer) {
         clearTimeout(standaloneLeaveTimer);
         standaloneLeaveTimer = null;
@@ -6371,8 +6388,8 @@ displayStandaloneGpxTrack(gpxData, fileName, preferredColor = null) {
         }
       }
       if (e && e.latlng) {
-        const closest = this.findClosestTrackPoint(e.latlng, pts);
-        if (closest) {
+        const closest = this.findClosestTrackPoint(e.latlng, pts, trackItem);
+        if (closest && closest.point) {
           this.setCursorPosition(closest.point);
           if (window.ElevationProfileInstance) {
             window.ElevationProfileInstance.setCursorDist(closest.dist);
@@ -6382,6 +6399,7 @@ displayStandaloneGpxTrack(gpxData, fileName, preferredColor = null) {
     };
 
     const handleTrackLeave = () => {
+      this._isOverTrackPolyline = false;
       if (standaloneLeaveTimer) clearTimeout(standaloneLeaveTimer);
       standaloneLeaveTimer = setTimeout(() => {
         if (window.App && !window.App.isHikePinned) {
@@ -6392,6 +6410,7 @@ displayStandaloneGpxTrack(gpxData, fileName, preferredColor = null) {
 
     const handleTrackClick = (e) => {
       L.DomEvent.stopPropagation(e);
+      this._isOverTrackPolyline = true;
       if (standaloneLeaveTimer) {
         clearTimeout(standaloneLeaveTimer);
         standaloneLeaveTimer = null;
@@ -6403,8 +6422,8 @@ displayStandaloneGpxTrack(gpxData, fileName, preferredColor = null) {
         window.App.showHikePreviewPanel(trackItem);
       }
       if (e && e.latlng) {
-        const closest = this.findClosestTrackPoint(e.latlng, pts);
-        if (closest) {
+        const closest = this.findClosestTrackPoint(e.latlng, pts, trackItem);
+        if (closest && closest.point) {
           this.setCursorPosition(closest.point);
           if (window.ElevationProfileInstance) {
             window.ElevationProfileInstance.setCursorDist(closest.dist);
@@ -6785,36 +6804,58 @@ displayStandaloneGpxTrack(gpxData, fileName, preferredColor = null) {
 
 
 
+    removeStandaloneTrack(trackId) {
+    if (!this.standaloneTracks || this.standaloneTracks.length === 0) return;
+    const idx = this.standaloneTracks.findIndex(t => t.id === trackId);
+    if (idx !== -1) {
+      const removed = this.standaloneTracks.splice(idx, 1)[0];
+      if (removed && removed.layer && this.map && this.map.hasLayer(removed.layer)) {
+        this.map.removeLayer(removed.layer);
+      }
+    }
+    this.clearCursorPosition();
+    if (window.ElevationProfileInstance) {
+      window.ElevationProfileInstance.clearCursor();
+    }
+    if (this.standaloneTracks.length === 0) {
+      this.clearStandaloneGpxTrack();
+      if (window.App) {
+        window.App.deselectHike();
+      }
+    } else {
+      const remaining = this.standaloneTracks[this.standaloneTracks.length - 1];
+      this.standaloneHike = remaining;
+      this.selectedHike = remaining;
+      if (window.App) {
+        window.App.selectedHike = remaining;
+        window.App.showHikePreviewPanel(remaining);
+      }
+      this.showStandaloneGpxHud();
+    }
+  }
+
   clearStandaloneGpxTrack() {
-
     if (this.standaloneTracks && this.standaloneTracks.length > 0) {
-
       this.standaloneTracks.forEach(t => {
-
-        if (t.layer && this.map.hasLayer(t.layer)) {
-
+        if (t && t.layer && this.map && this.map.hasLayer(t.layer)) {
           this.map.removeLayer(t.layer);
-
         }
-
       });
-
       this.standaloneTracks = [];
-
     }
-
     this.standaloneHike = null;
-
     if (this.selectedHike && String(this.selectedHike.id).startsWith('gpx_user_')) {
-
       this.selectedHike = null;
-
     }
-
+    this.clearCursorPosition();
+    if (window.ElevationProfileInstance) {
+      window.ElevationProfileInstance.clearCursor();
+    }
     const hud = document.getElementById('standalone-gpx-hud');
-
     if (hud) hud.classList.add('hidden');
-
+    if (window.App && window.App.selectedHike && String(window.App.selectedHike.id).startsWith('gpx_user_')) {
+      window.App.deselectHike();
+    }
   }
 
 
