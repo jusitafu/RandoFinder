@@ -2195,9 +2195,18 @@ class AppController {
       ibpEl.innerHTML = `<span class="w-3.5 h-3.5 rounded text-[9px] font-black text-white flex items-center justify-center" style="background-color:${ibpInfo.color}">${ibpInfo.level}</span><span>${ibpVal}</span>`;
     }
 
+    const isCarteMode = window.location.hash.startsWith('#carte') || (window.portalRouter && window.portalRouter.currentView === 'carte');
     const btnDl = document.getElementById('preview-btn-download');
     if (btnDl) {
-      btnDl.onclick = () => this.openDownloadModal(hike);
+      if (isCarteMode) {
+        btnDl.classList.add('hidden');
+        btnDl.style.setProperty('display', 'none', 'important');
+        btnDl.onclick = null;
+      } else {
+        btnDl.classList.remove('hidden');
+        btnDl.style.removeProperty('display');
+        btnDl.onclick = () => this.openDownloadModal(hike);
+      }
     }
 
     if (this.elevationProfile) {
@@ -5215,9 +5224,18 @@ class AppController {
       ibpEl.innerHTML = `<span class="w-3.5 h-3.5 rounded text-[9px] font-black text-white flex items-center justify-center" style="background-color:${ibpInfo.color}">${ibpInfo.level}</span><span>${ibpVal}</span>`;
     }
 
+    const isCarteMode = window.location.hash.startsWith('#carte') || (window.portalRouter && window.portalRouter.currentView === 'carte');
     const btnDl = document.getElementById('preview-btn-download');
     if (btnDl) {
-      btnDl.onclick = () => this.openDownloadModal(hike);
+      if (isCarteMode) {
+        btnDl.classList.add('hidden');
+        btnDl.style.setProperty('display', 'none', 'important');
+        btnDl.onclick = null;
+      } else {
+        btnDl.classList.remove('hidden');
+        btnDl.style.removeProperty('display');
+        btnDl.onclick = () => this.openDownloadModal(hike);
+      }
     }
 
     if (this.elevationProfile) {
@@ -8235,9 +8253,18 @@ class AppController {
       ibpEl.innerHTML = `<span class="w-3.5 h-3.5 rounded text-[9px] font-black text-white flex items-center justify-center" style="background-color:${ibpInfo.color}">${ibpInfo.level}</span><span>${ibpVal}</span>`;
     }
 
+    const isCarteMode = window.location.hash.startsWith('#carte') || (window.portalRouter && window.portalRouter.currentView === 'carte');
     const btnDl = document.getElementById('preview-btn-download');
     if (btnDl) {
-      btnDl.onclick = () => this.openDownloadModal(hike);
+      if (isCarteMode) {
+        btnDl.classList.add('hidden');
+        btnDl.style.setProperty('display', 'none', 'important');
+        btnDl.onclick = null;
+      } else {
+        btnDl.classList.remove('hidden');
+        btnDl.style.removeProperty('display');
+        btnDl.onclick = () => this.openDownloadModal(hike);
+      }
     }
 
     if (this.elevationProfile) {
